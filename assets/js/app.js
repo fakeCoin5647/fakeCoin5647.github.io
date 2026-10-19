@@ -14,6 +14,26 @@
   };
 
   const SECTIONS = {
+    outline: {
+      label: '大纲',
+      singular: '大纲',
+      eyebrow: 'OUTLINE',
+      icon: 'i-outline',
+      description: '主线、分卷与章节',
+      titleLabel: '标题',
+      titlePlaceholder: '比如：第一幕 · 离港',
+      subtitleLabel: '层级 / 范围',
+      subtitlePlaceholder: '比如：总纲 / 第一卷 / 第 3 章',
+      summaryLabel: '一段话梗概',
+      summaryPlaceholder: '用一两句话说明这一段发生什么、改变了什么',
+      notesLabel: '大纲正文',
+      notesPlaceholder: '分场、转折、伏笔、人物变化、待定分支……',
+      emptyError: '请先给这条大纲一个标题。',
+      emptyTitle: '还没有铺开故事线',
+      emptyText: '先写一句“故事从哪里开始、到哪里结束”，再往下拆分卷与章节。',
+      addLabel: '新增大纲',
+      backLabel: '返回大纲列表',
+    },
     characters: {
       label: '角色',
       singular: '角色',
@@ -1203,12 +1223,12 @@
     const worldHead = el('div', 'overview-head-block');
     const worldHeadText = el('div');
     worldHeadText.append(
-      el('p', 'eyebrow', 'THE WORLD'),
-      el('h2', 'overview-title', '世界档案')
+      el('p', 'eyebrow', 'THE STORY'),
+      el('h2', 'overview-title', '故事档案')
     );
     worldHead.append(
       worldHeadText,
-      el('p', 'overview-note', '人物、地点与规则，构成了故事可以发生的地方。')
+      el('p', 'overview-note', '大纲、人物、地点与规则，构成了故事的骨架与舞台。')
     );
 
     const sectionGrid = el('div', 'section-card-grid');
