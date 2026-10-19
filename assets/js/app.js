@@ -44,6 +44,11 @@
       rgb: '160, 106, 31',
     },
   };
+  const GLASS_ALPHA_MIN = 58;
+  const CARD_ALPHA_MIN = 34;
+  const APPEARANCE_PANEL_GAP = 10;
+  const APPEARANCE_PANEL_MARGIN = 12;
+  const APPEARANCE_PANEL_MAX = 600;
   const DEFAULT_APPEARANCE = {
     glassAlpha: 78,
     cardAlpha: 50,
@@ -385,6 +390,7 @@
     importFile: $('#importFile'),
 
     appearanceBtn: $('#appearanceBtn'),
+    appearanceFooter: $('.sidebar-footer'),
     appearancePanel: $('#appearancePanel'),
     appearanceScroll: $('#appearanceScroll'),
     appearanceCloseBtn: $('#appearanceCloseBtn'),
@@ -597,6 +603,7 @@
     state.comments = library.comments;
     state.appearance = loadAppearance();
     applyAppearance();
+    document.body.appendChild(els.appearancePanel);
     els.year.textContent = new Date().getFullYear();
     bindEvents();
     renderRoute();
@@ -717,8 +724,18 @@
         ? value.accent
         : DEFAULT_APPEARANCE.accent;
     return {
-      glassAlpha: read('glassAlpha', 30, 100, DEFAULT_APPEARANCE.glassAlpha),
-      cardAlpha: read('cardAlpha', 10, 90, DEFAULT_APPEARANCE.cardAlpha),
+      glassAlpha: read(
+        'glassAlpha',
+        GLASS_ALPHA_MIN,
+        100,
+        DEFAULT_APPEARANCE.glassAlpha
+      ),
+      cardAlpha: read(
+        'cardAlpha',
+        CARD_ALPHA_MIN,
+        90,
+        DEFAULT_APPEARANCE.cardAlpha
+      ),
       blur: read('blur', 0, 40, DEFAULT_APPEARANCE.blur),
       accent,
       wallpaperDim: read(
@@ -761,6 +778,10 @@
     root.style.setProperty('--wallpaper-dim', String(wallpaperDim / 100));
     root.style.setProperty('--rim-strength', String(rim / 100));
     root.style.setProperty('--reading-scale', String(readingScale / 100));
+    root.classList.toggle(
+      'is-sheer',
+      glassAlpha < 70 || cardAlpha < 42
+    );
 
     els.wallpaperDimInput.value = String(wallpaperDim);
     els.wallpaperDimValue.textContent =
@@ -820,17 +841,87 @@
   }
 
   function toggleAppearancePanel() {
-    const willOpen = els.appearancePanel.hidden;
-    els.appearancePanel.hidden = !willOpen;
-    els.appearanceBtn.setAttribute('aria-expanded', String(willOpen));
-    if (!willOpen) return;
+    if (!els.appearancePanel.hidden) {
+      closeAppearancePanel();
+      return;
+    }
+    els.appearancePanel.hidden = false;
+    els.appearanceBtn.setAttribute('aria-expanded', 'true');
     els.appearanceScroll.scrollTop = 0;
+    positionAppearancePanel();
     const activePreset = els.appearancePresetBtns.find((button) =>
       button.classList.contains('is-active')
     );
     (activePreset ||
       els.appearancePresetBtns[0] ||
       els.appearanceCloseBtn).focus({ preventScroll: true });
+  }
+
+  function positionAppearancePanel() {
+    if (els.appearancePanel.hidden) return;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const btnRect = els.appearanceBtn.getBoundingClientRect();
+    const footerRect = (
+      els.appearanceFooter || els.appearanceBtn
+    ).getBoundingClientRect();
+
+    if (btnRect.bottom < 0 || btnRect.top > viewportH) {
+      closeAppearancePanel();
+      return;
+    }
+
+    const width = Math.round(
+      Math.min(
+        Math.max(footerRect.width, 240),
+        320,
+        viewportW - APPEARANCE_PANEL_MARGIN * 2
+      )
+    );
+    const left = Math.min(
+      Math.max(footerRect.left, APPEARANCE_PANEL_MARGIN),
+      viewportW - width - APPEARANCE_PANEL_MARGIN
+    );
+    const spaceAbove =
+      btnRect.top - APPEARANCE_PANEL_GAP - APPEARANCE_PANEL_MARGIN;
+    const spaceBelow =
+      viewportH - btnRect.bottom - APPEARANCE_PANEL_GAP - APPEARANCE_PANEL_MARGIN;
+    const openUp = spaceAbove >= spaceBelow;
+    const available = openUp ? spaceAbove : spaceBelow;
+
+    els.appearancePanel.style.width = `${width}px`;
+    els.appearancePanel.style.left = `${left}px`;
+
+    if (available >= 280) {
+      els.appearancePanel.style.maxHeight = `${Math.min(APPEARANCE_PANEL_MAX, available)}px`;
+      if (openUp) {
+        els.appearancePanel.style.top = 'auto';
+        els.appearancePanel.style.bottom = `${viewportH - btnRect.top + APPEARANCE_PANEL_GAP}px`;
+      } else {
+        els.appearancePanel.style.bottom = 'auto';
+        els.appearancePanel.style.top = `${btnRect.bottom + APPEARANCE_PANEL_GAP}px`;
+      }
+      return;
+    }
+
+    els.appearancePanel.style.maxHeight = `${viewportH - APPEARANCE_PANEL_MARGIN * 2}px`;
+    if (openUp) {
+      els.appearancePanel.style.bottom = 'auto';
+      els.appearancePanel.style.top = `${APPEARANCE_PANEL_MARGIN}px`;
+    } else {
+      els.appearancePanel.style.top = 'auto';
+      els.appearancePanel.style.bottom = `${APPEARANCE_PANEL_MARGIN}px`;
+    }
+  }
+
+  let appearancePositionFrame = 0;
+
+  function scheduleAppearancePosition() {
+    if (els.appearancePanel.hidden || appearancePositionFrame) return;
+    appearancePositionFrame = requestAnimationFrame(() => {
+      appearancePositionFrame = 0;
+      positionAppearancePanel();
+    });
   }
 
   function closeAppearancePanel() {
@@ -7998,6 +8089,11 @@
     els.readingScaleInput.addEventListener('input', () =>
       updateAppearance('readingScale', els.readingScaleInput.value)
     );
+
+    window.addEventListener('resize', scheduleAppearancePosition);
+    window.addEventListener('scroll', scheduleAppearancePosition, {
+      passive: true,
+    });
 
     document.addEventListener(
       'click',

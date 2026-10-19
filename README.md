@@ -7,7 +7,8 @@
 ## 功能
 
 - **玻璃拟态外壳**：全屏夜图书馆壁纸 + 磨砂玻璃主卡片，左侧固定导航汇总书架、小说与分区；窄屏自动折叠为顶部导航
-- **外观调节**：左侧栏「外观」面板提供晨雾 / 暮色 / 暖纸 / 清透四套风格，并可单独调整强调色、壁纸明暗、玻璃不透明度、磨砂模糊、玻璃描边与正文字号，实时生效并自动保存在本机
+- **外观调节**：左侧栏「外观」面板提供晨雾 / 暮色 / 暖纸 / 清透四套风格，并可单独调整强调色、壁纸明暗、玻璃不透明度（58%–100%）、卡片不透明度（34%–90%）、磨砂模糊、玻璃描边与正文字号，实时生效并自动保存在本机；透明度过低时会自动提亮背景并加深次要文字，保证文字清晰
+- **外观浮层**：外观面板按按钮周围的可用空间自动向上或向下展开，长页面、短页面、窄屏和滚动时都保持完整可见，不会被页面圆角裁切
 - **书架首页**：用书封卡片陈列所有小说，支持搜索、按创作状态筛选、按更新 / 创建时间或书名排序
 - **小说工作区**：每本小说都有独立概览，包含故事简介、六个内容分区与最近更新
 - **六个内容分区**：大纲、角色、背景、设定、地图、资料
@@ -267,7 +268,7 @@ git push -u origin main
 
 ## 自定义
 
-- 主题配色、玻璃透明度、字体与响应式断点：优先使用左侧栏「外观」面板实时调整；也可以修改 `assets/css/theme.css` 顶部 `:root` 中的 `--glass-alpha`、`--card-alpha`、`--glass-blur`、`--wallpaper-dim`、`--rim-strength`、`--reading-scale`、`--accent-rgb` 与媒体查询；风格预设与强调色板定义在 `assets/js/app.js` 顶部的 `APPEARANCE_PRESETS` / `ACCENT_PALETTES`。组件基础样式在 `assets/css/styles.css`，书封色调在 `.tone-*` 变量。
+- 主题配色、玻璃透明度、字体与响应式断点：优先使用左侧栏「外观」面板实时调整；也可以修改 `assets/css/theme.css` 顶部 `:root` 中的 `--glass-alpha`、`--card-alpha`、`--glass-blur`、`--wallpaper-dim`、`--rim-strength`、`--reading-scale`、`--accent-rgb` 与媒体查询；风格预设与强调色板定义在 `assets/js/app.js` 顶部的 `APPEARANCE_PRESETS` / `ACCENT_PALETTES`，低透明度下的文字保护由 `html.is-sheer` 控制，面板浮层定位由 `positionAppearancePanel()` 计算。组件基础样式在 `assets/css/styles.css`，书封色调在 `.tone-*` 变量。
 - 背景壁纸：替换 `assets/img/story-library.jpg`（建议使用 16:9 或更宽的图片）；路径在 `theme.css` 的 `--wallpaper` 变量中。
 - 站点标题、描述与构建排除项：修改 `_config.yml`；页面 `<title>` 与 meta 描述在 `_includes/head.html`。
 - 页面主体文案：修改 `index.html`；侧边栏与页脚文案在 `_includes/sidebar.html`、`_includes/site-footer.html`。

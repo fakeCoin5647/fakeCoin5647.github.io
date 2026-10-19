@@ -482,14 +482,16 @@ body {
 /* ---------- 外观设置 ---------- */
 
 .appearance-panel {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 0.6rem);
+  position: fixed;
+  top: 0;
   left: 0;
-  z-index: 40;
+  right: auto;
+  bottom: auto;
+  z-index: 60;
   display: flex;
   flex-direction: column;
-  max-height: min(calc(100vh - 7.5rem), 600px);
+  width: 260px;
+  max-height: min(600px, calc(100vh - 24px));
   padding: 0.75rem 0.85rem 0.5rem;
   border: 1px solid var(--glass-border);
   border-radius: 14px;
@@ -697,6 +699,13 @@ body {
   cursor: pointer;
 }
 
+.appearance-tip {
+  margin: 0.45rem 0 0;
+  color: var(--faint);
+  font-size: 0.62rem;
+  line-height: 1.5;
+}
+
 .appearance-foot {
   display: flex;
   flex: none;
@@ -726,6 +735,19 @@ body {
   font-size: 0.66rem;
   line-height: 1.4;
   text-align: right;
+}
+
+html.is-sheer {
+  --muted: #525b6d;
+  --faint: #6f788b;
+}
+
+html.is-sheer .page {
+  background: rgba(255, 255, 255, calc(var(--glass-alpha) + 0.05));
+}
+
+html.is-sheer .sidebar {
+  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.44 + 0.08));
 }
 
 .side-note {
@@ -2858,15 +2880,6 @@ body {
     text-align: right;
   }
 
-  .appearance-panel {
-    top: calc(100% + 0.5rem);
-    right: auto;
-    bottom: auto;
-    left: 0;
-    width: min(300px, 86vw);
-    max-height: min(60vh, 480px);
-  }
-
   .content {
     padding: 1.6rem 1.35rem 1.1rem;
   }
@@ -2937,11 +2950,6 @@ body {
 
   .side-note {
     display: none;
-  }
-
-  .appearance-panel {
-    right: 0;
-    width: auto;
   }
 
   .side-actions {
