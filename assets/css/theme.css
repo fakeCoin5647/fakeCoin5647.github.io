@@ -5,9 +5,12 @@
   color-scheme: light;
 
   --wallpaper: url("../img/story-library.jpg");
-  --glass: rgba(255, 255, 255, 0.78);
+  --glass-alpha: 0.78;
+  --card-alpha: 0.5;
+  --glass-blur: 20px;
+  --glass: rgba(255, 255, 255, var(--glass-alpha));
   --glass-border: rgba(255, 255, 255, 0.65);
-  --glass-soft: rgba(255, 255, 255, 0.46);
+  --glass-soft: rgba(255, 255, 255, calc(var(--card-alpha) - 0.04));
   --rule: rgba(38, 42, 51, 0.12);
   --accent-weak: rgba(79, 109, 245, 0.09);
   --text: #262a33;
@@ -88,8 +91,8 @@ body {
   border-radius: 22px;
   background: var(--glass);
   box-shadow: 0 20px 60px rgba(18, 28, 65, 0.3), 0 2px 8px rgba(18, 28, 65, 0.14);
-  backdrop-filter: blur(20px) saturate(1.25);
-  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
   overflow: hidden;
 }
 
@@ -106,7 +109,7 @@ body {
   min-width: 0;
   padding: 1.7rem 1.05rem 1.3rem;
   border-right: 1px solid var(--rule);
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.44));
 }
 
 .brand {
@@ -414,6 +417,7 @@ body {
 }
 
 .sidebar-footer {
+  position: relative;
   margin-top: 1.4rem;
   padding-top: 1rem;
   border-top: 1px solid var(--rule);
@@ -449,6 +453,105 @@ body {
 .side-action .icon {
   width: 14px;
   height: 14px;
+}
+
+/* ---------- 外观设置 ---------- */
+
+.appearance-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.6rem);
+  left: 0;
+  z-index: 40;
+  padding: 0.8rem 0.85rem 0.7rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: rgba(252, 253, 255, 0.95);
+  box-shadow: 0 18px 44px -18px rgba(15, 25, 60, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.appearance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.appearance-title {
+  margin: 0;
+  padding-left: 0.55rem;
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.appearance-close {
+  margin: -0.2rem -0.25rem -0.2rem 0;
+}
+
+.appearance-field {
+  display: block;
+  margin-top: 0.55rem;
+}
+
+.appearance-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+
+.appearance-label output {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.appearance-field input[type="range"] {
+  width: 100%;
+  height: 18px;
+  margin: 0.2rem 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.appearance-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--rule);
+}
+
+.appearance-reset {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
+.appearance-reset:hover {
+  color: var(--accent-deep);
+  text-decoration: underline;
+}
+
+.appearance-saved {
+  color: var(--faint);
+  font-size: 0.66rem;
+  line-height: 1.4;
+  text-align: right;
 }
 
 .side-note {
@@ -671,7 +774,7 @@ body {
   height: 42px;
   border-color: var(--rule);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.22));
 }
 
 .search-box:hover {
@@ -696,7 +799,7 @@ body {
   height: 42px;
   border-color: var(--rule);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.22));
 }
 
 .filter-pill {
@@ -706,7 +809,7 @@ body {
 
 .filter-pill:hover {
   border-color: var(--rule);
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.05));
 }
 
 .filter-pill.is-active {
@@ -744,11 +847,11 @@ body {
   padding: 0.95rem 1rem;
   border: 1px solid var(--rule);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, var(--card-alpha));
 }
 
 .trash-card.is-entry {
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) - 0.08));
 }
 
 .trash-icon {
@@ -878,20 +981,20 @@ body {
 .novel-card {
   border-color: var(--rule);
   border-radius: 15px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, var(--card-alpha));
   box-shadow: none;
 }
 
 .novel-card:hover {
   border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.22));
   box-shadow: 0 14px 30px -22px rgba(30, 40, 90, 0.5);
   transform: translateY(-2px);
 }
 
 .novel-card.is-pinned {
   border-color: rgba(79, 109, 245, 0.45);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(238, 242, 255, 0.62));
+  background: linear-gradient(180deg, rgba(255, 255, 255, calc(var(--card-alpha) + 0.22)), rgba(238, 242, 255, calc(var(--card-alpha) + 0.12)));
 }
 
 .novel-card.is-pinned::before {
@@ -1058,7 +1161,7 @@ body {
 
 .novel-hero-actions .icon-btn {
   border-color: var(--rule);
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.15));
 }
 
 .novel-hero-actions .icon-btn:hover {
@@ -1136,7 +1239,7 @@ body {
 .section-card {
   border-color: var(--rule);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, var(--card-alpha));
   box-shadow: none;
 }
 
@@ -1196,19 +1299,19 @@ body {
 .entry-card {
   border-color: var(--rule);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, var(--card-alpha));
   box-shadow: none;
 }
 
 .entry-card:hover {
   border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.18));
   box-shadow: 0 12px 28px -22px rgba(30, 40, 90, 0.5);
 }
 
 .entry-card.is-pinned {
   border-color: rgba(79, 109, 245, 0.45);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(238, 242, 255, 0.6));
+  background: linear-gradient(180deg, rgba(255, 255, 255, calc(var(--card-alpha) + 0.22)), rgba(238, 242, 255, calc(var(--card-alpha) + 0.1)));
 }
 
 .entry-card.is-pinned::before {
@@ -1299,7 +1402,7 @@ body {
 .empty-state {
   border-color: var(--line-strong);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, calc(var(--card-alpha) - 0.16));
 }
 
 .empty-state h3 {
@@ -2233,7 +2336,7 @@ body {
     flex: none;
     padding: 0.38rem 0.65rem;
     border: 1px solid var(--rule);
-    background: rgba(255, 255, 255, 0.42);
+    background: rgba(255, 255, 255, calc(var(--card-alpha) - 0.08));
     white-space: nowrap;
   }
 
@@ -2271,6 +2374,14 @@ body {
   .side-note {
     margin: 0;
     text-align: right;
+  }
+
+  .appearance-panel {
+    top: calc(100% + 0.5rem);
+    right: auto;
+    bottom: auto;
+    left: 0;
+    width: min(280px, 82vw);
   }
 
   .content {
@@ -2334,6 +2445,11 @@ body {
 
   .side-note {
     display: none;
+  }
+
+  .appearance-panel {
+    right: 0;
+    width: auto;
   }
 
   .side-actions {
@@ -2436,7 +2552,7 @@ body {
 
   .sort-control {
     border-color: var(--rule);
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.05));
   }
 
   .novel-card-main {

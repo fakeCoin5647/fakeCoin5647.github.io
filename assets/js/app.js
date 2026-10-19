@@ -2,9 +2,11 @@
   'use strict';
 
   const STORAGE_KEY = 'gushibu.library.v1';
+  const APPEARANCE_KEY = 'gushibu.appearance.v1';
   const LIBRARY_VERSION = 1;
   const MAX_TAGS = 8;
   const MAX_TAG_LENGTH = 16;
+  const DEFAULT_APPEARANCE = { glassAlpha: 78, cardAlpha: 50, blur: 20 };
 
   const NOVEL_STATUS = {
     planning: { label: '构思中', className: 'status-planning' },
@@ -210,6 +212,17 @@
     footerExportBtn: $('#footerExportBtn'),
     importFile: $('#importFile'),
 
+    appearanceBtn: $('#appearanceBtn'),
+    appearancePanel: $('#appearancePanel'),
+    appearanceCloseBtn: $('#appearanceCloseBtn'),
+    appearanceResetBtn: $('#appearanceResetBtn'),
+    glassAlphaInput: $('#glassAlphaInput'),
+    glassAlphaValue: $('#glassAlphaValue'),
+    cardAlphaInput: $('#cardAlphaInput'),
+    cardAlphaValue: $('#cardAlphaValue'),
+    blurInput: $('#blurInput'),
+    blurValue: $('#blurValue'),
+
     statNovels: $('#statNovels'),
     statCharacters: $('#statCharacters'),
     statEntries: $('#statEntries'),
@@ -321,6 +334,7 @@
   const state = {
     novels: [],
     trash: [],
+    appearance: { ...DEFAULT_APPEARANCE },
     route: null,
     shelf: { query: '', status: 'all', sort: 'updated' },
     novelDraft: { id: null, dirty: false },
@@ -339,6 +353,8 @@
     const library = loadLibrary();
     state.novels = library.novels;
     state.trash = library.trash;
+    state.appearance = loadAppearance();
+    applyAppearance();
     els.year.textContent = new Date().getFullYear();
     bindEvents();
     renderRoute();
@@ -419,6 +435,71 @@
       showToast('保存失败：浏览器存储空间可能已满', 'error');
       return false;
     }
+  }
+
+  function loadAppearance() {
+    try {
+      const raw = localStorage.getItem(APPEARANCE_KEY);
+      if (!raw) return { ...DEFAULT_APPEARANCE };
+      return normalizeAppearance(JSON.parse(raw));
+    } catch (error) {
+      return { ...DEFAULT_APPEARANCE };
+    }
+  }
+
+  function normalizeAppearance(value) {
+    const read = (key, min, max, fallback) => {
+      const number = Number(value && value[key]);
+      if (!Number.isFinite(number)) return fallback;
+      return Math.min(max, Math.max(min, Math.round(number)));
+    };
+    return {
+      glassAlpha: read('glassAlpha', 30, 100, DEFAULT_APPEARANCE.glassAlpha),
+      cardAlpha: read('cardAlpha', 10, 90, DEFAULT_APPEARANCE.cardAlpha),
+      blur: read('blur', 0, 40, DEFAULT_APPEARANCE.blur),
+    };
+  }
+
+  function applyAppearance() {
+    const { glassAlpha, cardAlpha, blur } = state.appearance;
+    const root = document.documentElement;
+    root.style.setProperty('--glass-alpha', String(glassAlpha / 100));
+    root.style.setProperty('--card-alpha', String(cardAlpha / 100));
+    root.style.setProperty('--glass-blur', `${blur}px`);
+
+    els.glassAlphaInput.value = String(glassAlpha);
+    els.glassAlphaValue.textContent = `${glassAlpha}%`;
+    els.cardAlphaInput.value = String(cardAlpha);
+    els.cardAlphaValue.textContent = `${cardAlpha}%`;
+    els.blurInput.value = String(blur);
+    els.blurValue.textContent = `${blur}px`;
+  }
+
+  function persistAppearance() {
+    try {
+      localStorage.setItem(APPEARANCE_KEY, JSON.stringify(state.appearance));
+    } catch (error) {
+      console.warn('外观设置无法保存：', error);
+    }
+  }
+
+  function updateAppearance(key, value) {
+    state.appearance = normalizeAppearance({ ...state.appearance, [key]: value });
+    applyAppearance();
+    persistAppearance();
+  }
+
+  function toggleAppearancePanel() {
+    const willOpen = els.appearancePanel.hidden;
+    els.appearancePanel.hidden = !willOpen;
+    els.appearanceBtn.setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) els.glassAlphaInput.focus({ preventScroll: true });
+  }
+
+  function closeAppearancePanel() {
+    if (els.appearancePanel.hidden) return;
+    els.appearancePanel.hidden = true;
+    els.appearanceBtn.setAttribute('aria-expanded', 'false');
   }
 
   function normalizeNovel(raw) {
@@ -3883,6 +3964,49 @@
     els.footerExportBtn.addEventListener('click', exportLibrary);
     els.importFile.addEventListener('change', handleImportFile);
 
+    els.appearanceBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleAppearancePanel();
+    });
+    els.appearanceCloseBtn.addEventListener('click', () => {
+      closeAppearancePanel();
+      els.appearanceBtn.focus();
+    });
+    els.appearanceResetBtn.addEventListener('click', () => {
+      state.appearance = { ...DEFAULT_APPEARANCE };
+      applyAppearance();
+      persistAppearance();
+      showToast('外观已恢复默认');
+    });
+    els.glassAlphaInput.addEventListener('input', () =>
+      updateAppearance('glassAlpha', els.glassAlphaInput.value)
+    );
+    els.cardAlphaInput.addEventListener('input', () =>
+      updateAppearance('cardAlpha', els.cardAlphaInput.value)
+    );
+    els.blurInput.addEventListener('input', () =>
+      updateAppearance('blur', els.blurInput.value)
+    );
+
+    document.addEventListener('click', (event) => {
+      if (els.appearancePanel.hidden) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (
+        els.appearancePanel.contains(target) ||
+        els.appearanceBtn.contains(target)
+      ) {
+        return;
+      }
+      closeAppearancePanel();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || els.appearancePanel.hidden) return;
+      closeAppearancePanel();
+      els.appearanceBtn.focus();
+    });
+
     els.shelfSearchInput.addEventListener('input', () => {
       state.shelf.query = els.shelfSearchInput.value;
       syncShelfSearchBox();
@@ -4252,6 +4376,11 @@
     });
 
     window.addEventListener('storage', (event) => {
+      if (event.key === APPEARANCE_KEY) {
+        state.appearance = loadAppearance();
+        applyAppearance();
+        return;
+      }
       if (event.key !== STORAGE_KEY) return;
       const library = loadLibrary();
       state.novels = library.novels;

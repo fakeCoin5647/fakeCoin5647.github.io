@@ -7,6 +7,7 @@
 ## 功能
 
 - **玻璃拟态外壳**：全屏夜图书馆壁纸 + 磨砂玻璃主卡片，左侧固定导航汇总书架、小说与分区；窄屏自动折叠为顶部导航
+- **外观调节**：左侧栏「外观」面板可实时调整面板不透明度、卡片不透明度与磨砂模糊，拖动即生效并自动保存在本机
 - **书架首页**：用书封卡片陈列所有小说，支持搜索、按创作状态筛选、按更新 / 创建时间或书名排序
 - **小说工作区**：每本小说都有独立概览，包含故事简介、六个内容分区与最近更新
 - **六个内容分区**：大纲、角色、背景、设定、地图、资料
@@ -90,6 +91,7 @@ jekyll serve
 ## 数据与备份
 
 - 所有内容保存在当前浏览器的 `localStorage` 中，存储键为 `gushibu.library.v1`，不会上传到任何服务器。
+- 外观设置单独保存在 `gushibu.appearance.v1`，不属于小说数据，也不会写入导出备份。
 - 清理浏览器数据、使用无痕模式、更换浏览器或设备后，原数据将无法读取。
 - 建议定期点击「导出备份」保存 JSON 文件；在新设备上点击「导入备份」即可合并。
 - 导入以小说 ID 和词条 ID 去重：内容较新（`updatedAt` 更晚）的版本会覆盖旧版本，置顶状态会保留。
@@ -220,7 +222,7 @@ git push -u origin main
 
 ## 自定义
 
-- 主题配色、玻璃透明度、字体与响应式断点：修改 `assets/css/theme.css` 顶部 `:root` 与媒体查询；组件基础样式在 `assets/css/styles.css`，书封色调在 `.tone-*` 变量。
+- 主题配色、玻璃透明度、字体与响应式断点：优先使用左侧栏「外观」面板实时调整；也可以修改 `assets/css/theme.css` 顶部 `:root` 中的 `--glass-alpha`、`--card-alpha`、`--glass-blur` 与媒体查询；组件基础样式在 `assets/css/styles.css`，书封色调在 `.tone-*` 变量。
 - 背景壁纸：替换 `assets/img/story-library.jpg`（建议使用 16:9 或更宽的图片）；路径在 `theme.css` 的 `--wallpaper` 变量中。
 - 站点标题、描述与构建排除项：修改 `_config.yml`；页面 `<title>` 与 meta 描述在 `_includes/head.html`。
 - 页面主体文案：修改 `index.html`；侧边栏与页脚文案在 `_includes/sidebar.html`、`_includes/site-footer.html`。

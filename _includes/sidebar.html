@@ -48,8 +48,37 @@
             <svg class="icon" aria-hidden="true"><use href="#i-export"></use></svg>
             <span>导出</span>
           </button>
+          <button type="button" class="side-action" id="appearanceBtn" aria-expanded="false" aria-controls="appearancePanel" aria-label="调整界面透明度">
+            <svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <span>外观</span>
+          </button>
           <input type="file" id="importFile" accept=".json,application/json" hidden>
         </div>
         <p class="side-note"><span class="caption-dot" aria-hidden="true"></span>内容只保存在本机</p>
+
+        <section class="appearance-panel" id="appearancePanel" aria-label="外观设置" hidden>
+          <div class="appearance-head">
+            <p class="appearance-title">外观</p>
+            <button type="button" class="icon-btn appearance-close" id="appearanceCloseBtn" aria-label="关闭外观设置">
+              <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+            </button>
+          </div>
+          <label class="appearance-field" for="glassAlphaInput">
+            <span class="appearance-label">面板不透明度 <output id="glassAlphaValue" for="glassAlphaInput">78%</output></span>
+            <input type="range" id="glassAlphaInput" min="30" max="100" step="1" value="78">
+          </label>
+          <label class="appearance-field" for="cardAlphaInput">
+            <span class="appearance-label">卡片不透明度 <output id="cardAlphaValue" for="cardAlphaInput">50%</output></span>
+            <input type="range" id="cardAlphaInput" min="10" max="90" step="1" value="50">
+          </label>
+          <label class="appearance-field" for="blurInput">
+            <span class="appearance-label">磨砂模糊 <output id="blurValue" for="blurInput">20px</output></span>
+            <input type="range" id="blurInput" min="0" max="40" step="1" value="20">
+          </label>
+          <div class="appearance-foot">
+            <button type="button" class="appearance-reset" id="appearanceResetBtn">恢复默认</button>
+            <span class="appearance-saved">拖动即生效，自动保存</span>
+          </div>
+        </section>
       </div>
     </aside>
