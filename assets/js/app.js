@@ -183,6 +183,12 @@
   const GRAPH_MAX_Y = GRAPH_HEIGHT - 118;
   const GRAPH_MAX_RELATIONS = 160;
   const GRAPH_MAX_LABEL_LENGTH = 24;
+  const GRAPH_PRIMARY_ID = 'primary';
+  const GRAPH_MAX_GRAPHS = 12;
+  const GRAPH_MAX_GRAPH_TITLE = 20;
+  const GRAPH_ZOOM_MIN = 1;
+  const GRAPH_ZOOM_MAX = 2.6;
+  const GRAPH_ZOOM_STEP = 0.2;
   const GRAPH_RELATION_PRESETS = [
     '亲人',
     '朋友',
@@ -335,6 +341,14 @@
     relationDialogCloseBtn: $('#relationDialogCloseBtn'),
     relationFromSelect: $('#relationFromSelect'),
     relationToSelect: $('#relationToSelect'),
+    relationFromLabelText: $('#relationFromLabelText'),
+    relationToLabelText: $('#relationToLabelText'),
+    relationRouteMark: $('#relationRouteMark'),
+    relationDirectionBoth: $('#relationDirectionBoth'),
+    relationDirectionOneWay: $('#relationDirectionOneWay'),
+    relationDirectionBothLabel: $('#relationDirectionBothLabel'),
+    relationDirectionOneWayLabel: $('#relationDirectionOneWayLabel'),
+    relationDirectionNote: $('#relationDirectionNote'),
     relationLabelField: $('#relationLabelField'),
     relationLabelInput: $('#relationLabelInput'),
     relationLabelError: $('#relationLabelError'),
@@ -344,6 +358,18 @@
     relationCancelBtn: $('#relationCancelBtn'),
     relationSaveBtn: $('#relationSaveBtn'),
     relationFormHint: $('#relationFormHint'),
+
+    graphDialog: $('#graphDialog'),
+    graphForm: $('#graphForm'),
+    graphDialogEyebrow: $('#graphDialogEyebrow'),
+    graphDialogTitle: $('#graphDialogTitle'),
+    graphDialogCloseBtn: $('#graphDialogCloseBtn'),
+    graphTitleField: $('#graphTitleField'),
+    graphTitleInput: $('#graphTitleInput'),
+    graphTitleError: $('#graphTitleError'),
+    graphDeleteBtn: $('#graphDeleteBtn'),
+    graphCancelBtn: $('#graphCancelBtn'),
+    graphSaveBtn: $('#graphSaveBtn'),
 
     confirmDialog: $('#confirmDialog'),
     confirmTitle: $('#confirmTitle'),
@@ -404,7 +430,10 @@
     listScrolls: Object.create(null),
     mapEditor: null,
     charactersView: 'graph',
-    relationDraft: { novelId: null, id: null },
+    relationDraft: { novelId: null, id: null, graphId: null },
+    graphDraft: { novelId: null, id: null },
+    activeGraphByNovel: Object.create(null),
+    graphViews: Object.create(null),
   };
 
   let isComposingTag = false;
@@ -603,6 +632,7 @@
     }
 
     const tone = Number.isInteger(raw.tone) ? Math.min(Math.max(raw.tone, 0), 4) : 0;
+    const relationGraphs = normalizeRelationGraphs(raw.relationGraphs);
 
     return {
       novel: {
@@ -620,7 +650,8 @@
         createdAt,
         updatedAt,
         entries,
-        relations: normalizeCharacterRelations(raw.relations),
+        relationGraphs,
+        relations: normalizeCharacterRelations(raw.relations, relationGraphs),
       },
       skippedEntries,
     };
@@ -648,6 +679,7 @@
       updatedAt,
       map: normalizeMap(raw.map),
       graphPos: normalizeGraphPos(raw.graphPos),
+      graphPositions: normalizeGraphPositions(raw.graphPositions),
     };
   }
 
@@ -797,11 +829,60 @@
     };
   }
 
-  function normalizeCharacterRelations(raw) {
+  function normalizeGraphPositions(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    const result = {};
+    for (const [key, value] of Object.entries(raw)) {
+      const graphId = cleanText(key, 80);
+      if (!graphId || Object.prototype.hasOwnProperty.call(result, graphId)) continue;
+      const point = normalizeGraphPos(value);
+      if (point) result[graphId] = point;
+    }
+    return result;
+  }
+
+  function normalizeRelationGraphs(raw) {
+    const result = [];
+    const seen = new Set();
+
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        let id = cleanText(item.id, 80);
+        if (!id || seen.has(id)) id = makeId();
+        seen.add(id);
+        result.push({
+          id,
+          title:
+            cleanText(item.title, GRAPH_MAX_GRAPH_TITLE) || `谱系 ${result.length + 1}`,
+          createdAt: parseDate(item.createdAt) || new Date().toISOString(),
+        });
+        if (result.length >= GRAPH_MAX_GRAPHS) break;
+      }
+    }
+
+    if (result.length === 0) {
+      result.push({
+        id: GRAPH_PRIMARY_ID,
+        title: '人物关系',
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    return result;
+  }
+
+  function normalizeCharacterRelations(raw, graphs = null) {
     if (!Array.isArray(raw)) return [];
     const result = [];
     const pairSeen = new Set();
     const idSeen = new Set();
+    const graphIds =
+      Array.isArray(graphs) && graphs.length > 0
+        ? new Set(graphs.map((graph) => graph.id))
+        : null;
+    const fallbackGraphId =
+      Array.isArray(graphs) && graphs.length > 0 ? graphs[0].id : GRAPH_PRIMARY_ID;
 
     for (const item of raw) {
       if (!item || typeof item !== 'object') continue;
@@ -809,7 +890,10 @@
       const target = cleanText(item.target, 80);
       if (!source || !target || source === target) continue;
 
-      const pairKey = source < target ? `${source}|${target}` : `${target}|${source}`;
+      let graphId = cleanText(item.graphId, 80);
+      if (!graphId || (graphIds && !graphIds.has(graphId))) graphId = fallbackGraphId;
+
+      const pairKey = `${graphId}::${source < target ? `${source}|${target}` : `${target}|${source}`}`;
       if (pairSeen.has(pairKey)) continue;
       pairSeen.add(pairKey);
 
@@ -822,6 +906,8 @@
         source,
         target,
         label: cleanText(item.label, GRAPH_MAX_LABEL_LENGTH) || '关联',
+        directed: item.directed === true,
+        graphId,
       });
       if (result.length >= GRAPH_MAX_RELATIONS) break;
     }
@@ -1932,11 +2018,14 @@
   }
 
   function createCharacterGraphPanel(novel) {
-    const nodes = getGraphEntries(novel);
-    const relations = getGraphRelations(novel, nodes);
-    const positions = resolveGraphPositions(nodes, relations);
+    const graph = getActiveRelationGraph(novel);
+    const nodes = getGraphEntries(novel, graph);
+    const relations = getGraphRelations(novel, nodes, graph.id);
+    const positions = resolveGraphPositions(nodes, relations, graph.id);
 
     const panel = el('section', 'character-graph-panel panel');
+    panel.appendChild(createGraphSwitcher(novel, graph));
+
     const toolbar = el('div', 'graph-toolbar');
     const meta = el('p', 'graph-meta');
     meta.append(
@@ -1948,19 +2037,55 @@
     );
 
     const actions = el('div', 'graph-actions');
-    const layoutBtn = el('button', 'btn ghost');
-    layoutBtn.type = 'button';
-    layoutBtn.dataset.action = 'layout-graph';
-    layoutBtn.dataset.novelId = novel.id;
-    layoutBtn.append(icon('i-fit'), document.createTextNode('自动排布'));
 
     const addRelationBtn = el('button', 'btn primary');
     addRelationBtn.type = 'button';
     addRelationBtn.dataset.action = 'add-relation';
     addRelationBtn.dataset.novelId = novel.id;
+    addRelationBtn.dataset.graphId = graph.id;
     addRelationBtn.append(icon('i-link'), document.createTextNode('添加关系'));
 
-    actions.append(layoutBtn, addRelationBtn);
+    if (nodes.length === 0) {
+      actions.append(addRelationBtn);
+      toolbar.append(meta, actions);
+      panel.append(toolbar, createGraphEmptyState(novel));
+      return panel;
+    }
+
+    const zoomGroup = el('div', 'graph-zoom');
+    zoomGroup.setAttribute('role', 'group');
+    zoomGroup.setAttribute('aria-label', '关系图缩放');
+
+    const zoomOutBtn = el('button', 'graph-zoom-btn');
+    zoomOutBtn.type = 'button';
+    zoomOutBtn.setAttribute('aria-label', '缩小关系图');
+    zoomOutBtn.appendChild(icon('i-zoom-out'));
+
+    const zoomLevelBtn = el('button', 'graph-zoom-level');
+    zoomLevelBtn.type = 'button';
+    zoomLevelBtn.setAttribute('aria-label', '恢复 100% 缩放');
+    zoomLevelBtn.textContent = '100%';
+
+    const zoomInBtn = el('button', 'graph-zoom-btn');
+    zoomInBtn.type = 'button';
+    zoomInBtn.setAttribute('aria-label', '放大关系图');
+    zoomInBtn.appendChild(icon('i-zoom-in'));
+
+    const zoomFitBtn = el('button', 'graph-zoom-btn');
+    zoomFitBtn.type = 'button';
+    zoomFitBtn.setAttribute('aria-label', '关系图适应画布');
+    zoomFitBtn.appendChild(icon('i-fit'));
+
+    zoomGroup.append(zoomOutBtn, zoomLevelBtn, zoomInBtn, zoomFitBtn);
+
+    const layoutBtn = el('button', 'btn ghost');
+    layoutBtn.type = 'button';
+    layoutBtn.dataset.action = 'layout-graph';
+    layoutBtn.dataset.novelId = novel.id;
+    layoutBtn.dataset.graphId = graph.id;
+    layoutBtn.append(icon('i-fit'), document.createTextNode('自动排布'));
+
+    actions.append(zoomGroup, layoutBtn, addRelationBtn);
     toolbar.append(meta, actions);
 
     const scroll = el('div', 'character-graph-scroll');
@@ -1968,10 +2093,14 @@
       class: 'character-graph',
       viewBox: `0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`,
       role: 'group',
-      'aria-label': `人物关系图，共 ${nodes.length} 位角色、${relations.length} 条关系`,
+      'aria-label': `人物关系图「${graph.title}」，共 ${nodes.length} 位角色、${relations.length} 条关系`,
     });
     svg.appendChild(
-      svgEl('title', {}, `人物关系图：${nodes.length} 位角色，${relations.length} 条关系`)
+      svgEl(
+        'title',
+        {},
+        `人物关系图「${graph.title}」：${nodes.length} 位角色，${relations.length} 条关系`
+      )
     );
 
     const edgeLayer = svgEl('g', { class: 'graph-edges' });
@@ -1979,24 +2108,43 @@
     svg.append(edgeLayer, nodeLayer);
     scroll.appendChild(svg);
 
+    const viewKey = `${novel.id}:${graph.id}`;
+    const savedView = state.graphViews[viewKey];
+    const viewState = {
+      zoom: savedView ? savedView.zoom : 1,
+      x: savedView ? savedView.x : 0,
+      y: savedView ? savedView.y : 0,
+    };
+
     const edgeViews = relations.map((relation, index) => {
       const source = nodes.find((node) => node.id === relation.source);
       const target = nodes.find((node) => node.id === relation.target);
-      const fullText = `${source.title} 与 ${target.title}：${relation.label}`;
+      const directed = relation.directed === true;
+      const routeText = directed
+        ? `${source.title} → ${target.title}`
+        : `${source.title} ↔ ${target.title}`;
+      const fullText = `${routeText}：${relation.label}`;
       const group = svgEl('g', {
         class: 'graph-edge',
         tabindex: '0',
         role: 'button',
-        'aria-label': `编辑关系：${fullText}`,
+        'aria-label': `编辑${directed ? '单向' : '双向'}关系：${fullText}`,
         'data-relation-id': relation.id,
       });
-      group.appendChild(svgEl('title', {}, `${source.title} — ${relation.label} — ${target.title}`));
+      group.appendChild(
+        svgEl(
+          'title',
+          {},
+          `${routeText} · ${relation.label}${directed ? '（单向）' : '（双向）'}`
+        )
+      );
 
       const hit = svgEl('path', { class: 'graph-edge-hit' });
       const line = svgEl('path', { class: 'graph-edge-line' });
+      const arrow = svgEl('path', { class: 'graph-edge-arrow' });
       const label = svgEl('text', { class: 'graph-edge-label' });
       label.textContent = shortenGraphText(relation.label, 12);
-      group.append(hit, line, label);
+      group.append(hit, line, arrow, label);
       edgeLayer.appendChild(group);
 
       const openEditor = () =>
@@ -2016,6 +2164,7 @@
         relation,
         line,
         hit,
+        arrow,
         label,
         curveSign: index % 2 === 0 ? 1 : -1,
         labelSide: index % 2 === 0 ? 1 : -1,
@@ -2096,34 +2245,158 @@
 
     let suppressNodeClick = false;
     let dragState = null;
+    let panState = null;
 
     const layoutAllEdges = () => {
       for (const view of edgeViews) layoutGraphEdge(view, positions);
       layoutGraphEdgeLabels(edgeViews, positions);
     };
 
+    function applyGraphView() {
+      const width = GRAPH_WIDTH / viewState.zoom;
+      const height = GRAPH_HEIGHT / viewState.zoom;
+      viewState.x = Math.min(Math.max(viewState.x, 0), GRAPH_WIDTH - width);
+      viewState.y = Math.min(Math.max(viewState.y, 0), GRAPH_HEIGHT - height);
+      svg.setAttribute(
+        'viewBox',
+        `${viewState.x.toFixed(1)} ${viewState.y.toFixed(1)} ${width.toFixed(
+          1
+        )} ${height.toFixed(1)}`
+      );
+      const percent = Math.round(viewState.zoom * 100);
+      zoomLevelBtn.textContent = `${percent}%`;
+      zoomLevelBtn.setAttribute('aria-label', `当前 ${percent}%，点击恢复 100% 缩放`);
+      zoomOutBtn.disabled = viewState.zoom <= GRAPH_ZOOM_MIN + 0.001;
+      zoomInBtn.disabled = viewState.zoom >= GRAPH_ZOOM_MAX - 0.001;
+      svg.classList.toggle('is-zoomed', viewState.zoom > 1.001);
+      state.graphViews[viewKey] = {
+        zoom: viewState.zoom,
+        x: viewState.x,
+        y: viewState.y,
+      };
+    }
+
+    function zoomAt(nextZoom, clientX, clientY) {
+      const clamped = Math.min(
+        GRAPH_ZOOM_MAX,
+        Math.max(GRAPH_ZOOM_MIN, nextZoom)
+      );
+      if (Math.abs(clamped - viewState.zoom) < 0.0001) return;
+
+      const rect = svg.getBoundingClientRect();
+      const fx =
+        clientX == null
+          ? 0.5
+          : Math.min(1, Math.max(0, (clientX - rect.left) / Math.max(rect.width, 1)));
+      const fy =
+        clientY == null
+          ? 0.5
+          : Math.min(1, Math.max(0, (clientY - rect.top) / Math.max(rect.height, 1)));
+      const currentWidth = GRAPH_WIDTH / viewState.zoom;
+      const currentHeight = GRAPH_HEIGHT / viewState.zoom;
+      const focusX = viewState.x + fx * currentWidth;
+      const focusY = viewState.y + fy * currentHeight;
+
+      viewState.zoom = clamped;
+      const nextWidth = GRAPH_WIDTH / clamped;
+      const nextHeight = GRAPH_HEIGHT / clamped;
+      viewState.x = focusX - fx * nextWidth;
+      viewState.y = focusY - fy * nextHeight;
+      applyGraphView();
+    }
+
+    const resetGraphZoom = () => zoomAt(GRAPH_ZOOM_MIN, null, null);
+
+    zoomOutBtn.addEventListener('click', () =>
+      zoomAt(viewState.zoom - GRAPH_ZOOM_STEP, null, null)
+    );
+    zoomInBtn.addEventListener('click', () =>
+      zoomAt(viewState.zoom + GRAPH_ZOOM_STEP, null, null)
+    );
+    zoomLevelBtn.addEventListener('click', resetGraphZoom);
+    zoomFitBtn.addEventListener('click', resetGraphZoom);
+
+    svg.addEventListener(
+      'wheel',
+      (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoomAt(
+          viewState.zoom * Math.exp(-event.deltaY * 0.0016),
+          event.clientX,
+          event.clientY
+        );
+      },
+      { passive: false }
+    );
+
+    applyGraphView();
+
     svg.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
-      const nodeEl = event.target instanceof Element ? event.target.closest('.graph-node') : null;
-      if (!nodeEl) return;
-      const nodeId = nodeEl.dataset.nodeId;
-      const origin = positions.get(nodeId);
-      if (!origin) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const nodeEl = target ? target.closest('.graph-node') : null;
 
-      dragState = {
-        nodeId,
-        nodeEl,
+      if (nodeEl) {
+        const nodeId = nodeEl.dataset.nodeId;
+        const origin = positions.get(nodeId);
+        if (!origin) return;
+
+        dragState = {
+          nodeId,
+          nodeEl,
+          pointerId: event.pointerId,
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          origin: { ...origin },
+          moved: false,
+        };
+        // Pointer capture is deferred until the drag threshold so a plain click
+        // still targets the node and triggers navigation.
+        return;
+      }
+
+      if (viewState.zoom <= 1.001) return;
+      if (target && target.closest('.graph-edge')) return;
+
+      panState = {
         pointerId: event.pointerId,
         startClientX: event.clientX,
         startClientY: event.clientY,
-        origin: { ...origin },
+        originX: viewState.x,
+        originY: viewState.y,
         moved: false,
       };
-      // Pointer capture is deferred until the drag threshold so a plain click
-      // still targets the node and triggers navigation.
     });
 
     svg.addEventListener('pointermove', (event) => {
+      if (panState && event.pointerId === panState.pointerId) {
+        const dxClient = event.clientX - panState.startClientX;
+        const dyClient = event.clientY - panState.startClientY;
+
+        if (!panState.moved) {
+          if (Math.hypot(dxClient, dyClient) < 4) return;
+          panState.moved = true;
+          if (!svg.hasPointerCapture(event.pointerId)) {
+            svg.setPointerCapture(event.pointerId);
+          }
+          svg.classList.add('is-panning');
+        }
+
+        const rect = svg.getBoundingClientRect();
+        const viewWidth = GRAPH_WIDTH / viewState.zoom;
+        const viewHeight = GRAPH_HEIGHT / viewState.zoom;
+        viewState.x =
+          panState.originX -
+          dxClient * (viewWidth / Math.max(rect.width, 1));
+        viewState.y =
+          panState.originY -
+          dyClient * (viewHeight / Math.max(rect.height, 1));
+        applyGraphView();
+        event.preventDefault();
+        return;
+      }
+
       if (!dragState || event.pointerId !== dragState.pointerId) return;
       const dxClient = event.clientX - dragState.startClientX;
       const dyClient = event.clientY - dragState.startClientY;
@@ -2139,8 +2412,10 @@
       }
 
       const rect = svg.getBoundingClientRect();
-      const scaleX = GRAPH_WIDTH / Math.max(rect.width, 1);
-      const scaleY = GRAPH_HEIGHT / Math.max(rect.height, 1);
+      const scaleX =
+        GRAPH_WIDTH / viewState.zoom / Math.max(rect.width, 1);
+      const scaleY =
+        GRAPH_HEIGHT / viewState.zoom / Math.max(rect.height, 1);
       const next = {
         x: Math.min(
           GRAPH_MAX_X,
@@ -2186,53 +2461,184 @@
         window.setTimeout(() => {
           suppressNodeClick = false;
         }, 0);
-        if (!persistCharacterGraphPositions(novel.id, positions)) {
+        if (
+          !persistCharacterGraphPositions(novel.id, positions, graph.id)
+        ) {
           showToast('角色位置未能保存', 'error');
         }
       }
       return true;
     };
 
-    svg.addEventListener('pointerup', (event) => finishDrag(event));
-    svg.addEventListener('pointercancel', (event) => finishDrag(event, true));
+    const finishPan = (event) => {
+      if (!panState || event.pointerId !== panState.pointerId) return false;
+      panState = null;
+      svg.classList.remove('is-panning');
+      if (svg.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+      return true;
+    };
+
+    svg.addEventListener('pointerup', (event) => {
+      finishDrag(event);
+      finishPan(event);
+    });
+    svg.addEventListener('pointercancel', (event) => {
+      finishDrag(event, true);
+      finishPan(event);
+    });
 
     const hint = el('p', 'graph-hint');
     if (relations.length === 0) {
       hint.textContent =
-        nodes.length < 2
+        novel.entries.characters.length < 2
           ? '再添加一位角色，就能画出第一条关系。'
-          : '还没有关系线。拖动角色调整位置，或点击「添加关系」把角色连起来。';
+          : '这个谱系里还没有可连接的关系。点击「添加关系」把角色连起来。';
     } else {
-      hint.textContent = '拖动角色调整位置 · 点击连线修改关系 · 点击角色阅读档案';
+      hint.textContent =
+        '拖动角色调整位置 · 点击连线修改关系 · 点击角色阅读档案 · Ctrl + 滚轮或按钮缩放';
     }
 
     panel.append(toolbar, scroll, hint);
     return panel;
   }
 
-  function getGraphEntries(novel) {
-    return [...novel.entries.characters].sort(
+  function createGraphSwitcher(novel, activeGraph) {
+    const switcher = el('div', 'graph-switcher');
+    switcher.setAttribute('aria-label', '关系图谱系');
+
+    const label = el('span', 'graph-switcher-label', '谱系');
+    const tabs = el('div', 'graph-tabs');
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', '切换关系图谱系');
+
+    const relations = Array.isArray(novel.relations) ? novel.relations : [];
+    for (const graph of novel.relationGraphs) {
+      const count = relations.filter((relation) => relation.graphId === graph.id).length;
+      const active = graph.id === activeGraph.id;
+      const tab = el('button', 'graph-tab');
+      tab.type = 'button';
+      tab.dataset.action = 'switch-graph';
+      tab.dataset.novelId = novel.id;
+      tab.dataset.graphId = graph.id;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(active));
+      tab.classList.toggle('is-active', active);
+      tab.appendChild(document.createTextNode(graph.title));
+      if (count > 0) {
+        tab.appendChild(el('span', 'graph-tab-count', String(count)));
+      }
+      tabs.appendChild(tab);
+    }
+
+    const addTab = el('button', 'graph-tab graph-tab-add');
+    addTab.type = 'button';
+    addTab.dataset.action = 'new-graph';
+    addTab.dataset.novelId = novel.id;
+    addTab.setAttribute('aria-label', '新建谱系');
+    addTab.append(icon('i-plus'), document.createTextNode('新建'));
+    tabs.appendChild(addTab);
+
+    const editBtn = el('button', 'icon-btn graph-edit-btn');
+    editBtn.type = 'button';
+    editBtn.dataset.action = 'edit-graph';
+    editBtn.dataset.novelId = novel.id;
+    editBtn.dataset.graphId = activeGraph.id;
+    editBtn.setAttribute('aria-label', `重命名或删除谱系「${activeGraph.title}」`);
+    editBtn.title = '重命名 / 删除当前谱系';
+    editBtn.appendChild(icon('i-pencil'));
+
+    switcher.append(label, tabs, editBtn);
+    return switcher;
+  }
+
+  function createGraphEmptyState(novel) {
+    const characters = novel.entries.characters;
+    const empty = el('div', 'graph-empty');
+
+    const iconWrap = el('span', 'graph-empty-icon');
+    iconWrap.appendChild(icon(characters.length < 2 ? 'i-users' : 'i-link'));
+
+    const title = el(
+      'h3',
+      '',
+      characters.length < 2 ? '还需要一位角色' : '这个谱系还没有关系'
+    );
+    const text = el(
+      'p',
+      '',
+      characters.length < 2
+        ? '至少需要两位角色才能建立关系。先去角色档案里添加新角色吧。'
+        : '点击「添加关系」，把相关的角色连起来；连过的角色会自动出现在这张谱系里。'
+    );
+
+    const action = el('button', 'btn primary');
+    action.type = 'button';
+    action.dataset.novelId = novel.id;
+    if (characters.length < 2) {
+      action.dataset.action = 'new-entry';
+      action.dataset.sectionKey = 'characters';
+      action.append(icon('i-plus'), document.createTextNode('添加角色'));
+    } else {
+      action.dataset.action = 'add-relation';
+      action.append(icon('i-link'), document.createTextNode('添加关系'));
+    }
+
+    empty.append(iconWrap, title, text, action);
+    return empty;
+  }
+
+  function getActiveRelationGraph(novel) {
+    const graphs =
+      Array.isArray(novel.relationGraphs) && novel.relationGraphs.length > 0
+        ? novel.relationGraphs
+        : normalizeRelationGraphs([]);
+    const remembered = state.activeGraphByNovel[novel.id];
+    const graph = graphs.find((item) => item.id === remembered) || graphs[0];
+    state.activeGraphByNovel[novel.id] = graph.id;
+    return graph;
+  }
+
+  function getGraphEntries(novel, graph) {
+    const characters = [...novel.entries.characters].sort(
       (a, b) =>
         timeValue(a.createdAt) - timeValue(b.createdAt) ||
         a.title.localeCompare(b.title, 'zh-Hans-CN')
     );
+    if (!graph) return characters;
+
+    const memberIds = new Set();
+    const relations = Array.isArray(novel.relations) ? novel.relations : [];
+    for (const relation of relations) {
+      if (relation.graphId !== graph.id) continue;
+      memberIds.add(relation.source);
+      memberIds.add(relation.target);
+    }
+    return characters.filter((entry) => memberIds.has(entry.id));
   }
 
-  function getGraphRelations(novel, nodes) {
+  function getGraphRelations(novel, nodes, graphId) {
     const ids = new Set(nodes.map((node) => node.id));
     const list = Array.isArray(novel.relations) ? novel.relations : [];
     return list.filter(
-      (relation) => ids.has(relation.source) && ids.has(relation.target)
+      (relation) =>
+        relation.graphId === graphId &&
+        ids.has(relation.source) &&
+        ids.has(relation.target)
     );
   }
 
-  function resolveGraphPositions(nodes, relations) {
+  function resolveGraphPositions(nodes, relations, graphId) {
     const positions = new Map();
     const missing = [];
 
     for (const node of nodes) {
-      if (node.graphPos) {
-        positions.set(node.id, { x: node.graphPos.x, y: node.graphPos.y });
+      const stored = node.graphPositions ? node.graphPositions[graphId] : null;
+      const legacy = graphId === GRAPH_PRIMARY_ID ? node.graphPos : null;
+      const point = stored || legacy;
+      if (point) {
+        positions.set(node.id, { x: point.x, y: point.y });
       } else {
         missing.push(node);
       }
@@ -2520,6 +2926,36 @@
     view.line.setAttribute('d', path);
     view.hit.setAttribute('d', path);
 
+    if (view.arrow) {
+      if (view.relation.directed === true) {
+        let tangentX = endX - controlX;
+        let tangentY = endY - controlY;
+        const tangentLength = Math.hypot(tangentX, tangentY) || 1;
+        tangentX /= tangentLength;
+        tangentY /= tangentLength;
+
+        const arrowLength = 14;
+        const arrowHalfWidth = 6.5;
+        const baseX = endX - tangentX * arrowLength;
+        const baseY = endY - tangentY * arrowLength;
+        const perpX = -tangentY;
+        const perpY = tangentX;
+        const leftX = baseX + perpX * arrowHalfWidth;
+        const leftY = baseY + perpY * arrowHalfWidth;
+        const rightX = baseX - perpX * arrowHalfWidth;
+        const rightY = baseY - perpY * arrowHalfWidth;
+
+        view.arrow.setAttribute(
+          'd',
+          `M${endX.toFixed(1)} ${endY.toFixed(1)} L${leftX.toFixed(
+            1
+          )} ${leftY.toFixed(1)} L${rightX.toFixed(1)} ${rightY.toFixed(1)} Z`
+        );
+      } else {
+        view.arrow.removeAttribute('d');
+      }
+    }
+
     view.geometry = {
       startX,
       startY,
@@ -2682,7 +3118,7 @@
     );
   }
 
-  function persistCharacterGraphPositions(novelId, positions) {
+  function persistCharacterGraphPositions(novelId, positions, graphId) {
     const novel = findNovel(novelId);
     if (!novel) return false;
 
@@ -2690,11 +3126,16 @@
     const nextEntries = novel.entries.characters.map((entry) => {
       const point = positions.get(entry.id);
       if (!point) return entry;
+      const rounded = {
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+      };
       return {
         ...entry,
-        graphPos: {
-          x: Math.round(point.x),
-          y: Math.round(point.y),
+        graphPos: graphId === GRAPH_PRIMARY_ID ? rounded : entry.graphPos,
+        graphPositions: {
+          ...(entry.graphPositions || {}),
+          [graphId]: rounded,
         },
       };
     });
@@ -2715,17 +3156,20 @@
     return true;
   }
 
-  function relayoutCharacterGraph(novelId) {
+  function relayoutCharacterGraph(novelId, graphId) {
     const novel = findNovel(novelId);
     if (!novel) {
       refreshCurrentView();
       return;
     }
 
-    const nodes = getGraphEntries(novel);
-    const relations = getGraphRelations(novel, nodes);
+    const graph =
+      novel.relationGraphs.find((item) => item.id === graphId) ||
+      getActiveRelationGraph(novel);
+    const nodes = getGraphEntries(novel, graph);
+    const relations = getGraphRelations(novel, nodes, graph.id);
     const positions = computeAutoGraphPositions(nodes, relations);
-    if (!persistCharacterGraphPositions(novelId, positions)) return;
+    if (!persistCharacterGraphPositions(novelId, positions, graph.id)) return;
 
     refreshCurrentView();
     showToast('关系图已重新排布');
@@ -3068,6 +3512,7 @@
         createdAt: now,
         updatedAt: now,
         entries: createEmptyEntries(),
+        relationGraphs: normalizeRelationGraphs([]),
         relations: [],
       };
       state.novels = [novel, ...state.novels];
@@ -3434,7 +3879,13 @@
 
   /* ---------- Character relations ---------- */
 
-  function openRelationEditor({ novelId, relationId = null, fromId = null, toId = null }) {
+  function openRelationEditor({
+    novelId,
+    relationId = null,
+    fromId = null,
+    toId = null,
+    graphId = null,
+  }) {
     const novel = findNovel(novelId);
     if (!novel) {
       showToast('这本小说已经不在了', 'error');
@@ -3460,9 +3911,16 @@
       return;
     }
 
+    const graphs = Array.isArray(novel.relationGraphs) ? novel.relationGraphs : [];
+    let graph = relation
+      ? graphs.find((item) => item.id === relation.graphId)
+      : graphs.find((item) => item.id === graphId);
+    if (!graph) graph = getActiveRelationGraph(novel);
+
     state.relationDraft = {
       novelId,
       id: relation ? relation.id : null,
+      graphId: graph.id,
     };
 
     els.relationForm.reset();
@@ -3492,9 +3950,15 @@
     els.relationToSelect.value = target;
     els.relationLabelInput.value = relation ? relation.label : '';
 
-    els.relationDialogEyebrow.textContent = relation
-      ? 'RELATIONS · EDIT'
-      : 'RELATIONS · NEW';
+    const directed = relation ? relation.directed === true : false;
+    els.relationDirectionBoth.checked = !directed;
+    els.relationDirectionOneWay.checked = directed;
+    syncRelationDirectionUI();
+
+    els.relationDialogEyebrow.textContent = `${relation ? 'RELATIONS · EDIT' : 'RELATIONS · NEW'} · ${shortenGraphText(
+      graph.title,
+      14
+    )}`;
     els.relationDialogTitle.textContent = relation ? '编辑人物关系' : '添加人物关系';
     els.relationSaveBtn.textContent = relation ? '保存修改' : '保存关系';
     els.relationDeleteBtn.hidden = !relation;
@@ -3506,8 +3970,29 @@
     });
   }
 
+  function syncRelationDirectionUI() {
+    const directed = els.relationDirectionOneWay.checked;
+    els.relationRouteMark.textContent = directed ? '→' : '↔';
+    els.relationFromLabelText.textContent = directed ? '起点角色' : '角色 A';
+    els.relationToLabelText.textContent = directed ? '终点角色' : '角色 B';
+    els.relationDirectionBothLabel.classList.toggle('is-active', !directed);
+    els.relationDirectionOneWayLabel.classList.toggle('is-active', directed);
+
+    const fromOption = els.relationFromSelect.selectedOptions[0];
+    const toOption = els.relationToSelect.selectedOptions[0];
+    const fromName = fromOption ? fromOption.textContent.split(' · ')[0] : '起点角色';
+    const toName = toOption ? toOption.textContent.split(' · ')[0] : '终点角色';
+
+    els.relationDirectionNote.textContent = directed
+      ? `箭头从「${fromName}」指向「${toName}」；交换左右两侧可以改变方向。`
+      : '双向关系：一条线同时连接两位角色。';
+    els.relationFormHint.textContent = directed
+      ? '单向关系会以箭头指向终点。删除角色时，关系线会暂时收起，恢复角色后会重新出现。'
+      : '双向关系没有箭头。删除角色时，关系线会暂时收起，恢复角色后会重新出现。';
+  }
+
   function saveRelation() {
-    const { novelId, id } = state.relationDraft;
+    const { novelId, id, graphId } = state.relationDraft;
     const novel = findNovel(novelId);
     if (!novel) {
       els.relationDialog.close();
@@ -3522,6 +4007,7 @@
       .trim()
       .replace(/\s+/g, ' ')
       .slice(0, GRAPH_MAX_LABEL_LENGTH);
+    const directed = els.relationDirectionOneWay.checked;
 
     clearRelationErrors();
 
@@ -3545,15 +4031,23 @@
       return;
     }
 
+    const graphs = Array.isArray(novel.relationGraphs) ? novel.relationGraphs : [];
+    const graph =
+      graphs.find((item) => item.id === graphId) || getActiveRelationGraph(novel);
+    const relationGraphId = graph.id;
+
     const relations = Array.isArray(novel.relations) ? novel.relations : [];
     const pairKey = relationPairKey(source, target);
     const duplicate = relations.find(
       (relation) =>
         relation.id !== id &&
+        relation.graphId === relationGraphId &&
         relationPairKey(relation.source, relation.target) === pairKey
     );
     if (duplicate) {
-      showRelationFormError('这两位角色之间已经有一条关系了，点击那条线即可修改。');
+      showRelationFormError(
+        `「${graph.title}」里这两位角色已经有一条关系了，点击那条线即可修改。`
+      );
       return;
     }
 
@@ -3567,7 +4061,16 @@
         return;
       }
       nextRelations = relations.map((relation) =>
-        relation.id === id ? { ...relation, source, target, label } : relation
+        relation.id === id
+          ? {
+              ...relation,
+              source,
+              target,
+              label,
+              directed,
+              graphId: relationGraphId,
+            }
+          : relation
       );
     } else {
       if (relations.length >= GRAPH_MAX_RELATIONS) {
@@ -3576,7 +4079,14 @@
       }
       nextRelations = [
         ...relations,
-        { id: makeId(), source, target, label },
+        {
+          id: makeId(),
+          source,
+          target,
+          label,
+          directed,
+          graphId: relationGraphId,
+        },
       ];
     }
 
@@ -3668,6 +4178,231 @@
   function showRelationFormError(message) {
     els.relationFormError.textContent = message;
     els.relationFormError.hidden = false;
+  }
+
+  function switchRelationGraph(novelId, graphId) {
+    const novel = findNovel(novelId);
+    if (!novel || !Array.isArray(novel.relationGraphs)) return;
+    if (!novel.relationGraphs.some((graph) => graph.id === graphId)) return;
+
+    state.activeGraphByNovel[novelId] = graphId;
+    if (
+      state.route &&
+      state.route.view === 'section' &&
+      state.route.sectionKey === 'characters'
+    ) {
+      renderSection(novel, 'characters');
+      const tab = [
+        ...els.workspaceContent.querySelectorAll('[data-action="switch-graph"]'),
+      ].find((button) => button.dataset.graphId === graphId);
+      if (tab) tab.focus({ preventScroll: true });
+    }
+  }
+
+  function openGraphEditor({ novelId, graphId = null }) {
+    const novel = findNovel(novelId);
+    if (!novel) {
+      showToast('这本小说已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const graphs = Array.isArray(novel.relationGraphs) ? novel.relationGraphs : [];
+    const graph = graphId ? graphs.find((item) => item.id === graphId) : null;
+    if (graphId && !graph) {
+      showToast('这个谱系已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+    if (!graph && graphs.length >= GRAPH_MAX_GRAPHS) {
+      showToast(`一部小说最多保留 ${GRAPH_MAX_GRAPHS} 张谱系`, 'error');
+      return;
+    }
+
+    state.graphDraft = {
+      novelId,
+      id: graph ? graph.id : null,
+    };
+
+    clearGraphError();
+    els.graphForm.reset();
+    els.graphTitleInput.value = graph ? graph.title : `谱系 ${graphs.length + 1}`;
+
+    els.graphDialogEyebrow.textContent = graph ? 'LINEAGE · EDIT' : 'LINEAGE · NEW';
+    els.graphDialogTitle.textContent = graph ? '编辑谱系' : '新建谱系';
+    els.graphSaveBtn.textContent = graph ? '保存修改' : '创建谱系';
+    els.graphDeleteBtn.hidden = !graph || graphs.length <= 1;
+
+    els.graphDialog.showModal();
+    requestAnimationFrame(() => {
+      els.graphTitleInput.focus();
+      els.graphTitleInput.select();
+    });
+  }
+
+  function clearGraphError() {
+    els.graphTitleField.classList.remove('has-error');
+    els.graphTitleError.hidden = true;
+  }
+
+  function showGraphError(message) {
+    els.graphTitleField.classList.add('has-error');
+    els.graphTitleError.textContent = message;
+    els.graphTitleError.hidden = false;
+    els.graphTitleInput.focus();
+  }
+
+  function saveRelationGraph() {
+    const { novelId, id } = state.graphDraft;
+    const novel = findNovel(novelId);
+    if (!novel) {
+      els.graphDialog.close();
+      showToast('这本小说已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const title = els.graphTitleInput.value
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, GRAPH_MAX_GRAPH_TITLE);
+    clearGraphError();
+
+    if (!title) {
+      showGraphError('请写下一个谱系名称。');
+      return;
+    }
+
+    const graphs = Array.isArray(novel.relationGraphs) ? novel.relationGraphs : [];
+    const duplicate = graphs.find(
+      (graph) => graph.id !== id && graph.title.toLowerCase() === title.toLowerCase()
+    );
+    if (duplicate) {
+      showGraphError('已经有同名谱系了，换一个名字吧。');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    let nextGraphs;
+    let createdId = null;
+    if (id) {
+      if (!graphs.some((graph) => graph.id === id)) {
+        els.graphDialog.close();
+        showToast('这个谱系已经不在了', 'error');
+        refreshCurrentView();
+        return;
+      }
+      nextGraphs = graphs.map((graph) =>
+        graph.id === id ? { ...graph, title } : graph
+      );
+    } else {
+      if (graphs.length >= GRAPH_MAX_GRAPHS) {
+        showToast(`一部小说最多保留 ${GRAPH_MAX_GRAPHS} 张谱系`, 'error');
+        return;
+      }
+      createdId = makeId();
+      nextGraphs = [...graphs, { id: createdId, title, createdAt: now }];
+    }
+
+    const previous = state.novels;
+    state.novels = state.novels.map((item) =>
+      item.id === novelId
+        ? { ...item, relationGraphs: nextGraphs, updatedAt: now }
+        : item
+    );
+
+    if (!persist()) {
+      state.novels = previous;
+      return;
+    }
+
+    if (createdId) state.activeGraphByNovel[novelId] = createdId;
+    els.graphDialog.close();
+    refreshCurrentView();
+    showToast(id ? '谱系已更新' : '谱系已创建');
+  }
+
+  function askDeleteRelationGraph() {
+    const { novelId, id } = state.graphDraft;
+    const novel = findNovel(novelId);
+    const graph =
+      novel && Array.isArray(novel.relationGraphs)
+        ? novel.relationGraphs.find((item) => item.id === id)
+        : null;
+
+    if (!novel || !graph) {
+      els.graphDialog.close();
+      showToast('这个谱系已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+    if (novel.relationGraphs.length <= 1) {
+      showToast('至少需要保留一个谱系', 'error');
+      return;
+    }
+
+    const relations = Array.isArray(novel.relations) ? novel.relations : [];
+    const count = relations.filter((relation) => relation.graphId === graph.id).length;
+    const title = graph.title;
+    els.graphDialog.close();
+
+    openConfirm({
+      title: '删除这个谱系？',
+      message:
+        count > 0
+          ? `「${title}」中的 ${count} 条关系也会一并删除，此操作无法撤销。`
+          : `「${title}」里还没有关系，删除后无法恢复。`,
+      okLabel: '删除谱系',
+      onConfirm: () => deleteRelationGraph(novelId, graph.id),
+    });
+  }
+
+  function deleteRelationGraph(novelId, graphId) {
+    const novel = findNovel(novelId);
+    if (
+      !novel ||
+      !Array.isArray(novel.relationGraphs) ||
+      novel.relationGraphs.length <= 1
+    ) {
+      refreshCurrentView();
+      return;
+    }
+    const graph = novel.relationGraphs.find((item) => item.id === graphId);
+    if (!graph) {
+      refreshCurrentView();
+      return;
+    }
+
+    const previous = state.novels;
+    const now = new Date().toISOString();
+    const nextGraphs = novel.relationGraphs.filter((item) => item.id !== graphId);
+    const nextRelations = (Array.isArray(novel.relations) ? novel.relations : []).filter(
+      (relation) => relation.graphId !== graphId
+    );
+
+    state.novels = state.novels.map((item) =>
+      item.id === novelId
+        ? {
+            ...item,
+            relationGraphs: nextGraphs,
+            relations: nextRelations,
+            updatedAt: now,
+          }
+        : item
+    );
+
+    if (!persist()) {
+      state.novels = previous;
+      return;
+    }
+
+    if (state.activeGraphByNovel[novelId] === graphId) {
+      state.activeGraphByNovel[novelId] = nextGraphs[0].id;
+    }
+    delete state.graphViews[`${novelId}:${graphId}`];
+
+    refreshCurrentView();
+    showToast('谱系已删除');
   }
 
   function setCharactersView(view) {
@@ -5617,10 +6352,16 @@
         merged.entries[key] = [...entryMap.values()];
       }
 
+      merged.relationGraphs = mergeRelationGraphs(
+        current.relationGraphs,
+        inc.relationGraphs,
+        incomingIsNewer
+      );
       merged.relations = mergeCharacterRelations(
         current.relations,
         inc.relations,
-        incomingIsNewer
+        incomingIsNewer,
+        merged.relationGraphs
       );
       merged.updatedAt = incomingIsNewer ? inc.updatedAt : current.updatedAt;
       novelMap.set(current.id, merged);
@@ -5631,7 +6372,25 @@
     return { addedNovels, updatedNovels, addedEntries, updatedEntries };
   }
 
-  function mergeCharacterRelations(currentRelations, incomingRelations, incomingIsNewer) {
+  function mergeRelationGraphs(currentGraphs, incomingGraphs, incomingIsNewer) {
+    const currentList = normalizeRelationGraphs(currentGraphs);
+    const incomingList = normalizeRelationGraphs(incomingGraphs);
+    const preferred = incomingIsNewer ? incomingList : currentList;
+    const fallback = incomingIsNewer ? currentList : incomingList;
+    const graphMap = new Map();
+
+    for (const graph of fallback) graphMap.set(graph.id, graph);
+    for (const graph of preferred) graphMap.set(graph.id, graph);
+
+    return [...graphMap.values()];
+  }
+
+  function mergeCharacterRelations(
+    currentRelations,
+    incomingRelations,
+    incomingIsNewer,
+    graphs
+  ) {
     const currentList = Array.isArray(currentRelations) ? currentRelations : [];
     const incomingList = Array.isArray(incomingRelations) ? incomingRelations : [];
     const preferred = incomingIsNewer ? incomingList : currentList;
@@ -5639,13 +6398,25 @@
     const relationMap = new Map();
 
     for (const relation of fallback) {
-      relationMap.set(relationPairKey(relation.source, relation.target), relation);
+      relationMap.set(
+        `${relation.graphId || GRAPH_PRIMARY_ID}::${relationPairKey(
+          relation.source,
+          relation.target
+        )}`,
+        relation
+      );
     }
     for (const relation of preferred) {
-      relationMap.set(relationPairKey(relation.source, relation.target), relation);
+      relationMap.set(
+        `${relation.graphId || GRAPH_PRIMARY_ID}::${relationPairKey(
+          relation.source,
+          relation.target
+        )}`,
+        relation
+      );
     }
 
-    return normalizeCharacterRelations([...relationMap.values()]);
+    return normalizeCharacterRelations([...relationMap.values()], graphs);
   }
 
   function mergeTrash(incoming) {
@@ -6073,8 +6844,22 @@
     );
 
     els.relationLabelInput.addEventListener('input', clearRelationErrors);
-    els.relationFromSelect.addEventListener('change', clearRelationErrors);
-    els.relationToSelect.addEventListener('change', clearRelationErrors);
+    els.relationFromSelect.addEventListener('change', () => {
+      clearRelationErrors();
+      syncRelationDirectionUI();
+    });
+    els.relationToSelect.addEventListener('change', () => {
+      clearRelationErrors();
+      syncRelationDirectionUI();
+    });
+    els.relationDirectionBoth.addEventListener('change', () => {
+      clearRelationErrors();
+      syncRelationDirectionUI();
+    });
+    els.relationDirectionOneWay.addEventListener('change', () => {
+      clearRelationErrors();
+      syncRelationDirectionUI();
+    });
 
     els.relationPresets.addEventListener('click', (event) => {
       const button = event.target.closest('[data-relation-preset]');
@@ -6088,9 +6873,28 @@
 
     els.relationDialog.addEventListener('close', () => {
       if (els.relationDialog.open) return;
-      state.relationDraft = { novelId: null, id: null };
+      state.relationDraft = { novelId: null, id: null, graphId: null };
       els.relationForm.reset();
       clearRelationErrors();
+    });
+
+    els.graphForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveRelationGraph();
+    });
+
+    els.graphDialogCloseBtn.addEventListener('click', () =>
+      els.graphDialog.close()
+    );
+    els.graphCancelBtn.addEventListener('click', () => els.graphDialog.close());
+    els.graphTitleInput.addEventListener('input', clearGraphError);
+    els.graphDeleteBtn.addEventListener('click', () => askDeleteRelationGraph());
+
+    els.graphDialog.addEventListener('close', () => {
+      if (els.graphDialog.open) return;
+      state.graphDraft = { novelId: null, id: null };
+      els.graphForm.reset();
+      clearGraphError();
     });
 
     els.entryTagEditor.addEventListener('click', (event) => {
@@ -6319,6 +7123,7 @@
         els.novelDialog.open ||
         els.entryDialog.open ||
         els.relationDialog.open ||
+        els.graphDialog.open ||
         els.confirmDialog.open ||
         els.mapDialog.open
       ) {
@@ -6484,11 +7289,29 @@
         break;
       case 'add-relation':
         event.preventDefault();
-        if (novelId) openRelationEditor({ novelId });
+        if (novelId) {
+          openRelationEditor({ novelId, graphId: actionEl.dataset.graphId || null });
+        }
         break;
       case 'layout-graph':
         event.preventDefault();
-        if (novelId) relayoutCharacterGraph(novelId);
+        if (novelId) relayoutCharacterGraph(novelId, actionEl.dataset.graphId || null);
+        break;
+      case 'switch-graph':
+        event.preventDefault();
+        if (novelId && actionEl.dataset.graphId) {
+          switchRelationGraph(novelId, actionEl.dataset.graphId);
+        }
+        break;
+      case 'new-graph':
+        event.preventDefault();
+        if (novelId) openGraphEditor({ novelId });
+        break;
+      case 'edit-graph':
+        event.preventDefault();
+        if (novelId && actionEl.dataset.graphId) {
+          openGraphEditor({ novelId, graphId: actionEl.dataset.graphId });
+        }
         break;
       case 'restore-trash':
         event.preventDefault();
