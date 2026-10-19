@@ -115,6 +115,54 @@ layout: default
         </section>
       </section>
 
+      <section class="view" id="trashView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            我的书架
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current">回收站</span>
+        </nav>
+
+        <header class="page-head trash-head">
+          <div class="page-head-copy">
+            <p class="eyebrow">RECYCLE BIN</p>
+            <h1>回收站</h1>
+            <p class="page-desc">删除的小说和词条会先放在这里。恢复后会回到原来的位置；彻底删除后无法找回。</p>
+          </div>
+          <button type="button" class="btn ghost danger-hover" id="trashClearBtn" data-action="clear-trash" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+            清空回收站
+          </button>
+        </header>
+
+        <section class="shelf-section" aria-labelledby="trashHeading">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">RESTORE OR REMOVE</p>
+              <h2 id="trashHeading">已删除的内容</h2>
+            </div>
+            <p class="section-note">恢复前会保留原始内容与地图数据。</p>
+          </div>
+
+          <div class="list-meta">
+            <p id="trashCount" aria-live="polite">回收站是空的</p>
+          </div>
+
+          <div class="trash-list" id="trashList"></div>
+
+          <div class="empty-state" id="trashEmpty" hidden>
+            <div class="trash-empty-icon" aria-hidden="true">
+              <svg class="icon"><use href="#i-trash"></use></svg>
+            </div>
+            <h3>回收站是空的</h3>
+            <p>删除的小说和词条会暂时收在这里，确认不需要后再彻底删除。</p>
+            <a class="btn ghost" href="#/">返回书架</a>
+          </div>
+        </section>
+      </section>
+
       <section class="view" id="novelView" hidden>
         <nav class="workspace-breadcrumb" aria-label="面包屑">
           <a class="back-link" href="#/">

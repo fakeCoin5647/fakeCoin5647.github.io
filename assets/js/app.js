@@ -161,8 +161,14 @@
 
   const els = {
     shelfView: $('#shelfView'),
+    trashView: $('#trashView'),
     novelView: $('#novelView'),
     missingView: $('#missingView'),
+
+    trashList: $('#trashList'),
+    trashEmpty: $('#trashEmpty'),
+    trashCount: $('#trashCount'),
+    trashClearBtn: $('#trashClearBtn'),
 
     shelfToolbar: $('#shelfToolbar'),
     shelfSearchInput: $('#shelfSearchInput'),
@@ -201,6 +207,8 @@
     workspaceContent: $('#workspaceContent'),
 
     sidebarShelfLink: $('#sidebarShelfLink'),
+    sidebarTrashLink: $('#sidebarTrashLink'),
+    sidebarTrashCount: $('#sidebarTrashCount'),
     sidebarNovelList: $('#sidebarNovelList'),
     sidebarNovelsEmpty: $('#sidebarNovelsEmpty'),
     sidebarSectionsGroup: $('#sidebarSectionsGroup'),
@@ -292,6 +300,7 @@
 
   const state = {
     novels: [],
+    trash: [],
     route: null,
     shelf: { query: '', status: 'all', sort: 'updated' },
     novelDraft: { id: null, dirty: false },
@@ -307,7 +316,9 @@
   init();
 
   function init() {
-    state.novels = loadNovels();
+    const library = loadLibrary();
+    state.novels = library.novels;
+    state.trash = library.trash;
     els.year.textContent = new Date().getFullYear();
     bindEvents();
     renderRoute();
@@ -331,14 +342,14 @@
     }
   }
 
-  function loadNovels() {
+  function loadLibrary() {
     let raw;
     try {
       raw = localStorage.getItem(STORAGE_KEY);
     } catch (error) {
-      return [];
+      return { novels: [], trash: [] };
     }
-    if (!raw) return [];
+    if (!raw) return { novels: [], trash: [] };
 
     try {
       const parsed = JSON.parse(raw);
@@ -347,10 +358,28 @@
         : parsed && Array.isArray(parsed.novels)
           ? parsed.novels
           : [];
-      return list.map((item) => normalizeNovel(item)?.novel).filter(Boolean);
+      const rawTrash =
+        parsed && !Array.isArray(parsed) && Array.isArray(parsed.trash)
+          ? parsed.trash
+          : [];
+      const seen = new Set();
+      const trash = [];
+
+      for (const rawItem of rawTrash) {
+        const item = normalizeTrashItem(rawItem);
+        if (!item || seen.has(item.id)) continue;
+        seen.add(item.id);
+        trash.push(item);
+      }
+      trash.sort((a, b) => timeValue(b.deletedAt) - timeValue(a.deletedAt));
+
+      return {
+        novels: list.map((item) => normalizeNovel(item)?.novel).filter(Boolean),
+        trash,
+      };
     } catch (error) {
       console.warn('读取本地故事簿失败：', error);
-      return [];
+      return { novels: [], trash: [] };
     }
   }
 
@@ -358,7 +387,11 @@
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ version: LIBRARY_VERSION, novels: state.novels })
+        JSON.stringify({
+          version: LIBRARY_VERSION,
+          novels: state.novels,
+          trash: state.trash,
+        })
       );
       return true;
     } catch (error) {
@@ -441,6 +474,57 @@
       createdAt,
       updatedAt,
       map: normalizeMap(raw.map),
+    };
+  }
+
+  function normalizeTrashItem(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (raw.type !== 'novel' && raw.type !== 'entry') return null;
+
+    const id = cleanText(raw.id, 80) || makeId();
+    const deletedAt = parseDate(raw.deletedAt) || new Date().toISOString();
+    const index = clampInt(raw.index, 0, 100000, 0);
+
+    if (raw.type === 'novel') {
+      const result = normalizeNovel(raw.payload);
+      if (!result) return null;
+      const novel = result.novel;
+      return {
+        id,
+        type: 'novel',
+        deletedAt,
+        novelId: novel.id,
+        novelTitle: novel.title,
+        sectionKey: null,
+        sectionLabel: null,
+        entryId: null,
+        entryTitle: null,
+        index,
+        payload: novel,
+      };
+    }
+
+    const sectionKey =
+      typeof raw.sectionKey === 'string' &&
+      Object.prototype.hasOwnProperty.call(SECTIONS, raw.sectionKey)
+        ? raw.sectionKey
+        : null;
+    const novelId = cleanText(raw.novelId, 80);
+    const entry = normalizeEntry(raw.payload);
+    if (!sectionKey || !novelId || !entry) return null;
+
+    return {
+      id,
+      type: 'entry',
+      deletedAt,
+      novelId,
+      novelTitle: cleanText(raw.novelTitle, 60),
+      sectionKey,
+      sectionLabel: SECTIONS[sectionKey].label,
+      entryId: entry.id,
+      entryTitle: entry.title,
+      index,
+      payload: entry,
     };
   }
 
@@ -548,6 +632,10 @@
       return { view: 'missing' };
     }
 
+    if (parts[0] === 'trash') {
+      return parts.length === 1 ? { view: 'trash' } : { view: 'missing' };
+    }
+
     if (parts[0] !== 'novel' || !parts[1]) return { view: 'missing' };
 
     const novel = findNovel(parts[1]);
@@ -579,6 +667,9 @@
     if (route.view === 'shelf') {
       showView('shelf');
       renderShelf();
+    } else if (route.view === 'trash') {
+      showView('trash');
+      renderTrash();
     } else if (route.view === 'missing') {
       showView('missing');
       renderSidebar(route);
@@ -601,6 +692,7 @@
 
   function showView(name) {
     els.shelfView.hidden = name !== 'shelf';
+    els.trashView.hidden = name !== 'trash';
     els.novelView.hidden = name !== 'novel';
     els.missingView.hidden = name !== 'missing';
   }
@@ -608,6 +700,8 @@
   function updateDocumentTitle(route) {
     if (route.view === 'shelf') {
       document.title = '故事簿 · 我的小说书架';
+    } else if (route.view === 'trash') {
+      document.title = '回收站 · 故事簿';
     } else if (route.view === 'missing') {
       document.title = '这一页还没有写进故事里 · 故事簿';
     } else if (route.view === 'novel') {
@@ -830,6 +924,98 @@
     syncShelfSearchBox();
   }
 
+  /* ---------- Trash ---------- */
+
+  function renderTrash() {
+    const items = [...state.trash].sort(
+      (a, b) => timeValue(b.deletedAt) - timeValue(a.deletedAt)
+    );
+    const fragment = document.createDocumentFragment();
+    for (const item of items) {
+      fragment.appendChild(createTrashCard(item));
+    }
+
+    els.trashList.replaceChildren(fragment);
+    els.trashList.hidden = items.length === 0;
+    els.trashEmpty.hidden = items.length > 0;
+    els.trashCount.hidden = items.length === 0;
+    els.trashClearBtn.hidden = items.length === 0;
+    els.trashClearBtn.disabled = items.length === 0;
+
+    if (items.length === 0) {
+      els.trashCount.textContent = '回收站是空的';
+    } else {
+      const novelCount = items.filter((item) => item.type === 'novel').length;
+      const entryCount = items.length - novelCount;
+      els.trashCount.textContent =
+        `共 ${items.length} 项 · ${novelCount} 本小说 · ${entryCount} 条词条`;
+    }
+
+    renderSidebar(state.route);
+  }
+
+  function createTrashCard(item) {
+    const isNovel = item.type === 'novel';
+    const novel = isNovel ? null : findNovel(item.novelId);
+    const title = isNovel ? item.payload.title : item.entryTitle;
+    const sectionLabel = isNovel
+      ? ''
+      : SECTIONS[item.sectionKey]?.label || item.sectionLabel || '词条';
+
+    const card = el('article', `trash-card ${isNovel ? 'is-novel' : 'is-entry'}`);
+    card.dataset.trashId = item.id;
+
+    const iconWrap = el('div', 'trash-icon');
+    iconWrap.appendChild(
+      icon(isNovel ? 'i-book' : SECTIONS[item.sectionKey]?.icon || 'i-notes')
+    );
+
+    const main = el('div', 'trash-main');
+    const kicker = el('div', 'trash-kicker');
+    kicker.appendChild(el('span', 'trash-type', isNovel ? '小说' : sectionLabel));
+    if (!isNovel && !novel) {
+      kicker.appendChild(el('span', 'trash-warning', '所属小说已删除'));
+    }
+    main.appendChild(kicker);
+    main.appendChild(el('h3', 'trash-title', title));
+
+    const deletedAt = new Date(item.deletedAt);
+    const metaText = isNovel
+      ? `删除于 ${fullDate(deletedAt)} · 含 ${countNovelEntries(item.payload)} 条内容`
+      : `来自《${novel?.title || item.novelTitle || '未知小说'}》 · 删除于 ${fullDate(deletedAt)}`;
+    main.appendChild(el('p', 'trash-meta', metaText));
+
+    const summaryText = isNovel
+      ? item.payload.summary || '这本小说没有填写简介。'
+      : item.payload.summary || item.payload.subtitle || '这条内容没有填写简介。';
+    main.appendChild(el('p', 'trash-summary', summaryText));
+
+    const actions = el('div', 'trash-actions');
+    const restoreBtn = el('button', 'btn ghost', '恢复');
+    restoreBtn.type = 'button';
+    restoreBtn.dataset.action = 'restore-trash';
+    restoreBtn.dataset.trashId = item.id;
+    const restorable = isNovel || Boolean(novel);
+    restoreBtn.disabled = !restorable;
+    if (!restorable) restoreBtn.title = '请先恢复这本小说';
+    restoreBtn.setAttribute(
+      'aria-label',
+      `恢复${isNovel ? '小说' : '词条'}「${title}」`
+    );
+
+    const purgeBtn = el('button', 'icon-btn danger-hover');
+    purgeBtn.type = 'button';
+    purgeBtn.dataset.action = 'purge-trash';
+    purgeBtn.dataset.trashId = item.id;
+    purgeBtn.setAttribute('aria-label', `彻底删除「${title}」`);
+    purgeBtn.title = '彻底删除';
+    purgeBtn.appendChild(icon('i-trash'));
+
+    actions.append(restoreBtn, purgeBtn);
+    card.append(iconWrap, main, actions);
+    return card;
+  }
+
   /* ---------- Novel workspace ---------- */
 
   function renderNovelWorkspace(route) {
@@ -880,6 +1066,7 @@
 
   function renderSidebar(route = state.route) {
     const onShelf = Boolean(route && route.view === 'shelf');
+    const onTrash = Boolean(route && route.view === 'trash');
     const currentNovel =
       route && ['novel', 'section', 'entry'].includes(route.view) ? route.novel : null;
 
@@ -889,6 +1076,16 @@
     } else {
       els.sidebarShelfLink.removeAttribute('aria-current');
     }
+
+    els.sidebarTrashLink.classList.toggle('is-active', onTrash);
+    if (onTrash) {
+      els.sidebarTrashLink.setAttribute('aria-current', 'page');
+    } else {
+      els.sidebarTrashLink.removeAttribute('aria-current');
+    }
+    const trashCount = state.trash.length;
+    els.sidebarTrashCount.textContent = trashCount > 99 ? '99+' : String(trashCount);
+    els.sidebarTrashCount.hidden = trashCount === 0;
 
     const novels = [...state.novels].sort(
       (a, b) => pinWeight(b) - pinWeight(a) || timeValue(b.updatedAt) - timeValue(a.updatedAt)
@@ -2932,12 +3129,12 @@
 
     const total = countNovelEntries(novel);
     openConfirm({
-      title: '删除这本小说？',
+      title: '把这本小说移入回收站？',
       message:
         total > 0
-          ? `「${novel.title}」以及其中的 ${total} 条内容都会被永久删除，此操作无法撤销。`
-          : `「${novel.title}」将从书架中永久删除，此操作无法撤销。`,
-      okLabel: '删除',
+          ? `「${novel.title}」以及其中的 ${total} 条内容会移入回收站，之后可以恢复。`
+          : `「${novel.title}」会移入回收站，之后可以恢复。`,
+      okLabel: '移入回收站',
       onConfirm: () => deleteNovel(novelId),
     });
   }
@@ -2949,11 +3146,29 @@
       return;
     }
 
-    const previous = state.novels;
+    const previousNovels = state.novels;
+    const previousTrash = state.trash;
+    const index = state.novels.findIndex((item) => item.id === novelId);
+    const trashItem = {
+      id: makeId(),
+      type: 'novel',
+      deletedAt: new Date().toISOString(),
+      novelId: novel.id,
+      novelTitle: novel.title,
+      sectionKey: null,
+      sectionLabel: null,
+      entryId: null,
+      entryTitle: null,
+      index: Math.max(index, 0),
+      payload: novel,
+    };
+
     state.novels = state.novels.filter((item) => item.id !== novelId);
+    state.trash = [trashItem, ...state.trash];
 
     if (!persist()) {
-      state.novels = previous;
+      state.novels = previousNovels;
+      state.trash = previousTrash;
       return;
     }
 
@@ -2973,7 +3188,7 @@
       refreshCurrentView();
     }
 
-    showToast('小说已从书架移除');
+    showToast('小说已移入回收站，可在左侧回收站恢复');
   }
 
   function askDeleteEntry(novelId, sectionKey, entryId) {
@@ -2990,9 +3205,9 @@
 
     const config = SECTIONS[sectionKey];
     openConfirm({
-      title: `删除这个${config.singular}？`,
-      message: `「${entry.title}」将从「${novel.title}」中永久删除，此操作无法撤销。`,
-      okLabel: '删除',
+      title: `把这个${config.singular}移入回收站？`,
+      message: `「${entry.title}」会从「${novel.title}」移入回收站，之后可以恢复。`,
+      okLabel: '移入回收站',
       onConfirm: () => deleteEntry(novelId, sectionKey, entryId),
     });
   }
@@ -3004,14 +3219,31 @@
       return;
     }
 
-    const previous = state.novels;
-    const now = new Date().toISOString();
-    const nextEntries = novel.entries[sectionKey].filter((item) => item.id !== entryId);
-
-    if (nextEntries.length === novel.entries[sectionKey].length) {
+    const list = novel.entries[sectionKey];
+    const index = list.findIndex((item) => item.id === entryId);
+    if (index === -1) {
       refreshCurrentView();
       return;
     }
+
+    const entry = list[index];
+    const previousNovels = state.novels;
+    const previousTrash = state.trash;
+    const now = new Date().toISOString();
+    const nextEntries = list.filter((item) => item.id !== entryId);
+    const trashItem = {
+      id: makeId(),
+      type: 'entry',
+      deletedAt: now,
+      novelId: novel.id,
+      novelTitle: novel.title,
+      sectionKey,
+      sectionLabel: SECTIONS[sectionKey].label,
+      entryId: entry.id,
+      entryTitle: entry.title,
+      index,
+      payload: entry,
+    };
 
     state.novels = state.novels.map((item) =>
       item.id === novelId
@@ -3022,9 +3254,11 @@
           }
         : item
     );
+    state.trash = [trashItem, ...state.trash];
 
     if (!persist()) {
-      state.novels = previous;
+      state.novels = previousNovels;
+      state.trash = previousTrash;
       return;
     }
 
@@ -3040,7 +3274,169 @@
       refreshCurrentView();
     }
 
-    showToast(`${SECTIONS[sectionKey].singular}已删除`);
+    showToast('已移入回收站，可在左侧回收站恢复');
+  }
+
+  function findTrashItem(trashId) {
+    return state.trash.find((item) => item.id === trashId) || null;
+  }
+
+  function restoreTrashItem(trashId) {
+    const item = findTrashItem(trashId);
+    if (!item) {
+      renderTrash();
+      return;
+    }
+
+    const previousNovels = state.novels;
+    const previousTrash = state.trash;
+
+    if (item.type === 'novel') {
+      let novel = item.payload;
+      let renamed = false;
+      if (findNovel(novel.id)) {
+        novel = { ...novel, id: makeId() };
+        renamed = true;
+      }
+
+      const nextNovels = [...state.novels];
+      const index = Math.min(Math.max(item.index, 0), nextNovels.length);
+      nextNovels.splice(index, 0, novel);
+      state.novels = nextNovels;
+
+      if (renamed) {
+        state.trash = state.trash.map((entry) =>
+          entry.type === 'entry' && entry.novelId === item.novelId
+            ? { ...entry, novelId: novel.id }
+            : entry
+        );
+      }
+    } else {
+      const novel = findNovel(item.novelId);
+      if (!novel) {
+        showToast('所属小说已不在书架，请先恢复小说', 'error');
+        renderTrash();
+        return;
+      }
+
+      const list = novel.entries[item.sectionKey];
+      let entry = item.payload;
+      if (list.some((current) => current.id === entry.id)) {
+        entry = { ...entry, id: makeId() };
+      }
+
+      const nextList = [...list];
+      const index = Math.min(Math.max(item.index, 0), nextList.length);
+      nextList.splice(index, 0, entry);
+      const now = new Date().toISOString();
+
+      state.novels = state.novels.map((current) =>
+        current.id === novel.id
+          ? {
+              ...current,
+              updatedAt: now,
+              entries: { ...current.entries, [item.sectionKey]: nextList },
+            }
+          : current
+      );
+    }
+
+    state.trash = state.trash.filter((entry) => entry.id !== trashId);
+
+    if (!persist()) {
+      state.novels = previousNovels;
+      state.trash = previousTrash;
+      return;
+    }
+
+    renderTrash();
+    showToast(
+      item.type === 'novel'
+        ? `《${item.payload.title}》已恢复到书架`
+        : `${item.sectionLabel || '词条'}「${item.entryTitle}」已恢复`
+    );
+  }
+
+  function askPurgeTrashItem(trashId) {
+    const item = findTrashItem(trashId);
+    if (!item) {
+      renderTrash();
+      return;
+    }
+
+    const isNovel = item.type === 'novel';
+    const title = isNovel ? item.payload.title : item.entryTitle;
+    const relatedEntries = isNovel
+      ? state.trash.filter(
+          (entry) => entry.type === 'entry' && entry.novelId === item.novelId
+        ).length
+      : 0;
+    const relatedNote =
+      relatedEntries > 0
+        ? ` 同时会删除它的 ${relatedEntries} 条词条回收记录。`
+        : '';
+
+    openConfirm({
+      title: '彻底删除这项内容？',
+      message: isNovel
+        ? `「${title}」将从回收站中永久删除，无法恢复。${relatedNote}`
+        : `「${title}」将从回收站中永久删除，无法恢复。`,
+      okLabel: '彻底删除',
+      onConfirm: () => purgeTrashItem(trashId),
+    });
+  }
+
+  function purgeTrashItem(trashId) {
+    const item = findTrashItem(trashId);
+    if (!item) {
+      renderTrash();
+      return;
+    }
+
+    const previousTrash = state.trash;
+    state.trash = state.trash.filter((entry) => {
+      if (entry.id === trashId) return false;
+      if (
+        item.type === 'novel' &&
+        entry.type === 'entry' &&
+        entry.novelId === item.novelId
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    if (!persist()) {
+      state.trash = previousTrash;
+      return;
+    }
+
+    renderTrash();
+    showToast('已彻底删除');
+  }
+
+  function askClearTrash() {
+    if (state.trash.length === 0) return;
+
+    openConfirm({
+      title: '清空回收站？',
+      message: `回收站里的 ${state.trash.length} 项内容将被永久删除，无法恢复。`,
+      okLabel: '清空回收站',
+      onConfirm: clearTrash,
+    });
+  }
+
+  function clearTrash() {
+    const previousTrash = state.trash;
+    state.trash = [];
+
+    if (!persist()) {
+      state.trash = previousTrash;
+      return;
+    }
+
+    renderTrash();
+    showToast('回收站已清空');
   }
 
   function toggleNovelPin(novelId) {
@@ -3149,13 +3545,20 @@
         : parsed && Array.isArray(parsed.novels)
           ? parsed.novels
           : null;
+      const rawTrash =
+        parsed && !Array.isArray(parsed) && Array.isArray(parsed.trash)
+          ? parsed.trash
+          : [];
 
-      if (!rawNovels) throw new Error('这不是故事簿的备份文件');
+      if (!rawNovels && rawTrash.length === 0) {
+        throw new Error('这不是故事簿的备份文件');
+      }
 
       const incoming = [];
+      const incomingTrash = [];
       let skipped = 0;
 
-      for (const raw of rawNovels) {
+      for (const raw of rawNovels || []) {
         const result = normalizeNovel(raw);
         if (!result) {
           skipped += 1;
@@ -3165,24 +3568,40 @@
         skipped += result.skippedEntries;
       }
 
-      if (incoming.length === 0) throw new Error('文件里没有有效的小说');
+      for (const raw of rawTrash) {
+        const item = normalizeTrashItem(raw);
+        if (!item) {
+          skipped += 1;
+          continue;
+        }
+        incomingTrash.push(item);
+      }
 
-      const previous = state.novels;
+      if (incoming.length === 0 && incomingTrash.length === 0) {
+        throw new Error('文件里没有有效的内容');
+      }
+
+      const previousNovels = state.novels;
+      const previousTrash = state.trash;
       const counts = mergeLibraries(incoming);
+      const addedTrash = mergeTrash(incomingTrash);
       const changed =
         counts.addedNovels > 0 ||
         counts.updatedNovels > 0 ||
         counts.addedEntries > 0 ||
-        counts.updatedEntries > 0;
+        counts.updatedEntries > 0 ||
+        addedTrash > 0;
 
       if (!changed) {
-        state.novels = previous;
+        state.novels = previousNovels;
+        state.trash = previousTrash;
         showToast('没有发现需要导入的新内容');
         return;
       }
 
       if (!persist()) {
-        state.novels = previous;
+        state.novels = previousNovels;
+        state.trash = previousTrash;
         return;
       }
 
@@ -3194,6 +3613,7 @@
       if (counts.addedEntries) parts.push(`新增 ${counts.addedEntries} 条内容`);
       if (counts.updatedNovels) parts.push(`更新 ${counts.updatedNovels} 本小说`);
       if (counts.updatedEntries) parts.push(`更新 ${counts.updatedEntries} 条内容`);
+      if (addedTrash) parts.push(`回收站 ${addedTrash} 项`);
       if (skipped) parts.push(`跳过 ${skipped} 条无效内容`);
       showToast(`导入完成：${parts.join('，')}`);
     } catch (error) {
@@ -3262,9 +3682,26 @@
     return { addedNovels, updatedNovels, addedEntries, updatedEntries };
   }
 
+  function mergeTrash(incoming) {
+    const ids = new Set(state.trash.map((item) => item.id));
+    let added = 0;
+
+    for (const item of incoming) {
+      if (ids.has(item.id)) continue;
+      state.trash.push(item);
+      ids.add(item.id);
+      added += 1;
+    }
+
+    if (added > 0) {
+      state.trash.sort((a, b) => timeValue(b.deletedAt) - timeValue(a.deletedAt));
+    }
+    return added;
+  }
+
   function exportLibrary() {
-    if (state.novels.length === 0) {
-      showToast('书架还空着，先写下第一本小说吧');
+    if (state.novels.length === 0 && state.trash.length === 0) {
+      showToast('书架和回收站都空着，先写下第一本小说吧');
       return;
     }
 
@@ -3274,6 +3711,7 @@
       version: LIBRARY_VERSION,
       exportedAt: now.toISOString(),
       novels: state.novels,
+      trash: state.trash,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json;charset=utf-8',
@@ -3288,7 +3726,9 @@
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     const total = state.novels.reduce((sum, novel) => sum + countNovelEntries(novel), 0);
-    showToast(`已导出 ${state.novels.length} 本小说、${total} 条内容`);
+    const trashSuffix =
+      state.trash.length > 0 ? `、${state.trash.length} 项回收站记录` : '';
+    showToast(`已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}`);
   }
 
   function fileDate(date) {
@@ -3793,7 +4233,9 @@
 
     window.addEventListener('storage', (event) => {
       if (event.key !== STORAGE_KEY) return;
-      state.novels = loadNovels();
+      const library = loadLibrary();
+      state.novels = library.novels;
+      state.trash = library.trash;
       renderRoute();
       showToast('已同步其他标签页中的改动');
     });
@@ -3838,6 +4280,18 @@
       case 'pin-entry':
         event.preventDefault();
         if (sectionKey && entryId) toggleEntryPin(novelId, sectionKey, entryId);
+        break;
+      case 'restore-trash':
+        event.preventDefault();
+        if (actionEl.dataset.trashId) restoreTrashItem(actionEl.dataset.trashId);
+        break;
+      case 'purge-trash':
+        event.preventDefault();
+        if (actionEl.dataset.trashId) askPurgeTrashItem(actionEl.dataset.trashId);
+        break;
+      case 'clear-trash':
+        event.preventDefault();
+        askClearTrash();
         break;
       case 'edit-map':
         event.preventDefault();
