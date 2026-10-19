@@ -805,12 +805,24 @@
       && route.view === 'entry'
       && window.matchMedia('(max-width: 880px)').matches;
 
-    const keepSidebarScroll = scroll
-      && state.sidebarScroll !== null
-      && previousRoute
+    const sameNovel = Boolean(
+      previousRoute
       && previousRoute.novel
       && route.novel
       && previousRoute.novel.id === route.novel.id
+    );
+    const sameTopLevel = Boolean(
+      previousRoute
+      && ['shelf', 'trash'].includes(previousRoute.view)
+      && ['shelf', 'trash'].includes(route.view)
+    );
+    const siblingOverviews =
+      Boolean(previousRoute)
+      && previousRoute.view === 'novel'
+      && route.view === 'novel';
+    const keepSidebarScroll = scroll
+      && state.sidebarScroll !== null
+      && (sameNovel || sameTopLevel || siblingOverviews)
       && window.matchMedia('(min-width: 881px)').matches;
     const sidebarScroll = state.sidebarScroll;
     state.sidebarScroll = null;
