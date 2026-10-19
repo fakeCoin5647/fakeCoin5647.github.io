@@ -1285,7 +1285,7 @@
 
     const overviewLink = createNavLink({
       href: novelHash(novel.id),
-      iconName: 'i-book',
+      iconName: 'i-overview',
       label: '概览',
       count: countNovelEntries(novel),
       active: activeKey === 'overview',
