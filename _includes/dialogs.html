@@ -154,6 +154,68 @@
     </form>
   </dialog>
 
+  <dialog id="relationDialog" class="dialog relation-dialog" aria-labelledby="relationDialogTitle">
+    <form id="relationForm" novalidate>
+      <header class="dialog-head">
+        <div>
+          <p class="dialog-eyebrow" id="relationDialogEyebrow">RELATIONS · NEW</p>
+          <h2 id="relationDialogTitle">添加人物关系</h2>
+        </div>
+        <button type="button" class="icon-btn dialog-close" id="relationDialogCloseBtn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="relation-route">
+          <div class="field">
+            <label for="relationFromSelect">角色 A</label>
+            <select id="relationFromSelect" class="relation-select"></select>
+          </div>
+          <span class="relation-route-mark" aria-hidden="true">↔</span>
+          <div class="field">
+            <label for="relationToSelect">角色 B</label>
+            <select id="relationToSelect" class="relation-select"></select>
+          </div>
+        </div>
+        <p class="field-error relation-form-error" id="relationFormError" hidden></p>
+
+        <div class="field" id="relationLabelField">
+          <label for="relationLabelInput">关系描述 <span class="field-mark">必填</span></label>
+          <input type="text" id="relationLabelInput" name="label" maxlength="24" placeholder="比如：师徒、旧友、互相猜忌的盟友" autocomplete="off">
+          <p class="field-error" id="relationLabelError" hidden>请写下一个关系描述。</p>
+        </div>
+
+        <div class="field relation-preset-field">
+          <span class="field-label">常用关系</span>
+          <div class="relation-presets" id="relationPresets">
+            <button type="button" class="relation-preset" data-relation-preset="亲人">亲人</button>
+            <button type="button" class="relation-preset" data-relation-preset="朋友">朋友</button>
+            <button type="button" class="relation-preset" data-relation-preset="恋人">恋人</button>
+            <button type="button" class="relation-preset" data-relation-preset="师徒">师徒</button>
+            <button type="button" class="relation-preset" data-relation-preset="同门">同门</button>
+            <button type="button" class="relation-preset" data-relation-preset="搭档">搭档</button>
+            <button type="button" class="relation-preset" data-relation-preset="对手">对手</button>
+            <button type="button" class="relation-preset" data-relation-preset="宿敌">宿敌</button>
+            <button type="button" class="relation-preset" data-relation-preset="上下级">上下级</button>
+            <button type="button" class="relation-preset" data-relation-preset="合作">合作</button>
+            <button type="button" class="relation-preset" data-relation-preset="旧识">旧识</button>
+            <button type="button" class="relation-preset" data-relation-preset="恩人">恩人</button>
+          </div>
+        </div>
+
+        <p class="relation-hint" id="relationFormHint">关系是双向的：一条线同时连接两位角色。删除角色时，关系线会暂时收起，恢复角色后会重新出现。</p>
+      </div>
+
+      <footer class="dialog-actions">
+        <button type="button" class="btn ghost relation-delete" id="relationDeleteBtn" hidden>删除关系</button>
+        <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
+        <button type="button" class="btn ghost" id="relationCancelBtn">取消</button>
+        <button type="submit" class="btn primary" id="relationSaveBtn">保存关系</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="mapDialog" class="dialog map-dialog" aria-labelledby="mapDialogTitle">
     <div class="map-shell">
       <header class="map-topbar">
