@@ -352,6 +352,7 @@
     confirmAction: null,
     pendingHighlight: null,
     sidebarScroll: null,
+    listScrolls: Object.create(null),
     mapEditor: null,
   };
 
@@ -786,6 +787,16 @@
     return { view: 'entry', novel, sectionKey, entry };
   }
 
+  function listScrollKey(route) {
+    if (!route) return null;
+    if (route.view === 'shelf' || route.view === 'trash') return route.view;
+    if (route.view === 'novel') return `novel:${route.novel.id}`;
+    if (route.view === 'section') {
+      return `section:${route.novel.id}:${route.sectionKey}`;
+    }
+    return null;
+  }
+
   function renderRoute({ scroll = false } = {}) {
     const previousRoute = state.route;
     const route = parseRoute();
@@ -801,9 +812,18 @@
       };
     }
 
-    const compactEntry = scroll
-      && route.view === 'entry'
-      && window.matchMedia('(max-width: 880px)').matches;
+    const desktop = window.matchMedia('(min-width: 881px)').matches;
+    const compactEntry = scroll && route.view === 'entry' && !desktop;
+    const previousListKey = listScrollKey(previousRoute);
+    const nextListKey = listScrollKey(route);
+    const fromDetail = Boolean(
+      previousRoute
+      && (previousRoute.view === 'entry' || previousRoute.view === 'outline-editor')
+    );
+
+    if (scroll && previousListKey) {
+      state.listScrolls[previousListKey] = window.scrollY;
+    }
 
     const sameNovel = Boolean(
       previousRoute
@@ -820,15 +840,22 @@
       Boolean(previousRoute)
       && previousRoute.view === 'novel'
       && route.view === 'novel';
-    const keepSidebarScroll = scroll
-      && state.sidebarScroll !== null
-      && (sameNovel || sameTopLevel || siblingOverviews)
-      && window.matchMedia('(min-width: 881px)').matches;
     const sidebarScroll = state.sidebarScroll;
     state.sidebarScroll = null;
 
-    if (scroll && !compactEntry && !keepSidebarScroll) {
-      window.scrollTo({ top: 0, behavior: 'auto' });
+    const keepSidebarScroll = scroll
+      && desktop
+      && Boolean(previousListKey && nextListKey)
+      && sidebarScroll !== null
+      && (sameNovel || sameTopLevel || siblingOverviews);
+
+    let targetScroll = 0;
+    if (scroll && desktop) {
+      if (keepSidebarScroll) {
+        targetScroll = sidebarScroll;
+      } else if (fromDetail && nextListKey && sameNovel) {
+        targetScroll = state.listScrolls[nextListKey] ?? 0;
+      }
     }
 
     if (route.view === 'shelf') {
@@ -845,8 +872,8 @@
       renderNovelWorkspace(route);
     }
 
-    if (keepSidebarScroll) {
-      window.scrollTo({ top: sidebarScroll, behavior: 'auto' });
+    if (scroll && !compactEntry) {
+      window.scrollTo({ top: targetScroll, behavior: 'auto' });
     }
 
     if (compactEntry) {
@@ -5053,6 +5080,27 @@
           });
           return;
         }
+      }
+
+      const nextRoute = parseRoute();
+      const reduceMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      ).matches;
+
+      if (nextRoute.view === 'entry' && !reduceMotion) {
+        if (typeof document.startViewTransition === 'function') {
+          try {
+            document.startViewTransition(() => renderRoute({ scroll: true }));
+            return;
+          } catch (error) {
+            /* 回退到下面的淡入 */
+          }
+        }
+        renderRoute({ scroll: true });
+        els.novelView.classList.remove('is-route-entering');
+        void els.novelView.offsetWidth;
+        els.novelView.classList.add('is-route-entering');
+        return;
       }
 
       renderRoute({ scroll: true });
