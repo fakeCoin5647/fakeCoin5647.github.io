@@ -7,7 +7,90 @@
   const SITE_NAME = "Coin's Creative Cabin";
   const MAX_TAGS = 8;
   const MAX_TAG_LENGTH = 16;
-  const DEFAULT_APPEARANCE = { glassAlpha: 78, cardAlpha: 50, blur: 20 };
+  const ACCENT_PALETTES = {
+    blue: {
+      label: '星蓝',
+      accent: '#4f6df5',
+      deep: '#3b55d4',
+      pair: '#8a5cf6',
+      rgb: '79, 109, 245',
+    },
+    teal: {
+      label: '青瓷',
+      accent: '#1c8377',
+      deep: '#12665c',
+      pair: '#4bb3a2',
+      rgb: '28, 131, 119',
+    },
+    violet: {
+      label: '雾紫',
+      accent: '#7158e2',
+      deep: '#5a42c4',
+      pair: '#a06ee8',
+      rgb: '113, 88, 226',
+    },
+    rose: {
+      label: '绯樱',
+      accent: '#bd4a72',
+      deep: '#9c355a',
+      pair: '#e08a9e',
+      rgb: '189, 74, 114',
+    },
+    amber: {
+      label: '琥珀',
+      accent: '#a06a1f',
+      deep: '#7f5215',
+      pair: '#d1a35a',
+      rgb: '160, 106, 31',
+    },
+  };
+  const DEFAULT_APPEARANCE = {
+    glassAlpha: 78,
+    cardAlpha: 50,
+    blur: 20,
+    accent: 'blue',
+    wallpaperDim: 50,
+    rim: 100,
+    readingScale: 100,
+  };
+  const APPEARANCE_PRESETS = {
+    mist: {
+      label: '晨雾',
+      accent: 'blue',
+      glassAlpha: 78,
+      cardAlpha: 50,
+      blur: 20,
+      wallpaperDim: 50,
+      rim: 100,
+    },
+    dusk: {
+      label: '暮色',
+      accent: 'violet',
+      glassAlpha: 72,
+      cardAlpha: 44,
+      blur: 26,
+      wallpaperDim: 78,
+      rim: 100,
+    },
+    warm: {
+      label: '暖纸',
+      accent: 'amber',
+      glassAlpha: 86,
+      cardAlpha: 58,
+      blur: 14,
+      wallpaperDim: 24,
+      rim: 84,
+    },
+    clear: {
+      label: '清透',
+      accent: 'teal',
+      glassAlpha: 62,
+      cardAlpha: 36,
+      blur: 34,
+      wallpaperDim: 30,
+      rim: 88,
+    },
+  };
   const COVER_WIDTH = 480;
   const COVER_HEIGHT = 720;
   const COVER_MAX_LENGTH = 240000;
@@ -303,14 +386,23 @@
 
     appearanceBtn: $('#appearanceBtn'),
     appearancePanel: $('#appearancePanel'),
+    appearanceScroll: $('#appearanceScroll'),
     appearanceCloseBtn: $('#appearanceCloseBtn'),
     appearanceResetBtn: $('#appearanceResetBtn'),
+    appearancePresetBtns: Array.from(document.querySelectorAll('[data-preset]')),
+    appearanceAccentBtns: Array.from(document.querySelectorAll('[data-accent]')),
+    wallpaperDimInput: $('#wallpaperDimInput'),
+    wallpaperDimValue: $('#wallpaperDimValue'),
     glassAlphaInput: $('#glassAlphaInput'),
     glassAlphaValue: $('#glassAlphaValue'),
     cardAlphaInput: $('#cardAlphaInput'),
     cardAlphaValue: $('#cardAlphaValue'),
     blurInput: $('#blurInput'),
     blurValue: $('#blurValue'),
+    rimInput: $('#rimInput'),
+    rimValue: $('#rimValue'),
+    readingScaleInput: $('#readingScaleInput'),
+    readingScaleValue: $('#readingScaleValue'),
 
     breadcrumbNovelTitle: $('#breadcrumbNovelTitle'),
     novelCoverSlot: $('#novelCoverSlot'),
@@ -620,26 +712,97 @@
       if (!Number.isFinite(number)) return fallback;
       return Math.min(max, Math.max(min, Math.round(number)));
     };
+    const accent =
+      value && typeof value.accent === 'string' && ACCENT_PALETTES[value.accent]
+        ? value.accent
+        : DEFAULT_APPEARANCE.accent;
     return {
       glassAlpha: read('glassAlpha', 30, 100, DEFAULT_APPEARANCE.glassAlpha),
       cardAlpha: read('cardAlpha', 10, 90, DEFAULT_APPEARANCE.cardAlpha),
       blur: read('blur', 0, 40, DEFAULT_APPEARANCE.blur),
+      accent,
+      wallpaperDim: read(
+        'wallpaperDim',
+        0,
+        100,
+        DEFAULT_APPEARANCE.wallpaperDim
+      ),
+      rim: read('rim', 0, 100, DEFAULT_APPEARANCE.rim),
+      readingScale: read(
+        'readingScale',
+        90,
+        115,
+        DEFAULT_APPEARANCE.readingScale
+      ),
     };
   }
 
   function applyAppearance() {
-    const { glassAlpha, cardAlpha, blur } = state.appearance;
+    const {
+      glassAlpha,
+      cardAlpha,
+      blur,
+      accent,
+      wallpaperDim,
+      rim,
+      readingScale,
+    } = state.appearance;
+    const palette = ACCENT_PALETTES[accent] || ACCENT_PALETTES.blue;
     const root = document.documentElement;
     root.style.setProperty('--glass-alpha', String(glassAlpha / 100));
     root.style.setProperty('--card-alpha', String(cardAlpha / 100));
     root.style.setProperty('--glass-blur', `${blur}px`);
+    root.style.setProperty('--accent', palette.accent);
+    root.style.setProperty('--accent-deep', palette.deep);
+    root.style.setProperty('--accent-pair', palette.pair);
+    root.style.setProperty('--accent-rgb', palette.rgb);
+    root.style.setProperty('--accent-soft', `rgba(${palette.rgb}, 0.1)`);
+    root.style.setProperty('--accent-weak', `rgba(${palette.rgb}, 0.09)`);
+    root.style.setProperty('--wallpaper-dim', String(wallpaperDim / 100));
+    root.style.setProperty('--rim-strength', String(rim / 100));
+    root.style.setProperty('--reading-scale', String(readingScale / 100));
 
+    els.wallpaperDimInput.value = String(wallpaperDim);
+    els.wallpaperDimValue.textContent =
+      wallpaperDim <= 33 ? '明亮' : wallpaperDim >= 67 ? '深邃' : '均衡';
     els.glassAlphaInput.value = String(glassAlpha);
     els.glassAlphaValue.textContent = `${glassAlpha}%`;
     els.cardAlphaInput.value = String(cardAlpha);
     els.cardAlphaValue.textContent = `${cardAlpha}%`;
     els.blurInput.value = String(blur);
     els.blurValue.textContent = `${blur}px`;
+    els.rimInput.value = String(rim);
+    els.rimValue.textContent = `${rim}%`;
+    els.readingScaleInput.value = String(readingScale);
+    els.readingScaleValue.textContent = `${readingScale}%`;
+    syncAppearanceChoices();
+  }
+
+  function syncAppearanceChoices() {
+    els.appearanceAccentBtns.forEach((button) => {
+      const active = button.dataset.accent === state.appearance.accent;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    els.appearancePresetBtns.forEach((button) => {
+      const preset = APPEARANCE_PRESETS[button.dataset.preset];
+      if (!preset) return;
+      const active = Object.keys(preset).every(
+        (key) => key === 'label' || state.appearance[key] === preset[key]
+      );
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function applyPreset(name) {
+    const preset = APPEARANCE_PRESETS[name];
+    if (!preset) return;
+    const { label, ...values } = preset;
+    state.appearance = normalizeAppearance({ ...state.appearance, ...values });
+    applyAppearance();
+    persistAppearance();
+    showToast(`已切换为「${label}」风格`);
   }
 
   function persistAppearance() {
@@ -660,7 +823,14 @@
     const willOpen = els.appearancePanel.hidden;
     els.appearancePanel.hidden = !willOpen;
     els.appearanceBtn.setAttribute('aria-expanded', String(willOpen));
-    if (willOpen) els.glassAlphaInput.focus({ preventScroll: true });
+    if (!willOpen) return;
+    els.appearanceScroll.scrollTop = 0;
+    const activePreset = els.appearancePresetBtns.find((button) =>
+      button.classList.contains('is-active')
+    );
+    (activePreset ||
+      els.appearancePresetBtns[0] ||
+      els.appearanceCloseBtn).focus({ preventScroll: true });
   }
 
   function closeAppearancePanel() {
@@ -7802,6 +7972,17 @@
       persistAppearance();
       showToast('外观已恢复默认');
     });
+    els.appearancePresetBtns.forEach((button) => {
+      button.addEventListener('click', () => applyPreset(button.dataset.preset));
+    });
+    els.appearanceAccentBtns.forEach((button) => {
+      button.addEventListener('click', () =>
+        updateAppearance('accent', button.dataset.accent)
+      );
+    });
+    els.wallpaperDimInput.addEventListener('input', () =>
+      updateAppearance('wallpaperDim', els.wallpaperDimInput.value)
+    );
     els.glassAlphaInput.addEventListener('input', () =>
       updateAppearance('glassAlpha', els.glassAlphaInput.value)
     );
@@ -7810,6 +7991,12 @@
     );
     els.blurInput.addEventListener('input', () =>
       updateAppearance('blur', els.blurInput.value)
+    );
+    els.rimInput.addEventListener('input', () =>
+      updateAppearance('rim', els.rimInput.value)
+    );
+    els.readingScaleInput.addEventListener('input', () =>
+      updateAppearance('readingScale', els.readingScaleInput.value)
     );
 
     document.addEventListener(

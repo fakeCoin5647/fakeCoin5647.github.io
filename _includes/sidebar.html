@@ -69,18 +69,73 @@
               <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
             </button>
           </div>
-          <label class="appearance-field" for="glassAlphaInput">
-            <span class="appearance-label">面板不透明度 <output id="glassAlphaValue" for="glassAlphaInput">78%</output></span>
-            <input type="range" id="glassAlphaInput" min="30" max="100" step="1" value="78">
-          </label>
-          <label class="appearance-field" for="cardAlphaInput">
-            <span class="appearance-label">卡片不透明度 <output id="cardAlphaValue" for="cardAlphaInput">50%</output></span>
-            <input type="range" id="cardAlphaInput" min="10" max="90" step="1" value="50">
-          </label>
-          <label class="appearance-field" for="blurInput">
-            <span class="appearance-label">磨砂模糊 <output id="blurValue" for="blurInput">20px</output></span>
-            <input type="range" id="blurInput" min="0" max="40" step="1" value="20">
-          </label>
+          <div class="appearance-scroll" id="appearanceScroll">
+            <div class="appearance-group">
+              <p class="appearance-subtitle">风格</p>
+              <div class="appearance-presets" role="group" aria-label="风格预设">
+                <button type="button" class="appearance-preset" data-preset="mist" aria-pressed="true">
+                  <span class="preset-dot" aria-hidden="true"></span>晨雾
+                </button>
+                <button type="button" class="appearance-preset" data-preset="dusk" aria-pressed="false">
+                  <span class="preset-dot" aria-hidden="true"></span>暮色
+                </button>
+                <button type="button" class="appearance-preset" data-preset="warm" aria-pressed="false">
+                  <span class="preset-dot" aria-hidden="true"></span>暖纸
+                </button>
+                <button type="button" class="appearance-preset" data-preset="clear" aria-pressed="false">
+                  <span class="preset-dot" aria-hidden="true"></span>清透
+                </button>
+              </div>
+              <p class="appearance-subtitle appearance-subtitle-spaced">强调色</p>
+              <div class="appearance-swatches" role="group" aria-label="强调色">
+                <button type="button" class="accent-swatch" data-accent="blue" style="--swatch: #4f6df5" aria-label="星蓝" aria-pressed="true" title="星蓝">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+                </button>
+                <button type="button" class="accent-swatch" data-accent="teal" style="--swatch: #1c8377" aria-label="青瓷" aria-pressed="false" title="青瓷">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+                </button>
+                <button type="button" class="accent-swatch" data-accent="violet" style="--swatch: #7158e2" aria-label="雾紫" aria-pressed="false" title="雾紫">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+                </button>
+                <button type="button" class="accent-swatch" data-accent="rose" style="--swatch: #bd4a72" aria-label="绯樱" aria-pressed="false" title="绯樱">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+                </button>
+                <button type="button" class="accent-swatch" data-accent="amber" style="--swatch: #a06a1f" aria-label="琥珀" aria-pressed="false" title="琥珀">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+                </button>
+              </div>
+              <label class="appearance-field" for="wallpaperDimInput">
+                <span class="appearance-label">壁纸明暗 <output id="wallpaperDimValue" for="wallpaperDimInput">均衡</output></span>
+                <input type="range" id="wallpaperDimInput" min="0" max="100" step="1" value="50">
+              </label>
+            </div>
+            <div class="appearance-group">
+              <p class="appearance-subtitle">玻璃</p>
+              <label class="appearance-field" for="glassAlphaInput">
+                <span class="appearance-label">面板不透明度 <output id="glassAlphaValue" for="glassAlphaInput">78%</output></span>
+                <input type="range" id="glassAlphaInput" min="30" max="100" step="1" value="78">
+              </label>
+              <label class="appearance-field" for="cardAlphaInput">
+                <span class="appearance-label">卡片不透明度 <output id="cardAlphaValue" for="cardAlphaInput">50%</output></span>
+                <input type="range" id="cardAlphaInput" min="10" max="90" step="1" value="50">
+              </label>
+              <label class="appearance-field" for="blurInput">
+                <span class="appearance-label">磨砂模糊 <output id="blurValue" for="blurInput">20px</output></span>
+                <input type="range" id="blurInput" min="0" max="40" step="1" value="20">
+              </label>
+              <label class="appearance-field" for="rimInput">
+                <span class="appearance-label">玻璃描边 <output id="rimValue" for="rimInput">100%</output></span>
+                <input type="range" id="rimInput" min="0" max="100" step="1" value="100">
+              </label>
+            </div>
+            <div class="appearance-group">
+              <p class="appearance-subtitle">阅读</p>
+              <label class="appearance-field" for="readingScaleInput">
+                <span class="appearance-label">正文字号 <output id="readingScaleValue" for="readingScaleInput">100%</output></span>
+                <input type="range" id="readingScaleInput" min="90" max="115" step="1" value="100">
+              </label>
+            </div>
+          </div>
           <div class="appearance-foot">
             <button type="button" class="appearance-reset" id="appearanceResetBtn">恢复默认</button>
             <span class="appearance-saved">拖动即生效，自动保存</span>
