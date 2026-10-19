@@ -2570,24 +2570,37 @@ body {
 /* ---------- 响应式 ---------- */
 
 @media (min-width: 881px) {
-  /* 书架少内容时也保持完整画布，底边渐隐进壁纸 */
+  /* 书架、分区与条目共用同高画布，底边渐隐进壁纸 */
   #shelfView {
-    min-height: 450px;
+    min-height: 542px;
   }
 
-  .page:has(#shelfView:not([hidden])) .content {
+  .content {
     padding-bottom: 120px;
   }
 
-  .page:has(#shelfView:not([hidden])) .sidebar {
+  .page:has(#shelfView:not([hidden])) .sidebar,
+  .page:has(#novelView:not([hidden]).is-section-view) .sidebar,
+  .page:has(#novelView:not([hidden]).is-entry-view) .sidebar {
     padding-bottom: 130px;
   }
 
-  .page:has(#shelfView:not([hidden])) .sidebar-footer {
+  .page:has(#shelfView:not([hidden])) .sidebar-footer,
+  .page:has(#novelView:not([hidden]).is-section-view) .sidebar-footer,
+  .page:has(#novelView:not([hidden]).is-entry-view) .sidebar-footer {
     margin-top: auto;
   }
 
-  .page:has(#shelfView:not([hidden])) {
+  /* 大纲编辑器很长，脚注保持紧跟导航，不推到页面底部 */
+  .page:has(#novelView:not([hidden]).is-entry-view):has(#outlineEditorForm) .sidebar {
+    padding-bottom: 1.3rem;
+  }
+
+  .page:has(#novelView:not([hidden]).is-entry-view):has(#outlineEditorForm) .sidebar-footer {
+    margin-top: 1.4rem;
+  }
+
+  .page {
     -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
     mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
   }
