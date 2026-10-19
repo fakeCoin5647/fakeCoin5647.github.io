@@ -137,6 +137,157 @@
     </form>
   </dialog>
 
+  <dialog id="mapDialog" class="dialog map-dialog" aria-labelledby="mapDialogTitle">
+    <div class="map-shell">
+      <header class="map-topbar">
+        <div class="map-title-group">
+          <p class="dialog-eyebrow">MAP WORKBENCH</p>
+          <h2 id="mapDialogTitle">地图工坊</h2>
+          <p class="map-subtitle" id="mapDialogSubtitle"></p>
+        </div>
+        <div class="map-topbar-actions">
+          <span class="map-save-state" id="mapSaveState">已与档案同步</span>
+          <button type="button" class="btn ghost" id="mapCancelBtn">取消</button>
+          <button type="button" class="btn primary" id="mapSaveBtn">
+            <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+            保存地图
+          </button>
+          <button type="button" class="icon-btn" id="mapCloseBtn" aria-label="关闭地图工坊" title="关闭">
+            <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="map-body">
+        <aside class="map-tools" aria-label="地图工具">
+          <div class="map-tool-group">
+            <p class="map-tool-label">工具</p>
+            <div class="map-tool-grid" id="mapTools">
+              <button type="button" class="map-tool" data-map-tool="browse" aria-pressed="true" title="拖动平移，点击城市查看">
+                <svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg>
+                <span>浏览</span>
+              </button>
+              <button type="button" class="map-tool" data-map-tool="paint" aria-pressed="false" title="拖动绘制地形">
+                <svg class="icon" aria-hidden="true"><use href="#i-brush"></use></svg>
+                <span>地形</span>
+              </button>
+              <button type="button" class="map-tool" data-map-tool="city" aria-pressed="false" title="点击放置城市">
+                <svg class="icon" aria-hidden="true"><use href="#i-city"></use></svg>
+                <span>城市</span>
+              </button>
+              <button type="button" class="map-tool" data-map-tool="erase" aria-pressed="false" title="拖动恢复草原">
+                <svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg>
+                <span>擦除</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="map-tool-group">
+            <p class="map-tool-label">地形</p>
+            <div class="terrain-palette" id="mapTerrainPalette" role="radiogroup" aria-label="选择要绘制的地形"></div>
+          </div>
+
+          <div class="map-tool-group map-view-group">
+            <p class="map-tool-label">视图</p>
+            <div class="map-view-actions">
+              <button type="button" class="icon-btn" id="mapZoomOutBtn" aria-label="缩小地图" title="缩小">
+                <svg class="icon" aria-hidden="true"><use href="#i-zoom-out"></use></svg>
+              </button>
+              <button type="button" class="icon-btn" id="mapZoomInBtn" aria-label="放大地图" title="放大">
+                <svg class="icon" aria-hidden="true"><use href="#i-zoom-in"></use></svg>
+              </button>
+              <button type="button" class="icon-btn" id="mapFitBtn" aria-label="适应画布" title="适应画布">
+                <svg class="icon" aria-hidden="true"><use href="#i-fit"></use></svg>
+              </button>
+              <button type="button" class="icon-btn" id="mapUndoBtn" aria-label="撤销" title="撤销 (Ctrl+Z)" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg>
+              </button>
+              <button type="button" class="icon-btn" id="mapRedoBtn" aria-label="重做" title="重做 (Ctrl+Shift+Z)" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#i-redo"></use></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="map-tool-group">
+            <p class="map-tool-label">整理</p>
+            <button type="button" class="map-clear-btn" id="mapClearBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+              清空地图
+            </button>
+          </div>
+
+          <p class="map-hint">滚轮缩放 · 拖动空白处平移 · Shift + 拖动随时平移 · Ctrl + Z 撤销</p>
+        </aside>
+
+        <section class="map-stage" id="mapStage" aria-label="六边形地图画布">
+          <svg id="mapSvg" class="map-canvas" role="img" aria-label="六边形地图"></svg>
+          <div class="map-zoom-badge" id="mapZoomBadge">100%</div>
+          <div class="map-stage-tip" id="mapStageTip">选择「城市」，在格子上点一下</div>
+          <div class="map-stage-controls" aria-label="画布视图控制">
+            <button type="button" class="icon-btn" id="mapMobileZoomInBtn" aria-label="放大地图" title="放大">
+              <svg class="icon" aria-hidden="true"><use href="#i-zoom-in"></use></svg>
+            </button>
+            <button type="button" class="icon-btn" id="mapMobileZoomOutBtn" aria-label="缩小地图" title="缩小">
+              <svg class="icon" aria-hidden="true"><use href="#i-zoom-out"></use></svg>
+            </button>
+            <button type="button" class="icon-btn" id="mapMobileFitBtn" aria-label="适应画布" title="适应画布">
+              <svg class="icon" aria-hidden="true"><use href="#i-fit"></use></svg>
+            </button>
+            <button type="button" class="icon-btn" id="mapMobileUndoBtn" aria-label="撤销" title="撤销" disabled>
+              <svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg>
+            </button>
+            <button type="button" class="icon-btn" id="mapMobileRedoBtn" aria-label="重做" title="重做" disabled>
+              <svg class="icon" aria-hidden="true"><use href="#i-redo"></use></svg>
+            </button>
+          </div>
+        </section>
+
+        <aside class="map-inspector" aria-label="城市检查器">
+          <div class="map-inspector-head">
+            <div>
+              <p class="map-tool-label">CITY INSPECTOR</p>
+              <h3>城市</h3>
+            </div>
+            <span class="map-city-count" id="mapCityCount">0 座</span>
+          </div>
+
+          <div class="map-city-list" id="mapCityList"></div>
+
+          <div class="map-city-editor" id="mapCityEditor" hidden>
+            <label class="map-field" for="mapCityNameInput">
+              <span>城市名称</span>
+              <input type="text" id="mapCityNameInput" maxlength="40" autocomplete="off" spellcheck="false">
+            </label>
+
+            <div class="map-field">
+              <span>势力范围</span>
+              <div class="map-radius-row" id="mapRadiusRow" role="group" aria-label="城市势力范围">
+                <button type="button" data-radius="1" aria-pressed="false">1 格</button>
+                <button type="button" data-radius="2" aria-pressed="true">2 格</button>
+                <button type="button" data-radius="3" aria-pressed="false">3 格</button>
+              </div>
+            </div>
+
+            <div class="map-field">
+              <span>城市颜色</span>
+              <div class="map-color-row" id="mapColorRow" role="group" aria-label="城市颜色"></div>
+            </div>
+
+            <p class="map-coord" id="mapCityCoord"></p>
+            <button type="button" class="map-delete-city" id="mapDeleteCityBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+              移除这座城市
+            </button>
+          </div>
+
+          <div class="map-inspector-empty" id="mapInspectorEmpty">
+            <p>在画布上放下城市，或从上方列表选中一座，就能调整它的名称、范围与颜色。</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="confirmDialog" class="dialog dialog-small" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
     <div class="confirm-content">
       <p class="dialog-eyebrow">PLEASE CONFIRM</p>

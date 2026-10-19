@@ -118,6 +118,45 @@
 
   const SECTION_KEYS = Object.keys(SECTIONS);
 
+  const MAP_DEFAULT_COLS = 22;
+  const MAP_DEFAULT_ROWS = 14;
+  const MAP_HEX_SIZE = 40;
+  const MAP_HISTORY_LIMIT = 80;
+  const MAP_MAX_CITIES = 40;
+  const MAP_WORLD_SQRT3 = Math.sqrt(3);
+
+  const MAP_TERRAINS = {
+    grass: { label: '草原', fill: '#a9c88e', stroke: '#93b27b' },
+    plains: { label: '平原', fill: '#d3ca86', stroke: '#bcb371' },
+    forest: { label: '森林', fill: '#7da47c', stroke: '#6b936c' },
+    hills: { label: '丘陵', fill: '#c5aa77', stroke: '#ae9463' },
+    mountain: { label: '山脉', fill: '#9ba1b0', stroke: '#858c9d' },
+    water: { label: '水域', fill: '#8fb8d5', stroke: '#78a5c6' },
+    desert: { label: '沙漠', fill: '#e1c993', stroke: '#cbb27c' },
+  };
+  const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
+
+  const MAP_CITY_COLORS = [
+    '#4f6df5',
+    '#b05a3c',
+    '#3f7a66',
+    '#8a5aa8',
+    '#c08a2e',
+    '#3c7fa8',
+    '#a34f6a',
+    '#59636e',
+  ];
+
+  const MAP_DIRECTIONS = ['E', 'NE', 'NW', 'W', 'SW', 'SE'];
+  const MAP_EDGE_CORNERS = {
+    E: [1, 2],
+    NE: [0, 1],
+    NW: [5, 0],
+    W: [4, 5],
+    SW: [3, 4],
+    SE: [2, 3],
+  };
+
   const $ = (selector, scope = document) => scope.querySelector(selector);
 
   const els = {
@@ -214,6 +253,39 @@
     confirmCancelBtn: $('#confirmCancelBtn'),
     confirmOkBtn: $('#confirmOkBtn'),
 
+    mapDialog: $('#mapDialog'),
+    mapDialogSubtitle: $('#mapDialogSubtitle'),
+    mapSaveState: $('#mapSaveState'),
+    mapSaveBtn: $('#mapSaveBtn'),
+    mapCancelBtn: $('#mapCancelBtn'),
+    mapCloseBtn: $('#mapCloseBtn'),
+    mapTools: $('#mapTools'),
+    mapTerrainPalette: $('#mapTerrainPalette'),
+    mapZoomOutBtn: $('#mapZoomOutBtn'),
+    mapZoomInBtn: $('#mapZoomInBtn'),
+    mapFitBtn: $('#mapFitBtn'),
+    mapUndoBtn: $('#mapUndoBtn'),
+    mapRedoBtn: $('#mapRedoBtn'),
+    mapClearBtn: $('#mapClearBtn'),
+    mapStage: $('#mapStage'),
+    mapSvg: $('#mapSvg'),
+    mapZoomBadge: $('#mapZoomBadge'),
+    mapStageTip: $('#mapStageTip'),
+    mapMobileZoomInBtn: $('#mapMobileZoomInBtn'),
+    mapMobileZoomOutBtn: $('#mapMobileZoomOutBtn'),
+    mapMobileFitBtn: $('#mapMobileFitBtn'),
+    mapMobileUndoBtn: $('#mapMobileUndoBtn'),
+    mapMobileRedoBtn: $('#mapMobileRedoBtn'),
+    mapCityList: $('#mapCityList'),
+    mapCityCount: $('#mapCityCount'),
+    mapCityEditor: $('#mapCityEditor'),
+    mapCityNameInput: $('#mapCityNameInput'),
+    mapRadiusRow: $('#mapRadiusRow'),
+    mapColorRow: $('#mapColorRow'),
+    mapCityCoord: $('#mapCityCoord'),
+    mapDeleteCityBtn: $('#mapDeleteCityBtn'),
+    mapInspectorEmpty: $('#mapInspectorEmpty'),
+
     toastStack: $('#toastStack'),
     year: $('#year'),
   };
@@ -227,6 +299,7 @@
     draftTags: [],
     confirmAction: null,
     pendingHighlight: null,
+    mapEditor: null,
   };
 
   let isComposingTag = false;
@@ -367,7 +440,69 @@
       pinned: raw.pinned === true,
       createdAt,
       updatedAt,
+      map: normalizeMap(raw.map),
     };
+  }
+
+  function normalizeMap(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const cols = clampInt(raw.cols, 6, 40, MAP_DEFAULT_COLS);
+    const rows = clampInt(raw.rows, 6, 30, MAP_DEFAULT_ROWS);
+    const tiles = {};
+    const rawTiles = raw.tiles && typeof raw.tiles === 'object' ? raw.tiles : {};
+
+    for (const [key, value] of Object.entries(rawTiles)) {
+      if (typeof value !== 'string' || value === 'grass') continue;
+      if (!Object.prototype.hasOwnProperty.call(MAP_TERRAINS, value)) continue;
+      const match = /^(\d{1,2}),(\d{1,2})$/.exec(key);
+      if (!match) continue;
+      const col = Number(match[1]);
+      const row = Number(match[2]);
+      if (col >= cols || row >= rows) continue;
+      tiles[`${col},${row}`] = value;
+    }
+
+    const cities = [];
+    const seen = new Set();
+    const rawCities = Array.isArray(raw.cities) ? raw.cities : [];
+
+    for (const item of rawCities) {
+      if (!item || typeof item !== 'object' || cities.length >= MAP_MAX_CITIES) continue;
+      const col = clampInt(item.col, 0, cols - 1, null);
+      const row = clampInt(item.row, 0, rows - 1, null);
+      if (col === null || row === null) continue;
+
+      const id =
+        typeof item.id === 'string' && item.id.trim() ? item.id.trim() : makeId();
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      cities.push({
+        id,
+        name: cleanText(item.name, 40) || '未命名城市',
+        col,
+        row,
+        color: normalizeCityColor(item.color, cities.length),
+        radius: clampInt(item.radius, 1, 3, 2),
+      });
+    }
+
+    return { cols, rows, tiles, cities };
+  }
+
+  function normalizeCityColor(value, index) {
+    if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) {
+      const normalized = value.toLowerCase();
+      if (MAP_CITY_COLORS.includes(normalized)) return normalized;
+    }
+    return MAP_CITY_COLORS[index % MAP_CITY_COLORS.length];
+  }
+
+  function clampInt(value, min, max, fallback) {
+    const number = Math.round(Number(value));
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(Math.max(number, min), max);
   }
 
   function cleanText(value, limit) {
@@ -1072,7 +1207,19 @@
     const link = $('.entry-card-main', node);
     link.href = entryHash(novel.id, sectionKey, entry.id);
 
-    $('.entry-card-title', node).textContent = entry.title;
+    const titleEl = $('.entry-card-title', node);
+    titleEl.textContent = entry.title;
+
+    if (sectionKey === 'maps' && entry.map && mapHasContent(entry.map)) {
+      const thumb = el('span', 'entry-card-map');
+      thumb.appendChild(buildMapPreview(entry.map, { thumb: true }));
+      if (entry.map.cities.length > 0) {
+        thumb.appendChild(
+          el('span', 'entry-card-map-badge', `${entry.map.cities.length} 座城市`)
+        );
+      }
+      titleEl.after(thumb);
+    }
 
     const subtitleEl = $('.entry-card-subtitle', node);
     if (entry.subtitle) {
@@ -1197,6 +1344,10 @@
 
     if (entry.summary) {
       body.appendChild(el('p', 'entry-lead', entry.summary));
+    }
+
+    if (sectionKey === 'maps') {
+      body.appendChild(createMapPanel(novel, sectionKey, entry));
     }
 
     const block = el('section', 'entry-detail-block');
@@ -1679,6 +1830,1085 @@
       if (wasOnTargetSection) highlightEntryCard(savedId, { scroll: true });
       showToast('修改已保存');
     }
+  }
+
+  /* ---------- Map workshop ---------- */
+
+  function defaultMap() {
+    return { cols: MAP_DEFAULT_COLS, rows: MAP_DEFAULT_ROWS, tiles: {}, cities: [] };
+  }
+
+  function mapHasContent(map) {
+    return Boolean(
+      map &&
+        (map.cities.length > 0 || Object.keys(map.tiles).length > 0)
+    );
+  }
+
+  function createMapPanel(novel, sectionKey, entry) {
+    const block = el('section', 'entry-detail-block entry-map-block');
+    const head = el('div', 'entry-map-head');
+    const headText = el('div');
+    headText.appendChild(el('h3', 'entry-block-title', '地图工坊'));
+
+    if (entry.map) {
+      const cityCount = entry.map.cities.length;
+      const terrainCount = Object.keys(entry.map.tiles).length;
+      headText.appendChild(
+        el(
+          'p',
+          'entry-map-caption',
+          `${cityCount} 座城市 · ${terrainCount} 处地貌 · 点击地图继续绘制`
+        )
+      );
+    } else {
+      headText.appendChild(
+        el('p', 'entry-map-caption', '用六边形格子铺出地形，再放下城市与它们的势力范围。')
+      );
+    }
+    head.appendChild(headText);
+    block.appendChild(head);
+
+    const data = {
+      action: 'edit-map',
+      novelId: novel.id,
+      sectionKey,
+      entryId: entry.id,
+    };
+
+    if (entry.map) {
+      const previewBtn = el('button', 'map-preview-btn');
+      previewBtn.type = 'button';
+      Object.assign(previewBtn.dataset, data);
+      previewBtn.setAttribute('aria-label', `打开「${entry.title}」的地图工坊`);
+      previewBtn.appendChild(buildMapPreview(entry.map));
+      previewBtn.appendChild(el('span', 'map-preview-hint', '打开地图工坊'));
+      block.appendChild(previewBtn);
+    } else {
+      const empty = el('div', 'map-preview-empty');
+      empty.appendChild(icon('i-map'));
+      empty.appendChild(el('h4', '', '这张地点还没有地图'));
+      empty.appendChild(
+        el('p', '', '先画出海岸与山脉，再把城市放到它们该在的位置。')
+      );
+      const startBtn = el('button', 'btn primary');
+      startBtn.type = 'button';
+      Object.assign(startBtn.dataset, data);
+      startBtn.append(icon('i-plus'), document.createTextNode('开始绘制地图'));
+      empty.appendChild(startBtn);
+      block.appendChild(empty);
+    }
+
+    return block;
+  }
+
+  function buildMapPreview(map, { thumb = false } = {}) {
+    const padding = thumb ? 10 : 22;
+    const bounds = getMapWorldBounds(map);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', getMapViewBox(map, padding));
+    svg.setAttribute('class', thumb ? 'map-canvas map-thumb' : 'map-canvas map-preview');
+    svg.setAttribute('preserveAspectRatio', thumb ? 'xMidYMid slice' : 'xMidYMid meet');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.style.aspectRatio = `${bounds.width + padding * 2} / ${bounds.height + padding * 2}`;
+    svg.innerHTML = buildMapMarkup(map);
+    return svg;
+  }
+
+  function getMapWorldBounds(map) {
+    return {
+      minX: -(MAP_WORLD_SQRT3 / 2) * MAP_HEX_SIZE,
+      minY: -MAP_HEX_SIZE,
+      width: MAP_WORLD_SQRT3 * MAP_HEX_SIZE * (map.cols + 0.5),
+      height: MAP_HEX_SIZE * (1.5 * (map.rows - 1) + 2),
+    };
+  }
+
+  function getMapViewBox(map, padding = 0) {
+    const bounds = getMapWorldBounds(map);
+    return `${roundMapCoordinate(bounds.minX - padding)} ${roundMapCoordinate(
+      bounds.minY - padding
+    )} ${roundMapCoordinate(bounds.width + padding * 2)} ${roundMapCoordinate(
+      bounds.height + padding * 2
+    )}`;
+  }
+
+  function hexCenter(col, row) {
+    return {
+      x: MAP_WORLD_SQRT3 * MAP_HEX_SIZE * (col + 0.5 * (row & 1)),
+      y: MAP_HEX_SIZE * 1.5 * row,
+    };
+  }
+
+  function hexCornersAt(cx, cy) {
+    const halfWidth = (MAP_WORLD_SQRT3 / 2) * MAP_HEX_SIZE;
+    const quarterHeight = MAP_HEX_SIZE / 2;
+    return [
+      { x: cx, y: cy - MAP_HEX_SIZE },
+      { x: cx + halfWidth, y: cy - quarterHeight },
+      { x: cx + halfWidth, y: cy + quarterHeight },
+      { x: cx, y: cy + MAP_HEX_SIZE },
+      { x: cx - halfWidth, y: cy + quarterHeight },
+      { x: cx - halfWidth, y: cy - quarterHeight },
+    ];
+  }
+
+  function hexPathAt(cx, cy) {
+    const corners = hexCornersAt(cx, cy);
+    return (
+      corners
+        .map(
+          (point, index) =>
+            `${index === 0 ? 'M' : 'L'}${roundMapCoordinate(point.x)} ${roundMapCoordinate(point.y)}`
+        )
+        .join('') + 'Z'
+    );
+  }
+
+  function roundMapCoordinate(value) {
+    return Math.round(value * 10) / 10;
+  }
+
+  function mapHexDistance(colA, rowA, colB, rowB) {
+    const qA = colA - (rowA - (rowA & 1)) / 2;
+    const qB = colB - (rowB - (rowB & 1)) / 2;
+    const dq = qA - qB;
+    const dr = rowA - rowB;
+    return (Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2;
+  }
+
+  function mapNeighborCell(col, row, direction) {
+    const odd = row & 1;
+    switch (direction) {
+      case 'E':
+        return [col + 1, row];
+      case 'W':
+        return [col - 1, row];
+      case 'NE':
+        return [col + odd, row - 1];
+      case 'NW':
+        return [col - 1 + odd, row - 1];
+      case 'SE':
+        return [col + odd, row + 1];
+      case 'SW':
+        return [col - 1 + odd, row + 1];
+      default:
+        return [col, row];
+    }
+  }
+
+  function computeMapOwnership(map) {
+    const ownership = new Map();
+
+    for (const city of map.cities) {
+      for (let row = 0; row < map.rows; row += 1) {
+        for (let col = 0; col < map.cols; col += 1) {
+          const distance = mapHexDistance(col, row, city.col, city.row);
+          if (distance > city.radius) continue;
+          const key = `${col},${row}`;
+          const current = ownership.get(key);
+          if (!current || distance < current.distance) {
+            ownership.set(key, { city, distance });
+          }
+        }
+      }
+    }
+
+    return ownership;
+  }
+
+  function buildMapMarkup(map, { selectedCityId = null } = {}) {
+    const terrainParts = [];
+    const territoryParts = [];
+    const borderParts = [];
+    const cityParts = [];
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        terrainParts.push(buildMapHex(col, row, map.tiles[`${col},${row}`] || 'grass'));
+      }
+    }
+
+    const ownership = computeMapOwnership(map);
+    const ownedByCity = new Map();
+
+    for (const [key, owner] of ownership) {
+      const [col, row] = key.split(',').map(Number);
+      const center = hexCenter(col, row);
+      const isCenter = owner.city.col === col && owner.city.row === row;
+      territoryParts.push(
+        `<path class="map-territory-tile" d="${hexPathAt(center.x, center.y)}" fill="${
+          owner.city.color
+        }" opacity="${isCenter ? 0.2 : 0.09}"/>`
+      );
+      if (!ownedByCity.has(owner.city.id)) ownedByCity.set(owner.city.id, new Set());
+      ownedByCity.get(owner.city.id).add(key);
+    }
+
+    for (const city of map.cities) {
+      const owned = ownedByCity.get(city.id);
+      if (!owned || owned.size === 0) continue;
+
+      const segments = [];
+      for (const key of owned) {
+        const [col, row] = key.split(',').map(Number);
+        const center = hexCenter(col, row);
+        const corners = hexCornersAt(center.x, center.y);
+
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          if (owned.has(`${nextCol},${nextRow}`)) continue;
+          const [start, end] = MAP_EDGE_CORNERS[direction];
+          segments.push(
+            `M${roundMapCoordinate(corners[start].x)} ${roundMapCoordinate(
+              corners[start].y
+            )}L${roundMapCoordinate(corners[end].x)} ${roundMapCoordinate(corners[end].y)}`
+          );
+        }
+      }
+
+      borderParts.push(
+        `<path class="map-territory-border" d="${segments.join(
+          ''
+        )}" fill="none" stroke="${city.color}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>`
+      );
+    }
+
+    for (const city of map.cities) {
+      cityParts.push(buildMapCityMarker(city, city.id === selectedCityId));
+    }
+
+    return [
+      `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
+      `<g class="map-layer map-territory-layer" aria-hidden="true">${territoryParts.join(
+        ''
+      )}${borderParts.join('')}</g>`,
+      `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
+    ].join('');
+  }
+
+  function buildMapHex(col, row, terrainKey) {
+    return `<g class="map-hex" data-col="${col}" data-row="${row}" data-terrain="${terrainKey}">${buildMapHexInner(
+      col,
+      row,
+      terrainKey
+    )}</g>`;
+  }
+
+  function buildMapHexInner(col, row, terrainKey) {
+    const center = hexCenter(col, row);
+    const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
+    return `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${
+      terrain.fill
+    }" stroke="${terrain.stroke}" stroke-width=".9"/>${buildMapDecor(
+      terrainKey,
+      center.x,
+      center.y,
+      col,
+      row
+    )}`;
+  }
+
+  function buildMapDecor(terrainKey, x, y, col, row) {
+    const open = `<g class="map-decor" transform="translate(${roundMapCoordinate(
+      x
+    )} ${roundMapCoordinate(y)})" aria-hidden="true">`;
+    const close = '</g>';
+
+    if (terrainKey === 'grass') {
+      if ((col * 5 + row * 11) % 3 !== 0) return '';
+      return `${open}<path d="M-10 7c1-4 2.6-4 3.4 0M-4 10c1-5 2.6-5 3.4 0M5 5c1-4 2.4-4 3.2 0" fill="none" stroke="rgba(63,92,54,.32)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+    }
+
+    if (terrainKey === 'plains') {
+      return `${open}<path d="M-13 0h7M-2 4h9M-8 9h6" fill="none" stroke="rgba(112,94,43,.38)" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="-4" r="1.3" fill="rgba(112,94,43,.32)"/>${close}`;
+    }
+
+    if (terrainKey === 'forest') {
+      return `${open}<g transform="translate(-8 4)"><path d="M0 -11 L-5 2 H5 Z" fill="#547d57"/><path d="M0 -4 L-7 10 H7 Z" fill="#628e64"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g><g transform="translate(6 -3) scale(.62)"><path d="M0 -11 L-5 2 H5 Z" fill="#547d57"/><path d="M0 -4 L-7 10 H7 Z" fill="#628e64"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g><g transform="translate(9 8) scale(.5)"><path d="M0 -11 L-5 2 H5 Z" fill="#4b7350"/><path d="M0 -4 L-7 10 H7 Z" fill="#5b8760"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g>${close}`;
+    }
+
+    if (terrainKey === 'hills') {
+      return `${open}<path d="M-15 8c4-13 12-13 16 0M-1 8c4-11 11-11 15 0" fill="none" stroke="rgba(101,78,41,.4)" stroke-width="2.4" stroke-linecap="round"/><path d="M-8 12h6M2 13h7" fill="none" stroke="rgba(101,78,41,.28)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+    }
+
+    if (terrainKey === 'mountain') {
+      return `${open}<path d="M-17 12 L-3 -13 L11 12 Z" fill="#7b8293"/><path d="M-3 -13 L0 -6 L-8 -6 Z" fill="#eef2f8"/><path d="M2 12 L11 -2 L20 12 Z" fill="#959baa" opacity=".92"/><path d="M11 -2 L13 2 L9 2 Z" fill="#eef2f8" opacity=".9"/>${close}`;
+    }
+
+    if (terrainKey === 'water') {
+      return `${open}<path d="M-15 0c3.5-4 7-4 10.5 0s7 4 10.5 0M-12 9c3.5-4 7-4 10.5 0s7 4 10.5 0" fill="none" stroke="rgba(255,255,255,.62)" stroke-width="2.2" stroke-linecap="round"/>${close}`;
+    }
+
+    if (terrainKey === 'desert') {
+      return `${open}<circle cx="9" cy="-8" r="3.2" fill="rgba(255,241,192,.9)"/><path d="M-16 6c4-8 10-8 14 0M-1 11c4-7 10-7 14 0" fill="none" stroke="rgba(153,112,49,.4)" stroke-width="2" stroke-linecap="round"/>${close}`;
+    }
+
+    return '';
+  }
+
+  function buildMapCityMarker(city, selected) {
+    const center = hexCenter(city.col, city.row);
+    const label = city.name.length > 8 ? `${city.name.slice(0, 8)}…` : city.name;
+    const radius = MAP_HEX_SIZE * 0.4;
+    const selectRing = selected
+      ? `<circle class="map-city-select-ring" r="${
+          MAP_HEX_SIZE * 0.62
+        }" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-dasharray="5 4"/>`
+      : '';
+
+    return `<g class="map-city-marker${
+      selected ? ' is-selected' : ''
+    }" data-city-id="${escapeXml(city.id)}" transform="translate(${roundMapCoordinate(
+      center.x
+    )} ${roundMapCoordinate(center.y)})">
+      <circle class="map-city-halo" r="${MAP_HEX_SIZE * 0.64}" fill="${
+      city.color
+    }" opacity=".18"/>
+      ${selectRing}
+      <circle class="map-city-disc" r="${radius}" fill="${city.color}"/>
+      <circle class="map-city-ring" r="${radius}" fill="none" stroke="#ffffff" stroke-width="2.4"/>
+      <path class="map-city-glyph" d="M0 -8 L2.3 -2.5 L8.2 -2.5 L3.4 1.2 L5.2 7 L0 3.5 L-5.2 7 L-3.4 1.2 L-8.2 -2.5 L-2.3 -2.5 Z" fill="#ffffff" opacity=".92"/>
+      <text class="map-city-label" y="${
+        MAP_HEX_SIZE + 4
+      }" text-anchor="middle">${escapeXml(label)}</text>
+      <title>${escapeXml(city.name)}</title>
+    </g>`;
+  }
+
+  function escapeXml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => {
+      switch (character) {
+        case '&':
+          return '&amp;';
+        case '<':
+          return '&lt;';
+        case '>':
+          return '&gt;';
+        case '"':
+          return '&quot;';
+        default:
+          return '&apos;';
+      }
+    });
+  }
+
+  function openMapEditor({ novelId, sectionKey = 'maps', entryId }) {
+    const novel = findNovel(novelId);
+    const entries = novel && novel.entries[sectionKey];
+    const entry = entries ? entries.find((item) => item.id === entryId) : null;
+
+    if (!novel || !entry) {
+      showToast('这个地点已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const draft = normalizeMap(entry.map) || defaultMap();
+
+    state.mapEditor = {
+      novelId,
+      sectionKey,
+      entryId,
+      draft,
+      tool: 'browse',
+      terrain: 'grass',
+      selectedCityId: null,
+      view: { tx: 0, ty: 0, scale: 1 },
+      fitScale: 1,
+      history: [JSON.stringify(draft)],
+      historyIndex: 0,
+      pointer: null,
+      strokeSnapshot: null,
+      namePending: false,
+    };
+
+    els.mapDialogSubtitle.textContent = `${novel.title} · ${entry.title}`;
+    els.mapCityNameInput.value = '';
+    renderMapPalette();
+    renderMapToolState();
+    renderMapCanvas();
+    renderMapInspector();
+    syncMapDirtyUi();
+
+    els.mapDialog.showModal();
+    fitMapView();
+    requestAnimationFrame(fitMapView);
+  }
+
+  function renderMapPalette() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    const fragment = document.createDocumentFragment();
+    for (const key of MAP_TERRAIN_KEYS) {
+      const terrain = MAP_TERRAINS[key];
+      const button = el('button', 'terrain-option');
+      button.type = 'button';
+      button.dataset.terrain = key;
+      button.setAttribute('role', 'radio');
+      button.setAttribute('aria-checked', String(editor.terrain === key));
+      button.title = `绘制${terrain.label}`;
+
+      const chip = el('span', 'terrain-chip');
+      chip.style.setProperty('--terrain-fill', terrain.fill);
+      button.append(chip, el('span', 'terrain-name', terrain.label));
+      fragment.appendChild(button);
+    }
+    els.mapTerrainPalette.replaceChildren(fragment);
+  }
+
+  function renderMapToolState() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    els.mapTools.querySelectorAll('[data-map-tool]').forEach((button) => {
+      const active = button.dataset.mapTool === editor.tool;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+
+    els.mapTerrainPalette.querySelectorAll('[data-terrain]').forEach((button) => {
+      const active = button.dataset.terrain === editor.terrain;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-checked', String(active));
+    });
+
+    updateMapStageCursor();
+    syncMapStageTip();
+  }
+
+  function updateMapStageCursor() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    els.mapStage.classList.toggle('is-city-mode', editor.tool === 'city');
+    els.mapStage.classList.toggle(
+      'is-paint-mode',
+      editor.tool === 'paint' || editor.tool === 'erase'
+    );
+  }
+
+  function syncMapStageTip() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const empty = editor.draft.cities.length === 0;
+    els.mapStageTip.hidden = !empty;
+    if (!empty) return;
+    els.mapStageTip.textContent =
+      editor.tool === 'city'
+        ? '在格子上点一下，放下第一座城市'
+        : '选择「城市」，在格子上点一下';
+  }
+
+  function renderMapCanvas() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    els.mapSvg.innerHTML = `<g class="map-viewport">${buildMapMarkup(editor.draft, {
+      selectedCityId: editor.selectedCityId,
+    })}</g>`;
+    applyMapView();
+  }
+
+  function applyMapView() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const viewport = $('.map-viewport', els.mapSvg);
+    if (!viewport) return;
+
+    const { tx, ty, scale } = editor.view;
+    viewport.setAttribute(
+      'transform',
+      `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${scale.toFixed(3)})`
+    );
+
+    const percent = editor.fitScale
+      ? Math.round((scale / editor.fitScale) * 100)
+      : Math.round(scale * 100);
+    els.mapZoomBadge.textContent = `${percent}%`;
+  }
+
+  function syncMapViewportBox() {
+    const width = els.mapSvg.clientWidth;
+    const height = els.mapSvg.clientHeight;
+    if (!width || !height) return null;
+    els.mapSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    return { width, height };
+  }
+
+  function fitMapView() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const size = syncMapViewportBox();
+    if (!size) return;
+
+    const bounds = getMapWorldBounds(editor.draft);
+    const padding = Math.min(56, Math.max(22, Math.min(size.width, size.height) * 0.07));
+    const rawScale = Math.min(
+      (size.width - padding * 2) / bounds.width,
+      (size.height - padding * 2) / bounds.height
+    );
+    const scale = Math.min(Math.max(rawScale, 0.08), 3);
+
+    editor.fitScale = scale;
+    editor.view = {
+      scale,
+      tx: (size.width - bounds.width * scale) / 2 - bounds.minX * scale,
+      ty: (size.height - bounds.height * scale) / 2 - bounds.minY * scale,
+    };
+    applyMapView();
+  }
+
+  function zoomMapAt(px, py, nextScale) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const scale = Math.min(Math.max(nextScale, 0.12), 3.4);
+    const current = editor.view;
+    const worldX = (px - current.tx) / current.scale;
+    const worldY = (py - current.ty) / current.scale;
+
+    editor.view = {
+      scale,
+      tx: px - worldX * scale,
+      ty: py - worldY * scale,
+    };
+    applyMapView();
+  }
+
+  function zoomMapBy(factor) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const rect = els.mapStage.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    zoomMapAt(rect.width / 2, rect.height / 2, editor.view.scale * factor);
+  }
+
+  function eventToMapCell(event) {
+    const editor = state.mapEditor;
+    if (!editor) return null;
+    const viewport = $('.map-viewport', els.mapSvg);
+    if (!viewport) return null;
+    const matrix = viewport.getScreenCTM();
+    if (!matrix) return null;
+
+    const point = els.mapSvg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const local = point.matrixTransform(matrix.inverse());
+    return worldToMapCell(local.x, local.y, editor.draft);
+  }
+
+  function worldToMapCell(x, y, map) {
+    const rowGuess = Math.round(y / (1.5 * MAP_HEX_SIZE));
+    let best = null;
+
+    for (let row = rowGuess - 1; row <= rowGuess + 1; row += 1) {
+      if (row < 0 || row >= map.rows) continue;
+      const colGuess = Math.round(
+        x / (MAP_WORLD_SQRT3 * MAP_HEX_SIZE) - 0.5 * (row & 1)
+      );
+
+      for (let col = colGuess - 1; col <= colGuess + 1; col += 1) {
+        if (col < 0 || col >= map.cols) continue;
+        const center = hexCenter(col, row);
+        const distance = Math.hypot(x - center.x, y - center.y);
+        if (!best || distance < best.distance) best = { col, row, distance };
+      }
+    }
+
+    if (!best || best.distance > MAP_HEX_SIZE) return null;
+    return best;
+  }
+
+  function renderMapInspector() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    const cities = editor.draft.cities;
+    const selected = cities.find((city) => city.id === editor.selectedCityId) || null;
+
+    els.mapCityCount.textContent = `${cities.length} 座`;
+
+    const list = document.createDocumentFragment();
+    if (cities.length === 0) {
+      list.appendChild(
+        el(
+          'p',
+          'map-city-list-empty',
+          '还没有城市。切换到「城市」工具，在画布上点一下。'
+        )
+      );
+    } else {
+      for (const city of cities) {
+        const item = el('button', 'map-city-item');
+        item.type = 'button';
+        item.dataset.cityId = city.id;
+        const active = city.id === editor.selectedCityId;
+        item.classList.toggle('is-selected', active);
+        item.setAttribute('aria-pressed', String(active));
+
+        const dot = el('span', 'map-city-dot');
+        dot.style.setProperty('--city-color', city.color);
+
+        item.append(
+          dot,
+          el('span', 'map-city-item-name', city.name || '未命名城市'),
+          el('span', 'map-city-item-meta', `${city.radius} 格`)
+        );
+        list.appendChild(item);
+      }
+    }
+    els.mapCityList.replaceChildren(list);
+
+    els.mapCityEditor.hidden = !selected;
+    els.mapInspectorEmpty.hidden = Boolean(selected);
+
+    if (!selected) {
+      els.mapCityNameInput.value = '';
+      els.mapCityCoord.textContent = '';
+      syncMapStageTip();
+      return;
+    }
+
+    if (document.activeElement !== els.mapCityNameInput) {
+      els.mapCityNameInput.value = selected.name;
+    }
+    els.mapCityCoord.textContent = `第 ${selected.row + 1} 行 · 第 ${
+      selected.col + 1
+    } 列 · 半径 ${selected.radius} 格`;
+    renderMapColorRow(selected);
+    syncMapRadiusButtons(selected);
+    syncMapStageTip();
+  }
+
+  function renderMapColorRow(city) {
+    const fragment = document.createDocumentFragment();
+
+    for (const color of MAP_CITY_COLORS) {
+      const button = el('button', 'map-color-swatch');
+      button.type = 'button';
+      button.dataset.color = color;
+      button.style.setProperty('--city-color', color);
+      button.setAttribute('aria-label', `城市颜色 ${color}`);
+      const active = city.color === color;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      fragment.appendChild(button);
+    }
+
+    els.mapColorRow.replaceChildren(fragment);
+  }
+
+  function syncMapRadiusButtons(city) {
+    els.mapRadiusRow.querySelectorAll('[data-radius]').forEach((button) => {
+      const active = Number(button.dataset.radius) === city.radius;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function syncMapCityControls(city) {
+    els.mapCityCoord.textContent = `第 ${city.row + 1} 行 · 第 ${
+      city.col + 1
+    } 列 · 半径 ${city.radius} 格`;
+    syncMapRadiusButtons(city);
+
+    els.mapColorRow.querySelectorAll('.map-color-swatch').forEach((button) => {
+      const active = button.dataset.color === city.color;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+
+    const item = els.mapCityList.querySelector(
+      `.map-city-item[data-city-id="${cssEscape(city.id)}"]`
+    );
+    if (item) {
+      const meta = $('.map-city-item-meta', item);
+      const dot = $('.map-city-dot', item);
+      if (meta) meta.textContent = `${city.radius} 格`;
+      if (dot) dot.style.setProperty('--city-color', city.color);
+    }
+  }
+
+  function updateMapCityLabel(city) {
+    const marker = els.mapSvg.querySelector(
+      `.map-city-marker[data-city-id="${cssEscape(city.id)}"]`
+    );
+    const displayName = city.name || '未命名城市';
+
+    if (marker) {
+      const label = $('.map-city-label', marker);
+      const title = $('title', marker);
+      if (label) {
+        label.textContent =
+          displayName.length > 8 ? `${displayName.slice(0, 8)}…` : displayName;
+      }
+      if (title) title.textContent = displayName;
+    }
+
+    const item = els.mapCityList.querySelector(
+      `.map-city-item[data-city-id="${cssEscape(city.id)}"] .map-city-item-name`
+    );
+    if (item) item.textContent = displayName;
+  }
+
+  function nextMapCityName(cities) {
+    let index = 1;
+    const used = new Set(cities.map((city) => city.name));
+    while (used.has(`新城 ${index}`)) index += 1;
+    return `新城 ${index}`;
+  }
+
+  function selectMapCity(cityId) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const nextId =
+      cityId && editor.draft.cities.some((city) => city.id === cityId)
+        ? cityId
+        : null;
+    if (editor.selectedCityId === nextId) {
+      renderMapInspector();
+      return;
+    }
+    editor.selectedCityId = nextId;
+    renderMapCanvas();
+    renderMapInspector();
+  }
+
+  function addMapCityAtCell(cell) {
+    const editor = state.mapEditor;
+    if (!editor || !cell) return;
+
+    const existing = editor.draft.cities.find(
+      (city) => city.col === cell.col && city.row === cell.row
+    );
+    if (existing) {
+      selectMapCity(existing.id);
+      return;
+    }
+    if (editor.draft.cities.length >= MAP_MAX_CITIES) {
+      showToast(`一张地图最多放置 ${MAP_MAX_CITIES} 座城市`);
+      return;
+    }
+
+    const city = {
+      id: makeId(),
+      name: nextMapCityName(editor.draft.cities),
+      col: cell.col,
+      row: cell.row,
+      color: MAP_CITY_COLORS[editor.draft.cities.length % MAP_CITY_COLORS.length],
+      radius: 2,
+    };
+    editor.draft.cities.push(city);
+    editor.selectedCityId = city.id;
+    pushMapHistory();
+    renderMapCanvas();
+    renderMapInspector();
+  }
+
+  function deleteSelectedMapCity() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const city = editor.draft.cities.find(
+      (item) => item.id === editor.selectedCityId
+    );
+    if (!city) return;
+
+    editor.draft.cities = editor.draft.cities.filter((item) => item.id !== city.id);
+    editor.selectedCityId = null;
+    pushMapHistory();
+    renderMapCanvas();
+    renderMapInspector();
+  }
+
+  function paintMapCell(col, row) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    const key = `${col},${row}`;
+    const current = editor.draft.tiles[key] || 'grass';
+    const next = editor.tool === 'erase' ? 'grass' : editor.terrain;
+    if (current === next) return;
+
+    if (next === 'grass') {
+      delete editor.draft.tiles[key];
+    } else {
+      editor.draft.tiles[key] = next;
+    }
+
+    const tile = els.mapSvg.querySelector(
+      `.map-hex[data-col="${col}"][data-row="${row}"]`
+    );
+    if (tile) {
+      tile.dataset.terrain = next;
+      tile.innerHTML = buildMapHexInner(col, row, next);
+    }
+    syncMapDirtyUi();
+  }
+
+  function paintMapCellAt(cell, pointer) {
+    if (!cell) return;
+    const key = `${cell.col},${cell.row}`;
+    if (pointer.lastPaintKey === key) return;
+    pointer.lastPaintKey = key;
+    paintMapCell(cell.col, cell.row);
+  }
+
+  function pushMapHistory(snapshot) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const value = snapshot || JSON.stringify(editor.draft);
+    if (editor.history[editor.historyIndex] === value) {
+      syncMapDirtyUi();
+      return;
+    }
+
+    editor.history = editor.history.slice(0, editor.historyIndex + 1);
+    editor.history.push(value);
+    if (editor.history.length > MAP_HISTORY_LIMIT) editor.history.shift();
+    editor.historyIndex = editor.history.length - 1;
+    editor.namePending = false;
+    syncMapDirtyUi();
+  }
+
+  function syncMapDirtyUi() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const dirty = JSON.stringify(editor.draft) !== editor.history[0];
+    els.mapSaveState.textContent = dirty ? '有未保存的改动' : '已与档案同步';
+    els.mapSaveState.classList.toggle('is-dirty', dirty);
+    const canUndo = editor.historyIndex > 0;
+    const canRedo = editor.historyIndex < editor.history.length - 1;
+    els.mapUndoBtn.disabled = !canUndo;
+    els.mapRedoBtn.disabled = !canRedo;
+    els.mapMobileUndoBtn.disabled = !canUndo;
+    els.mapMobileRedoBtn.disabled = !canRedo;
+  }
+
+  function restoreMapHistory(index) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    if (index < 0 || index >= editor.history.length) return;
+
+    editor.historyIndex = index;
+    editor.draft = JSON.parse(editor.history[index]);
+    editor.namePending = false;
+    if (
+      editor.selectedCityId &&
+      !editor.draft.cities.some((city) => city.id === editor.selectedCityId)
+    ) {
+      editor.selectedCityId = null;
+    }
+    renderMapCanvas();
+    renderMapInspector();
+    syncMapDirtyUi();
+  }
+
+  function undoMapChange() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    restoreMapHistory(editor.historyIndex - 1);
+  }
+
+  function redoMapChange() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    restoreMapHistory(editor.historyIndex + 1);
+  }
+
+  function commitMapCityName() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const city = editor.draft.cities.find(
+      (item) => item.id === editor.selectedCityId
+    );
+    if (!city) return;
+
+    const trimmed = city.name.trim().slice(0, 40) || '未命名城市';
+    const changed = trimmed !== city.name || editor.namePending;
+    city.name = trimmed;
+
+    els.mapCityNameInput.value = trimmed;
+    updateMapCityLabel(city);
+
+    if (changed) {
+      pushMapHistory();
+    }
+  }
+
+  function attemptCloseMapEditor() {
+    const editor = state.mapEditor;
+    if (!editor) {
+      els.mapDialog.close();
+      return;
+    }
+    const dirty = JSON.stringify(editor.draft) !== editor.history[0];
+    if (!dirty) {
+      els.mapDialog.close();
+      return;
+    }
+
+    openConfirm({
+      title: '放弃这次地图改动？',
+      message: '尚未保存的地形与城市会丢失。',
+      okLabel: '放弃改动',
+      onConfirm: () => {
+        els.mapDialog.close();
+      },
+    });
+  }
+
+  function saveMapEditor() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    commitMapCityName();
+
+    const novel = findNovel(editor.novelId);
+    const entries = novel && novel.entries[editor.sectionKey];
+    const entry = entries
+      ? entries.find((item) => item.id === editor.entryId)
+      : null;
+
+    if (!novel || !entry) {
+      els.mapDialog.close();
+      showToast('这个地点已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const map = normalizeMap(JSON.parse(JSON.stringify(editor.draft))) || defaultMap();
+    const now = new Date().toISOString();
+    const previous = state.novels;
+    const nextEntries = novel.entries[editor.sectionKey].map((item) =>
+      item.id === editor.entryId ? { ...item, map, updatedAt: now } : item
+    );
+
+    state.novels = state.novels.map((item) =>
+      item.id === editor.novelId
+        ? {
+            ...item,
+            updatedAt: now,
+            entries: { ...item.entries, [editor.sectionKey]: nextEntries },
+          }
+        : item
+    );
+
+    if (!persist()) {
+      state.novels = previous;
+      return;
+    }
+
+    els.mapDialog.close();
+    refreshCurrentView();
+    showToast('地图已保存');
+  }
+
+  function handleMapPointerDown(event) {
+    const editor = state.mapEditor;
+    if (!editor || !els.mapDialog.open) return;
+    if (event.button !== 0 && event.button !== 1) return;
+    event.preventDefault();
+
+    const cityEl = event.target.closest('.map-city-marker');
+    const cell = eventToMapCell(event);
+    const pointer = {
+      id: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      cell,
+      cityId: cityEl ? cityEl.dataset.cityId : null,
+      mode: 'idle',
+      lastPaintKey: null,
+    };
+
+    const wantsPan =
+      event.button === 1 || event.shiftKey || editor.tool === 'browse' || editor.tool === 'city';
+
+    if (wantsPan || cityEl) {
+      pointer.mode = 'pending';
+    } else {
+      pointer.mode = 'paint';
+      editor.strokeSnapshot = JSON.stringify(editor.draft);
+      paintMapCellAt(cell, pointer);
+    }
+
+    editor.pointer = pointer;
+    els.mapSvg.setPointerCapture(event.pointerId);
+  }
+
+  function handleMapPointerMove(event) {
+    const editor = state.mapEditor;
+    const pointer = editor && editor.pointer;
+    if (!pointer || pointer.id !== event.pointerId) return;
+
+    const dx = event.clientX - pointer.lastX;
+    const dy = event.clientY - pointer.lastY;
+    pointer.lastX = event.clientX;
+    pointer.lastY = event.clientY;
+
+    if (pointer.mode === 'pending') {
+      if (Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 5) {
+        pointer.mode = 'pan';
+        els.mapStage.classList.add('is-panning');
+      }
+    }
+
+    if (pointer.mode === 'pan') {
+      editor.view.tx += dx;
+      editor.view.ty += dy;
+      applyMapView();
+    } else if (pointer.mode === 'paint') {
+      paintMapCellAt(eventToMapCell(event), pointer);
+    }
+  }
+
+  function handleMapPointerUp(event) {
+    const editor = state.mapEditor;
+    const pointer = editor && editor.pointer;
+    if (!pointer || pointer.id !== event.pointerId) return;
+
+    if (pointer.mode === 'paint') {
+      const snapshot = JSON.stringify(editor.draft);
+      const changed = editor.strokeSnapshot !== snapshot;
+      editor.strokeSnapshot = null;
+      if (changed) pushMapHistory(snapshot);
+    } else if (pointer.mode === 'pending') {
+      if (pointer.cityId) {
+        selectMapCity(pointer.cityId);
+      } else if (editor.tool === 'city') {
+        addMapCityAtCell(pointer.cell);
+      } else if (editor.tool === 'browse') {
+        selectMapCity(null);
+      }
+    }
+
+    if (els.mapSvg.hasPointerCapture(event.pointerId)) {
+      els.mapSvg.releasePointerCapture(event.pointerId);
+    }
+    editor.pointer = null;
+    els.mapStage.classList.remove('is-panning');
+  }
+
+  function handleMapPointerCancel(event) {
+    const editor = state.mapEditor;
+    const pointer = editor && editor.pointer;
+    if (!pointer || pointer.id !== event.pointerId) return;
+    editor.pointer = null;
+    editor.strokeSnapshot = null;
+    els.mapStage.classList.remove('is-panning');
+  }
+
+  function handleMapWheel(event) {
+    const editor = state.mapEditor;
+    if (!editor || !els.mapDialog.open) return;
+    event.preventDefault();
+
+    const rect = els.mapSvg.getBoundingClientRect();
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    const factor = Math.exp(-event.deltaY * 0.0016);
+    zoomMapAt(px, py, editor.view.scale * factor);
   }
 
   /* ---------- Delete / pin ---------- */
@@ -2346,12 +3576,180 @@
       if (!els.confirmDialog.open) state.confirmAction = null;
     });
 
+    els.mapTools.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-map-tool]');
+      const editor = state.mapEditor;
+      if (!button || !editor) return;
+      editor.tool = button.dataset.mapTool;
+      renderMapToolState();
+    });
+
+    els.mapTerrainPalette.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-terrain]');
+      const editor = state.mapEditor;
+      if (!button || !editor) return;
+      editor.terrain = button.dataset.terrain;
+      editor.tool = 'paint';
+      renderMapToolState();
+    });
+
+    els.mapZoomInBtn.addEventListener('click', () => zoomMapBy(1.22));
+    els.mapZoomOutBtn.addEventListener('click', () => zoomMapBy(1 / 1.22));
+    els.mapFitBtn.addEventListener('click', fitMapView);
+    els.mapUndoBtn.addEventListener('click', undoMapChange);
+    els.mapRedoBtn.addEventListener('click', redoMapChange);
+    els.mapMobileZoomInBtn.addEventListener('click', () => zoomMapBy(1.22));
+    els.mapMobileZoomOutBtn.addEventListener('click', () => zoomMapBy(1 / 1.22));
+    els.mapMobileFitBtn.addEventListener('click', fitMapView);
+    els.mapMobileUndoBtn.addEventListener('click', undoMapChange);
+    els.mapMobileRedoBtn.addEventListener('click', redoMapChange);
+
+    els.mapClearBtn.addEventListener('click', () => {
+      openConfirm({
+        title: '清空这张地图？',
+        message: '所有地形与城市都会被移除，可以用撤销找回。',
+        okLabel: '清空地图',
+        onConfirm: () => {
+          const editor = state.mapEditor;
+          if (!editor) return;
+          editor.draft = defaultMap();
+          editor.selectedCityId = null;
+          pushMapHistory();
+          renderMapCanvas();
+          renderMapInspector();
+        },
+      });
+    });
+
+    els.mapCancelBtn.addEventListener('click', attemptCloseMapEditor);
+    els.mapCloseBtn.addEventListener('click', attemptCloseMapEditor);
+    els.mapSaveBtn.addEventListener('click', saveMapEditor);
+
+    els.mapDialog.addEventListener('cancel', (event) => {
+      const editor = state.mapEditor;
+      if (!editor || JSON.stringify(editor.draft) === editor.history[0]) return;
+      event.preventDefault();
+      attemptCloseMapEditor();
+    });
+
+    els.mapDialog.addEventListener('close', () => {
+      state.mapEditor = null;
+      els.mapSvg.replaceChildren();
+      els.mapStage.classList.remove('is-panning');
+    });
+
+    els.mapCityList.addEventListener('click', (event) => {
+      const item = event.target.closest('.map-city-item');
+      if (!item) return;
+      selectMapCity(item.dataset.cityId);
+    });
+
+    els.mapCityNameInput.addEventListener('input', () => {
+      const editor = state.mapEditor;
+      if (!editor) return;
+      const city = editor.draft.cities.find(
+        (item) => item.id === editor.selectedCityId
+      );
+      if (!city) return;
+      city.name = els.mapCityNameInput.value.slice(0, 40);
+      editor.namePending = true;
+      updateMapCityLabel(city);
+      syncMapDirtyUi();
+    });
+    els.mapCityNameInput.addEventListener('change', commitMapCityName);
+    els.mapCityNameInput.addEventListener('blur', commitMapCityName);
+    els.mapCityNameInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        els.mapCityNameInput.blur();
+      }
+    });
+
+    els.mapRadiusRow.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-radius]');
+      const editor = state.mapEditor;
+      if (!button || !editor) return;
+      const city = editor.draft.cities.find(
+        (item) => item.id === editor.selectedCityId
+      );
+      if (!city) return;
+      const radius = clampInt(button.dataset.radius, 1, 3, 2);
+      if (city.radius === radius) return;
+      city.radius = radius;
+      pushMapHistory();
+      renderMapCanvas();
+      syncMapCityControls(city);
+    });
+
+    els.mapColorRow.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-color]');
+      const editor = state.mapEditor;
+      if (!button || !editor) return;
+      const city = editor.draft.cities.find(
+        (item) => item.id === editor.selectedCityId
+      );
+      if (!city || city.color === button.dataset.color) return;
+      city.color = button.dataset.color;
+      pushMapHistory();
+      renderMapCanvas();
+      syncMapCityControls(city);
+    });
+
+    els.mapDeleteCityBtn.addEventListener('click', deleteSelectedMapCity);
+
+    els.mapSvg.addEventListener('pointerdown', handleMapPointerDown);
+    els.mapSvg.addEventListener('pointermove', handleMapPointerMove);
+    els.mapSvg.addEventListener('pointerup', handleMapPointerUp);
+    els.mapSvg.addEventListener('pointercancel', handleMapPointerCancel);
+    els.mapSvg.addEventListener('wheel', handleMapWheel, { passive: false });
+    els.mapSvg.addEventListener('contextmenu', (event) => event.preventDefault());
+
+    document.addEventListener('keydown', (event) => {
+      if (!els.mapDialog.open || els.confirmDialog.open) return;
+      const editor = state.mapEditor;
+      if (!editor) return;
+
+      const target = event.target;
+      const isTyping =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+      if (isTyping) return;
+
+      const meta = event.ctrlKey || event.metaKey;
+      if (meta && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) redoMapChange();
+        else undoMapChange();
+        return;
+      }
+      if (meta && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redoMapChange();
+        return;
+      }
+
+      if ((event.key === 'Delete' || event.key === 'Backspace') && editor.selectedCityId) {
+        event.preventDefault();
+        deleteSelectedMapCity();
+      }
+    });
+
+    if ('ResizeObserver' in window) {
+      const mapObserver = new ResizeObserver(() => {
+        if (!state.mapEditor || !els.mapDialog.open) return;
+        syncMapViewportBox();
+      });
+      mapObserver.observe(els.mapStage);
+    }
+
     document.addEventListener('keydown', (event) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
       if (
         els.novelDialog.open ||
         els.entryDialog.open ||
-        els.confirmDialog.open
+        els.confirmDialog.open ||
+        els.mapDialog.open
       ) {
         return;
       }
@@ -2431,6 +3829,12 @@
       case 'pin-entry':
         event.preventDefault();
         if (sectionKey && entryId) toggleEntryPin(novelId, sectionKey, entryId);
+        break;
+      case 'edit-map':
+        event.preventDefault();
+        if (sectionKey && entryId) {
+          openMapEditor({ novelId, sectionKey, entryId });
+        }
         break;
       default:
         break;
