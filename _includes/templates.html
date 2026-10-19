@@ -67,6 +67,34 @@
           </div>
         </div>
 
+        <div class="field">
+          <span class="field-label" id="outlineVisibilityLabel">公开范围</span>
+          <div class="visibility-picker" role="radiogroup" aria-labelledby="outlineVisibilityLabel" data-outline-visibility>
+            <label class="visibility-option">
+              <input type="radio" name="outlineVisibility" value="inherit" checked>
+              <span class="visibility-option-copy">
+                <span class="visibility-option-title">跟随小说</span>
+                <span class="visibility-option-desc">小说解锁时一起公开</span>
+              </span>
+            </label>
+            <label class="visibility-option">
+              <input type="radio" name="outlineVisibility" value="public">
+              <span class="visibility-option-copy">
+                <span class="visibility-option-title">公开</span>
+                <span class="visibility-option-desc">小说解锁时可见</span>
+              </span>
+            </label>
+            <label class="visibility-option">
+              <input type="radio" name="outlineVisibility" value="private">
+              <span class="visibility-option-copy">
+                <span class="visibility-option-title">私密</span>
+                <span class="visibility-option-desc">永不进入快照</span>
+              </span>
+            </label>
+          </div>
+          <p class="field-hint visibility-hint" data-outline-visibility-hint></p>
+        </div>
+
         <div class="field outline-notes-field">
           <label for="outlineEditorNotesInput">大纲正文 <span class="field-optional">选填</span></label>
           <textarea id="outlineEditorNotesInput" name="notes" rows="20"></textarea>

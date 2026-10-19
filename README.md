@@ -2,7 +2,7 @@
 
 一座放在浏览器里的私人小说书架：点开一本书，整理它的角色、背景、设定、地图与资料。夜图书馆壁纸配磨砂玻璃卡片，左侧栏直达书架、小说与各内容分区；无需登录，零依赖；站点外壳使用 Jekyll 构建，可直接部署到 GitHub Pages。
 
-> 小说与设定数据只保存在每位访问者自己的浏览器里，Jekyll 只负责生成静态页面外壳。
+> 默认情况下，小说与设定数据只保存在每位访问者自己的浏览器里。只有主动解锁并部署的公开快照，才会进入独立的只读公开书架。
 
 ## 功能
 
@@ -10,6 +10,7 @@
 - **外观调节**：左侧栏「外观」面板提供晨雾 / 暮色 / 暖纸 / 清透四套风格，并可单独调整强调色、壁纸明暗、玻璃不透明度（58%–100%）、卡片不透明度（34%–90%）、磨砂模糊、玻璃描边与正文字号，实时生效并自动保存在本机；透明度过低时会自动提亮背景并加深次要文字，保证文字清晰
 - **外观浮层**：外观面板按按钮周围的可用空间自动向上或向下展开，长页面、短页面、窄屏和滚动时都保持完整可见，不会被页面圆角裁切
 - **书架首页**：用书封卡片陈列所有小说，支持搜索、按创作状态筛选、按更新 / 创建时间或书名排序
+- **公开作品与公开书架**：左侧栏「公开作品」可以为小说解锁公开，并让每个条目单独选择「跟随小说 / 公开 / 私密」；解锁的内容会生成一份独立的公开快照，由只读的 `public.html` 展示给所有人。未解锁的小说、私密条目、评论、回收站与关系图布局都不会进入快照
 - **小说工作区**：每本小说都有独立概览，包含故事简介、六个内容分区与最近更新
 - **分层侧栏**：进入小说后，当前小说的概览与分区单独归入「当前小说」区块，与上级「我的小说」列表分开；区块平滑展开，切换同一本小说的分区时不会重复播放动画
 - **页面高度过渡**：在书架、小说、分区、评论与回收站之间切换时，整体玻璃卡片的底边会在新旧高度之间平滑过渡，底部渐隐随高度同步移动；快速连续切换会从当前高度衔接，并遵循系统的减弱动效设置
@@ -47,6 +48,34 @@
 | `#/novel/<小说ID>/notes` | 资料列表 |
 | `#/novel/<小说ID>/<分区>/<词条ID>` | 词条详情 |
 
+公开书架是独立的只读页面 `public.html`，不显示编辑、评论与回收站入口，并使用自己的 hash 路由：
+
+| 地址 | 页面 |
+| --- | --- |
+| `public.html#/` | 公开书架 |
+| `public.html#/novel/<小说ID>` | 公开小说概览 |
+| `public.html#/novel/<小说ID>/<分区>` | 公开分区列表 |
+| `public.html#/novel/<小说ID>/<分区>/<词条ID>` | 公开词条详情 |
+
+在「公开作品」中点击「本机预览」会打开 `public.html?preview=1`，它读取本机临时生成的预览快照，并在顶部显示「本机预览 · 尚未发布」提示；线上访客打开不带参数的 `public.html` 时，只会读取已部署的 `public-library.json`。
+
+## 公开作品与发布
+
+公开内容是逐层控制的：
+
+- 小说默认「未解锁」。未解锁的小说与它的所有条目只在这台电脑可见，不会出现在公开书架，也不会写入快照。
+- 只有已解锁的小说才会进入公开快照。条目默认「跟随小说」；也可以设为「公开」或「私密」。私密条目即使所在小说已解锁也不会进入快照。
+- 公开的人物关系只保留两端角色都已公开的连线；评论、回收站、关系图坐标与画布布局、外观设置和其他本机数据都不会导出。
+- 公开快照中的小说简介、词条正文与封面会原样公开。上传封面或写下简介、正文前，请确认其中没有不想公开的内容。
+
+发布流程：
+
+1. 在左侧栏打开「公开作品」，用开关解锁要公开的小说；需要时在条目编辑里把个别条目设为私密。
+2. 先点「本机预览」检查公开书架；确认无误后点「生成公开快照」，下载 `public-library.json`。
+3. 用导出的 `public-library.json` 替换站点根目录的同名文件，并部署站点。公开书架只读取这份文件，快照之外的任何内容都不会上传。
+
+公开站点没有后台服务，因此「解锁」不会即时同步到线上；只有部署新的快照后，线上公开书架才会更新。若只是修改了本机内容、没有重新生成并部署快照，线上仍会保持上一版。
+
 ## 地图工坊
 
 在地图分区新建或打开一个词条，详情页会显示地图预览；点击预览或「打开地图工坊」进入全屏编辑。
@@ -63,6 +92,8 @@
 .
 ├── _config.yml            # 站点标题、描述与构建排除项
 ├── index.html             # 页面内容（含 front matter，交给 default 布局）
+├── public.html            # 只读公开书架（独立静态页面）
+├── public-library.json    # 公开快照；只包含解锁的小说与公开条目
 ├── _layouts/
 │   └── default.html       # HTML 骨架：左侧栏 + 内容区 + 页脚
 ├── _includes/
@@ -75,13 +106,15 @@
 ├── assets/
 │   ├── css/styles.css     # 组件与基础布局
 │   ├── css/theme.css      # 玻璃拟态主题、壁纸与响应式覆盖
+│   ├── css/public.css     # 公开书架专用样式
 │   ├── img/story-library.jpg  # 夜图书馆背景壁纸
-│   └── js/app.js          # 全部交互与本地数据逻辑
+│   ├── js/app.js          # 全部交互与本地数据逻辑
+│   └── js/public.js       # 公开书架：快照校验、只读渲染与路由
 ├── favicon.svg
 └── README.md
 ```
 
-`index.html` 只保留书架与小说工作区的页面结构，由 `default.html` 布局包裹；左侧栏、页脚、模板与对话框拆进 `_includes/`。`styles.css` 负责结构与组件的默认样式，`theme.css` 在其后加载，负责配色、玻璃外壳、壁纸和响应式覆盖。样式与脚本仍是纯静态文件，不使用任何前端依赖。
+`index.html` 只保留书架与小说工作区的页面结构，由 `default.html` 布局包裹；左侧栏、页脚、模板与对话框拆进 `_includes/`。`styles.css` 负责结构与组件的默认样式，`theme.css` 在其后加载，负责配色、玻璃外壳、壁纸和响应式覆盖。`public.html` 不依赖 Jekyll 的布局或 include，是一份可以直接部署的独立静态页面；`public.js` 会再次校验快照字段，只渲染通过校验的公开内容。样式与脚本仍是纯静态文件，不使用任何前端依赖。
 
 ## 本地预览
 
@@ -98,10 +131,14 @@ jekyll serve
 
 如果不想在本地安装 Ruby，也可以先把文件上传到 GitHub，让 GitHub Pages 自动构建（见下一节）。
 
+公开书架 `public.html` 不经过 Jekyll 布局，本地预览时直接访问 <http://localhost:4000/public.html> 即可；带 `?preview=1` 时读取本机预览快照。最方便的方式仍然是在「公开作品」里点击「本机预览」。
+
 ## 数据与备份
 
-- 所有内容保存在当前浏览器的 `localStorage` 中，存储键为 `gushibu.library.v1`，不会上传到任何服务器。
+- 所有内容保存在当前浏览器的 `localStorage` 中，存储键为 `gushibu.library.v1`，不会自动上传到任何服务器。
 - 外观设置单独保存在 `gushibu.appearance.v1`，不属于小说数据，也不会写入导出备份。
+- 「本机预览」的快照临时保存在 `gushibu.public.preview.v1`，只用于 `public.html?preview=1`，同样不会自动上传；公开站点读取的是部署在根目录的 `public-library.json`。
+- 公开快照是唯一会离开本机的小说数据。它只包含已解锁小说中的公开条目；生成后请先在本机预览中核对，再决定是否部署。
 - 清理浏览器数据、使用无痕模式、更换浏览器或设备后，原数据将无法读取。
 - 建议定期点击「导出备份」保存 JSON 文件；在新设备上点击「导入备份」即可合并。
 - 导入以小说 ID、词条 ID 和评论 ID 去重：内容较新（`updatedAt` 更晚）的版本会覆盖旧版本，置顶状态会保留。
@@ -126,6 +163,7 @@ jekyll serve
       "summary": "一句话简介",
       "description": "故事简介",
       "status": "planning | drafting | revising | done",
+      "visibility": "private | public",
       "tone": 0,
       "cover": "data:image/jpeg;base64,...（可选，自定义封面）",
       "pinned": false,
@@ -197,7 +235,7 @@ jekyll serve
 
 小说可选的 `cover` 只接受站内上传后压缩得到的 `data:image/jpeg`、`data:image/png` 或 `data:image/webp` 数据地址，外部图片链接会被忽略；上传图片会裁成 2:3，输出为 480×720 的 JPEG。
 
-每个词条包含 `id / title / subtitle / summary / notes / tags / pinned / createdAt / updatedAt`；角色词条还会记录每张谱系里的节点位置 `graphPositions`（按谱系 ID 保存）。地图词条额外包含 `map` 字段，记录画布尺寸、地形与城市：
+每个词条包含 `id / title / subtitle / summary / notes / tags / visibility / pinned / createdAt / updatedAt`；`visibility` 为 `inherit`（跟随小说，默认）、`public` 或 `private`。角色词条还会记录每张谱系里的节点位置 `graphPositions`（按谱系 ID 保存）。地图词条额外包含 `map` 字段，记录画布尺寸、地形与城市：
 
 ```json
 {
@@ -219,6 +257,8 @@ jekyll serve
 
 `tiles` 只保存非草原地形，键名是 `列,行`；城市坐标从 0 开始，半径 1–3，单张地图最多 40 座城市。分区配置集中在 `app.js` 顶部的 `SECTIONS` 常量里，之后要新增分区、改字段名或接入时间线等能力，都可以从这个结构继续扩展。
 
+`public-library.json` 是独立的公开快照，格式为 `{ app, version, kind: "public-library", generatedAt, signature, novels }`。其中每本小说只保留公开字段与已公开条目，不含 `visibility`、`comments`、`trash`、`graphPositions` 等本机字段；`public.js` 读取时还会按白名单再次校验，非法或超长的字段会被丢弃。
+
 ## 部署到 GitHub Pages
 
 GitHub Pages 会检测到 `_config.yml` 并自动用 Jekyll 构建，不需要 Actions 工作流，也不需要本地构建产物。
@@ -229,12 +269,16 @@ GitHub Pages 会检测到 `_config.yml` 并自动用 Jekyll 构建，不需要 A
 2. 将以下内容放到仓库根目录（保持文件夹结构）：
    - `_config.yml`
    - `index.html`
+   - `public.html`
+   - `public-library.json`
    - `_layouts/`（内含 `default.html`）
    - `_includes/`（内含 6 个 HTML 片段）
    - `assets/css/styles.css`
    - `assets/css/theme.css`
+   - `assets/css/public.css`
    - `assets/img/story-library.jpg`
    - `assets/js/app.js`
+   - `assets/js/public.js`
    - `favicon.svg`
    - `README.md`（可选）
 3. 不要在仓库里放 `.nojekyll`。若仓库之前上传过纯静态版本，请先删除根目录的 `.nojekyll`、`styles.css` 和 `app.js`，只保留新的 Jekyll 结构；否则 Pages 会跳过 Jekyll，页面将无法正确渲染。
@@ -253,7 +297,7 @@ GitHub Pages 会检测到 `_config.yml` 并自动用 Jekyll 构建，不需要 A
 
 ```bash
 git init
-git add _config.yml index.html _layouts _includes assets favicon.svg README.md
+git add _config.yml index.html public.html public-library.json _layouts _includes assets favicon.svg README.md
 git commit -m "Coin's Creative Cabin：用 Jekyll 搭建的小说设定集"
 git branch -M main
 git remote add origin https://github.com/<用户名>/<仓库名>.git
@@ -265,7 +309,7 @@ git push -u origin main
 ### 部署提示
 
 - 如果页面没有立即更新，查看仓库 **Actions** 中 Pages 的构建状态，并在浏览器中强制刷新。
-- 仓库代码是公开的，但小说内容只存在每位访问者自己的浏览器里，不会进入仓库。
+- 仓库代码是公开的。小说原文默认只存在每位访问者自己的浏览器里；仓库中唯一会包含小说内容的文件是主动生成的 `public-library.json`，它只收录解锁的公开内容。不要把导出备份、`docs/` 或其他本机数据放进仓库。
 - 不需要 `npm install` 或任何构建脚本；Jekyll 由 GitHub Pages 提供。
 
 ## 自定义
@@ -277,3 +321,4 @@ git push -u origin main
 - 公共区块与对话框：修改 `_includes/templates.html`、`_includes/dialogs.html`。
 - 分区名称、字段提示、空状态文案与交互：修改 `assets/js/app.js` 中的 `SECTIONS`；若调整存储结构，请同步更新存储键或在读取时做兼容处理。
 - 地图外观与规则：修改 `assets/js/app.js` 顶部的 `MAP_TERRAINS`（地形名称与配色）、`MAP_CITY_COLORS`（城市颜色）和 `MAP_DEFAULT_COLS` / `MAP_DEFAULT_ROWS`（新地图尺寸）；SVG 样式在 `assets/css/theme.css` 中以 `.map-` 开头的规则里。
+- 公开书架：结构在 `public.html`，只读渲染与快照校验在 `assets/js/public.js`，专用样式在 `assets/css/public.css`；公开首屏文案可直接修改 `public.html`，快照字段上限在 `public.js` 的 `sanitizeNovel` / `sanitizeEntry` / `sanitizeMap` 中。

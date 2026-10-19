@@ -147,6 +147,7 @@ layout: default
             <div class="novel-kicker">
               <span class="status-pill" id="novelStatusPill"><i aria-hidden="true"></i><span id="novelStatusText"></span></span>
               <span class="novel-genre" id="novelGenreLabel"></span>
+              <span id="novelVisibilityChip"></span>
             </div>
             <h1 id="novelTitle"></h1>
             <p class="novel-hero-summary" id="novelHeroSummary"></p>
@@ -236,6 +237,105 @@ layout: default
               <button class="btn ghost" id="commentsNoResultsClearBtn" type="button">清除搜索</button>
             </div>
           </div>
+        </section>
+      </section>
+
+      <section class="view publish-view" id="publishView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            我的书架
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current">公开作品</span>
+        </nav>
+
+        <header class="page-head publish-head" data-comment-anchor="page">
+          <div class="page-head-copy">
+            <p class="eyebrow">PUBLIC SNAPSHOT</p>
+            <h1>公开作品</h1>
+            <p class="page-desc">在这里决定哪些小说可以离开这台电脑。解锁的小说和设为公开的条目会写进一份公开快照，发布后所有人都能访问；未解锁的内容始终只留在本机。</p>
+          </div>
+          <div class="publish-head-actions">
+            <button type="button" class="btn ghost" id="publishPreviewBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+              本机预览
+            </button>
+            <button type="button" class="btn primary" id="publishExportBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-export"></use></svg>
+              生成公开快照
+            </button>
+          </div>
+        </header>
+
+        <section class="publish-summary" id="publishSummary" aria-live="polite"></section>
+
+        <section class="shelf-section publish-section" aria-labelledby="publishNovelsHeading">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">UNLOCK WHAT GOES PUBLIC</p>
+              <h2 id="publishNovelsHeading">小说公开开关</h2>
+            </div>
+            <p class="section-note">小说解锁后，条目默认跟随小说公开；不想公开的条目可以单独设为私密。</p>
+          </div>
+
+          <div class="publish-novel-list" id="publishNovelList"></div>
+
+          <div class="empty-state" id="publishEmpty" hidden>
+            <div class="trash-empty-icon" aria-hidden="true">
+              <svg class="icon"><use href="#i-world"></use></svg>
+            </div>
+            <h3>还没有可以公开的小说</h3>
+            <p>先新建一本小说，再回来决定它是否解锁。现在公开页会保持空白。</p>
+            <button class="btn primary" id="publishEmptyNewBtn" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+              新建一本小说
+            </button>
+          </div>
+        </section>
+
+        <section class="publish-guide panel" aria-labelledby="publishGuideHeading">
+          <div class="publish-guide-head">
+            <div>
+              <p class="eyebrow">HOW PUBLISHING WORKS</p>
+              <h2 id="publishGuideHeading">三步发布</h2>
+            </div>
+            <a class="btn ghost" id="publishOpenBtn" href="public.html" target="_blank" rel="noopener">
+              <svg class="icon" aria-hidden="true"><use href="#i-world"></use></svg>
+              打开线上公开页
+            </a>
+          </div>
+
+          <ol class="publish-steps">
+            <li>
+              <span class="publish-step-index" aria-hidden="true">1</span>
+              <div class="publish-step-copy">
+                <strong>解锁要公开的内容</strong>
+                <p>用上面的开关解锁小说。条目可以逐条覆盖：跟随小说、公开或私密。</p>
+              </div>
+            </li>
+            <li>
+              <span class="publish-step-index" aria-hidden="true">2</span>
+              <div class="publish-step-copy">
+                <strong>生成公开快照</strong>
+                <p>快照只包含公开内容，会剔除评论、回收站、关系图布局和所有本机专属信息。</p>
+              </div>
+            </li>
+            <li>
+              <span class="publish-step-index" aria-hidden="true">3</span>
+              <div class="publish-step-copy">
+                <strong>发布上线</strong>
+                <p>把快照放进公开站点并部署，所有人就能通过公开页阅读；未进入快照的内容不会上传。</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="publish-safety-note">
+            <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+            <p>未解锁的小说、私密条目、评论和回收站不会出现在快照里。生成后可以先在本机预览，再决定是否发布。</p>
+          </div>
+
+          <p class="publish-snapshot-status" id="publishSnapshotStatus"></p>
         </section>
       </section>
 

@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = 'gushibu.library.v1';
   const APPEARANCE_KEY = 'gushibu.appearance.v1';
+  const PUBLIC_PREVIEW_KEY = 'gushibu.public.preview.v1';
   const LIBRARY_VERSION = 1;
   const SITE_NAME = "Coin's Creative Cabin";
   const MAX_TAGS = 8;
@@ -321,6 +322,7 @@
     trashView: $('#trashView'),
     novelView: $('#novelView'),
     commentsView: $('#commentsView'),
+    publishView: $('#publishView'),
     missingView: $('#missingView'),
 
     commentsToolbar: $('#commentsToolbar'),
@@ -404,6 +406,7 @@
     novelStatusPill: $('#novelStatusPill'),
     novelStatusText: $('#novelStatusText'),
     novelGenreLabel: $('#novelGenreLabel'),
+    novelVisibilityChip: $('#novelVisibilityChip'),
     novelTitle: $('#novelTitle'),
     novelHeroSummary: $('#novelHeroSummary'),
     novelHeroMeta: $('#novelHeroMeta'),
@@ -416,6 +419,8 @@
     sidebarCommentCount: $('#sidebarCommentCount'),
     sidebarTrashLink: $('#sidebarTrashLink'),
     sidebarTrashCount: $('#sidebarTrashCount'),
+    sidebarPublishLink: $('#sidebarPublishLink'),
+    sidebarPublicCount: $('#sidebarPublicCount'),
     sidebarNovelList: $('#sidebarNovelList'),
     sidebarNovelsEmpty: $('#sidebarNovelsEmpty'),
     sidebarSectionsGroup: $('#sidebarSectionsGroup'),
@@ -446,6 +451,8 @@
     novelCoverRemoveBtn: $('#novelCoverRemoveBtn'),
     novelCoverInput: $('#novelCoverInput'),
     novelCoverStatus: $('#novelCoverStatus'),
+    novelPublicInput: $('#novelPublicInput'),
+    novelVisibilityHint: $('#novelVisibilityHint'),
 
     entryDialog: $('#entryDialog'),
     entryForm: $('#entryForm'),
@@ -468,6 +475,16 @@
     entryTagEditor: $('#entryTagEditor'),
     entryTagInput: $('#entryTagInput'),
     entryTagSuggestions: $('#entryTagSuggestions'),
+    entryVisibilityHint: $('#entryVisibilityHint'),
+
+    publishSummary: $('#publishSummary'),
+    publishNovelList: $('#publishNovelList'),
+    publishEmpty: $('#publishEmpty'),
+    publishEmptyNewBtn: $('#publishEmptyNewBtn'),
+    publishPreviewBtn: $('#publishPreviewBtn'),
+    publishExportBtn: $('#publishExportBtn'),
+    publishOpenBtn: $('#publishOpenBtn'),
+    publishSnapshotStatus: $('#publishSnapshotStatus'),
 
     relationDialog: $('#relationDialog'),
     relationForm: $('#relationForm'),
@@ -976,6 +993,7 @@
         tone,
         cover: normalizeCover(raw.cover),
         pinned: raw.pinned === true,
+        visibility: normalizeNovelVisibility(raw.visibility),
         createdAt,
         updatedAt,
         entries,
@@ -1004,12 +1022,41 @@
       notes: typeof raw.notes === 'string' ? raw.notes.trim() : '',
       tags: normalizeTags(Array.isArray(raw.tags) ? raw.tags : []),
       pinned: raw.pinned === true,
+      visibility: normalizeEntryVisibility(raw.visibility),
       createdAt,
       updatedAt,
       map: normalizeMap(raw.map),
       graphPos: normalizeGraphPos(raw.graphPos),
       graphPositions: normalizeGraphPositions(raw.graphPositions),
     };
+  }
+
+  function normalizeNovelVisibility(value) {
+    return value === 'public' ? 'public' : 'private';
+  }
+
+  function normalizeEntryVisibility(value) {
+    return value === 'public' || value === 'private' ? value : 'inherit';
+  }
+
+  function isNovelPublic(novel) {
+    return Boolean(novel && novel.visibility === 'public');
+  }
+
+  function isEntryPublic(novel, entry) {
+    return isNovelPublic(novel) && entry.visibility !== 'private';
+  }
+
+  function getEntryVisibilityLabel(novel, entry) {
+    if (!isNovelPublic(novel)) return '私密';
+    return entry.visibility === 'private' ? '私密' : '公开';
+  }
+
+  function createVisibilityChip(isPublic, label) {
+    const chip = el('span', `visibility-chip ${isPublic ? 'is-public' : 'is-private'}`);
+    chip.appendChild(icon(isPublic ? 'i-world' : 'i-lock'));
+    chip.appendChild(el('span', '', label));
+    return chip;
   }
 
   function normalizeTrashItem(raw) {
@@ -1353,6 +1400,10 @@
       return parts.length === 1 ? { view: 'comments' } : { view: 'missing' };
     }
 
+    if (parts[0] === 'publish') {
+      return parts.length === 1 ? { view: 'publish' } : { view: 'missing' };
+    }
+
     if (parts[0] !== 'novel' || !parts[1]) return { view: 'missing' };
 
     const novel = findNovel(parts[1]);
@@ -1385,7 +1436,12 @@
 
   function listScrollKey(route) {
     if (!route) return null;
-    if (route.view === 'shelf' || route.view === 'trash' || route.view === 'comments') {
+    if (
+      route.view === 'shelf' ||
+      route.view === 'trash' ||
+      route.view === 'comments' ||
+      route.view === 'publish'
+    ) {
       return route.view;
     }
     if (route.view === 'novel') return `novel:${route.novel.id}`;
@@ -1546,6 +1602,9 @@
     } else if (route.view === 'comments') {
       showView('comments');
       renderComments();
+    } else if (route.view === 'publish') {
+      showView('publish');
+      renderPublish();
     } else if (route.view === 'missing') {
       showView('missing');
       renderSidebar(route);
@@ -1590,6 +1649,7 @@
     els.trashView.hidden = name !== 'trash';
     els.novelView.hidden = name !== 'novel';
     els.commentsView.hidden = name !== 'comments';
+    els.publishView.hidden = name !== 'publish';
     els.missingView.hidden = name !== 'missing';
   }
 
@@ -1600,6 +1660,8 @@
       document.title = `回收站 · ${SITE_NAME}`;
     } else if (route.view === 'comments') {
       document.title = `评论与标注 · ${SITE_NAME}`;
+    } else if (route.view === 'publish') {
+      document.title = `公开作品 · ${SITE_NAME}`;
     } else if (route.view === 'missing') {
       document.title = `这一页还没有写进故事里 · ${SITE_NAME}`;
     } else if (route.view === 'novel') {
@@ -1732,6 +1794,15 @@
     $('.status-text', node).textContent = status.label;
 
     $('.novel-genre', node).textContent = novel.genre || '未标注类型';
+
+    const visibilityChip = createVisibilityChip(
+      isNovelPublic(novel),
+      isNovelPublic(novel) ? '公开' : '仅本地'
+    );
+    visibilityChip.title = isNovelPublic(novel)
+      ? '已解锁：小说与跟随小说的条目会进入公开快照'
+      : '未解锁：只在这台电脑可见';
+    $('.novel-kicker', node).appendChild(visibilityChip);
 
     $('.novel-card-title', node).textContent = novel.title;
 
@@ -1922,6 +1993,15 @@
     els.novelStatusText.textContent = status.label;
     els.novelGenreLabel.textContent = novel.genre || '未标注类型';
 
+    const visibilityChip = createVisibilityChip(
+      isNovelPublic(novel),
+      isNovelPublic(novel) ? '已公开' : '仅本地'
+    );
+    visibilityChip.title = isNovelPublic(novel)
+      ? '这本小说已解锁，条目默认跟随公开'
+      : '这本小说未解锁，所有条目只在这台电脑可见';
+    els.novelVisibilityChip.replaceChildren(visibilityChip);
+
     els.novelTitle.textContent = novel.title;
 
     if (novel.summary) {
@@ -1984,6 +2064,7 @@
     const onShelf = Boolean(route && route.view === 'shelf');
     const onComments = Boolean(route && route.view === 'comments');
     const onTrash = Boolean(route && route.view === 'trash');
+    const onPublish = Boolean(route && route.view === 'publish');
     const currentNovel =
       route && ['novel', 'section', 'entry', 'outline-editor'].includes(route.view)
         ? route.novel
@@ -2017,6 +2098,17 @@
     els.sidebarTrashCount.textContent = trashCount > 99 ? '99+' : String(trashCount);
     els.sidebarTrashCount.hidden = trashCount === 0;
 
+    els.sidebarPublishLink.classList.toggle('is-active', onPublish);
+    if (onPublish) {
+      els.sidebarPublishLink.setAttribute('aria-current', 'page');
+    } else {
+      els.sidebarPublishLink.removeAttribute('aria-current');
+    }
+    const publicNovelCount = state.novels.filter(isNovelPublic).length;
+    els.sidebarPublicCount.textContent =
+      publicNovelCount > 99 ? '99+' : String(publicNovelCount);
+    els.sidebarPublicCount.hidden = publicNovelCount === 0;
+
     const novels = [...state.novels].sort(
       (a, b) => pinWeight(b) - pinWeight(a) || timeValue(b.updatedAt) - timeValue(a.updatedAt)
     );
@@ -2033,6 +2125,12 @@
       const dot = el('span', `side-novel-dot tone-${novel.tone}`);
       dot.setAttribute('aria-hidden', 'true');
       link.append(dot, el('span', 'side-novel-name', novel.title));
+      if (isNovelPublic(novel)) {
+        const publicMark = el('span', 'side-public-mark');
+        publicMark.appendChild(icon('i-world'));
+        publicMark.title = '已公开';
+        link.appendChild(publicMark);
+      }
       fragment.appendChild(link);
     }
 
@@ -2390,12 +2488,17 @@
     }
 
     const tagsEl = $('.entry-card-tags', node);
-    if (entry.tags.length > 0) {
-      for (const tag of entry.tags) {
-        tagsEl.appendChild(el('span', 'entry-tag', tag));
-      }
-    } else {
-      tagsEl.remove();
+    const visibilityChip = createVisibilityChip(
+      isEntryPublic(novel, entry),
+      getEntryVisibilityLabel(novel, entry)
+    );
+    visibilityChip.title = isEntryPublic(novel, entry)
+      ? '会进入公开快照'
+      : '不会进入公开快照';
+    tagsEl.appendChild(visibilityChip);
+
+    for (const tag of entry.tags) {
+      tagsEl.appendChild(el('span', 'entry-tag', tag));
     }
 
     const dateEl = $('.entry-card-date', node);
@@ -2452,6 +2555,14 @@
     const head = el('header', 'entry-detail-head');
     const kicker = el('div', 'entry-detail-kicker');
     kicker.appendChild(el('span', 'section-chip', config.label));
+    const detailVisibilityChip = createVisibilityChip(
+      isEntryPublic(novel, entry),
+      getEntryVisibilityLabel(novel, entry)
+    );
+    detailVisibilityChip.title = isEntryPublic(novel, entry)
+      ? '这条内容会进入公开快照'
+      : '这条内容只在本机可见';
+    kicker.appendChild(detailVisibilityChip);
     for (const tag of entry.tags) {
       kicker.appendChild(el('span', 'entry-tag', tag));
     }
@@ -3807,12 +3918,14 @@
       els.novelGenreInput.value = novel.genre;
       els.novelSummaryInput.value = novel.summary;
       els.novelDescriptionInput.value = novel.description;
+      els.novelPublicInput.checked = isNovelPublic(novel);
       setNovelStatus(novel.status);
       setNovelTone(novel.tone);
       els.novelDialogEyebrow.textContent = 'EDIT NOVEL';
       els.novelDialogTitle.textContent = '编辑小说';
       els.novelSaveBtn.textContent = '保存修改';
     } else {
+      els.novelPublicInput.checked = false;
       setNovelStatus('planning');
       setNovelTone(state.novels.length % 5);
       els.novelDialogEyebrow.textContent = 'NEW NOVEL';
@@ -3820,6 +3933,7 @@
       els.novelSaveBtn.textContent = '放上书架';
     }
 
+    syncNovelVisibilityHint();
     updateNovelDescriptionCount();
     updateNovelCoverPreview();
     setNovelCoverBusy(false);
@@ -3841,6 +3955,12 @@
   function setNovelStatus(status) {
     const input = els.novelForm.querySelector(`input[name="status"][value="${status}"]`);
     if (input) input.checked = true;
+  }
+
+  function syncNovelVisibilityHint() {
+    els.novelVisibilityHint.textContent = els.novelPublicInput.checked
+      ? '已解锁：小说和「跟随小说」的条目会进入公开快照。'
+      : '未解锁：小说与所有条目只在这台电脑可见。';
   }
 
   function setNovelTone(tone) {
@@ -4046,6 +4166,7 @@
 
     const statusInput = els.novelForm.querySelector('input[name="status"]:checked');
     const toneInput = els.novelForm.querySelector('input[name="tone"]:checked');
+    const visibility = els.novelPublicInput.checked ? 'public' : 'private';
     const now = new Date().toISOString();
     const isNew = !state.novelDraft.id;
     const previous = state.novels;
@@ -4063,6 +4184,7 @@
         tone: toneInput ? Number(toneInput.value) : 0,
         cover: state.novelDraft.cover || '',
         pinned: false,
+        visibility,
         createdAt: now,
         updatedAt: now,
         entries: createEmptyEntries(),
@@ -4091,6 +4213,7 @@
               status: statusInput ? statusInput.value : 'planning',
               tone: toneInput ? Number(toneInput.value) : novel.tone,
               cover: state.novelDraft.cover || '',
+              visibility,
               updatedAt: now,
             }
           : novel
@@ -4164,6 +4287,8 @@
     els.entrySummaryInput.placeholder = config.summaryPlaceholder;
     els.entryNotesInput.placeholder = config.notesPlaceholder;
     els.entryTitleError.textContent = config.emptyError;
+    setEntryVisibility(entry ? entry.visibility : 'inherit');
+    syncEntryVisibilityHint();
 
     if (entry) {
       els.entryTitleInput.value = entry.title;
@@ -4186,6 +4311,39 @@
 
     els.entryDialog.showModal();
     requestAnimationFrame(() => els.entryTitleInput.focus());
+  }
+
+  function setEntryVisibility(value) {
+    const input = els.entryForm.querySelector(
+      `input[name="entryVisibility"][value="${value}"]`
+    );
+    if (input) input.checked = true;
+  }
+
+  function getSelectedEntryVisibility() {
+    const input = els.entryForm.querySelector('input[name="entryVisibility"]:checked');
+    return normalizeEntryVisibility(input ? input.value : 'inherit');
+  }
+
+  function syncEntryVisibilityHint() {
+    const novel = findNovel(state.entryDraft.novelId);
+    const value = getSelectedEntryVisibility();
+    const novelPublic = isNovelPublic(novel);
+    let hint;
+
+    if (value === 'private') {
+      hint = '私密：这条内容不会进入公开快照。';
+    } else if (value === 'public') {
+      hint = novelPublic
+        ? '公开：这条内容会进入公开快照。'
+        : '已标记公开，但这本小说尚未解锁，暂时只在本机可见。';
+    } else {
+      hint = novelPublic
+        ? '跟随小说：这本小说已解锁，这条内容会一起公开。'
+        : '跟随小说：这本小说尚未解锁，这条内容只在本机可见。';
+    }
+
+    els.entryVisibilityHint.textContent = hint;
   }
 
   function updateEntryNotesCount() {
@@ -4306,6 +4464,7 @@
     summary = '',
     notes = '',
     tags = [],
+    visibility = 'inherit',
   }) {
     const novel = findNovel(novelId);
     if (!novel) return { ok: false, reason: 'novel' };
@@ -4319,6 +4478,7 @@
       summary: summary.trim().slice(0, 160),
       notes: notes.trim(),
       tags: normalizeTags(tags),
+      visibility: normalizeEntryVisibility(visibility),
     };
     let nextEntries;
 
@@ -4387,6 +4547,7 @@
       summary: els.entrySummaryInput.value,
       notes: els.entryNotesInput.value,
       tags: state.draftTags,
+      visibility: getSelectedEntryVisibility(),
     });
 
     if (!result.ok) {
@@ -5016,6 +5177,8 @@
     const tagInput = find('#outlineEditorTagInput');
     const tagSuggestions = find('#outlineEditorTagSuggestions');
     const stateLabel = find('[data-outline-state]');
+    const visibilityPicker = find('[data-outline-visibility]');
+    const visibilityHint = find('[data-outline-visibility-hint]');
     const saveLabels = node.querySelectorAll('[data-outline-save-label]');
 
     titleInput.placeholder = config.titlePlaceholder;
@@ -5028,6 +5191,39 @@
     notesInput.value = entry ? entry.notes : '';
     titleError.textContent = config.emptyError;
     notesCount.textContent = `${notesInput.value.length} 字`;
+
+    function setVisibility(value) {
+      const input = visibilityPicker.querySelector(
+        `input[name="outlineVisibility"][value="${value}"]`
+      );
+      if (input) input.checked = true;
+      syncVisibilityHint();
+    }
+
+    function getVisibility() {
+      const input = visibilityPicker.querySelector(
+        'input[name="outlineVisibility"]:checked'
+      );
+      return normalizeEntryVisibility(input ? input.value : 'inherit');
+    }
+
+    function syncVisibilityHint() {
+      const value = getVisibility();
+      const novelPublic = isNovelPublic(novel);
+      if (value === 'private') {
+        visibilityHint.textContent = '私密：这条大纲不会进入公开快照。';
+      } else if (value === 'public') {
+        visibilityHint.textContent = novelPublic
+          ? '公开：这条大纲会进入公开快照。'
+          : '已标记公开，但这本小说尚未解锁，暂时只在本机可见。';
+      } else {
+        visibilityHint.textContent = novelPublic
+          ? '跟随小说：这本小说已解锁，这条大纲会一起公开。'
+          : '跟随小说：这本小说尚未解锁，这条大纲只在本机可见。';
+      }
+    }
+
+    setVisibility(entry ? entry.visibility : 'inherit');
 
     saveLabels.forEach((label) => {
       label.textContent = isNew ? '保存大纲' : '保存修改';
@@ -5172,6 +5368,7 @@
         summary: summaryInput.value,
         notes: notesInput.value,
         tags: state.outlineDraft.tags,
+        visibility: getVisibility(),
       });
 
       if (!result.ok) {
@@ -5205,6 +5402,7 @@
     notesInput.addEventListener('input', () => {
       notesCount.textContent = `${notesInput.value.length} 字`;
     });
+    visibilityPicker.addEventListener('change', syncVisibilityHint);
 
     node.querySelectorAll('[data-outline-cancel]').forEach((button) => {
       button.addEventListener('click', cancel);
@@ -6768,7 +6966,7 @@
   /* ---------- Comments ---------- */
 
   function canCommentOnRoute(route) {
-    return Boolean(route && !['comments', 'missing'].includes(route.view));
+    return Boolean(route && !['comments', 'publish', 'missing'].includes(route.view));
   }
 
   function commentTargetKey(target) {
@@ -7964,6 +8162,403 @@
     return `${year}-${month}-${day}`;
   }
 
+  /* ---------- Public snapshot ---------- */
+
+  function countPublicEntries(novel) {
+    return SECTION_KEYS.reduce(
+      (sum, key) =>
+        sum + novel.entries[key].filter((entry) => isEntryPublic(novel, entry)).length,
+      0
+    );
+  }
+
+  function getPublicSignature() {
+    return state.novels
+      .filter(isNovelPublic)
+      .map((novel) => {
+        const entries = SECTION_KEYS.map((key) =>
+          novel.entries[key]
+            .filter((entry) => isEntryPublic(novel, entry))
+            .map((entry) => `${entry.id}@${entry.updatedAt}`)
+            .join(',')
+        ).join(';');
+        return `${novel.id}@${novel.updatedAt}#${entries}`;
+      })
+      .sort()
+      .join('|');
+  }
+
+  function buildPublicSnapshot() {
+    const novels = [];
+
+    for (const novel of state.novels) {
+      if (!isNovelPublic(novel)) continue;
+
+      const entries = {};
+      const publicIds = new Map();
+
+      for (const key of SECTION_KEYS) {
+        const visible = novel.entries[key].filter((entry) =>
+          isEntryPublic(novel, entry)
+        );
+        publicIds.set(key, new Set(visible.map((entry) => entry.id)));
+        entries[key] = visible.map((entry) => {
+          const copy = {
+            id: entry.id,
+            title: entry.title,
+            subtitle: entry.subtitle,
+            summary: entry.summary,
+            notes: entry.notes,
+            tags: [...entry.tags],
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt,
+          };
+          if (entry.map) copy.map = normalizeMap(entry.map);
+          return copy;
+        });
+      }
+
+      const characterIds = publicIds.get('characters');
+      const relations = novel.relations
+        .filter(
+          (relation) =>
+            characterIds.has(relation.source) && characterIds.has(relation.target)
+        )
+        .map((relation) => ({
+          id: relation.id,
+          source: relation.source,
+          target: relation.target,
+          label: relation.label,
+          directed: relation.directed,
+          graphId: relation.graphId,
+        }));
+      const graphIds = new Set(relations.map((relation) => relation.graphId));
+      const relationGraphs = novel.relationGraphs
+        .filter((graph) => graphIds.has(graph.id))
+        .map((graph) => ({ id: graph.id, title: graph.title }));
+
+      novels.push({
+        id: novel.id,
+        title: novel.title,
+        genre: novel.genre,
+        summary: novel.summary,
+        description: novel.description,
+        status: novel.status,
+        tone: novel.tone,
+        cover: novel.cover,
+        pinned: novel.pinned,
+        createdAt: novel.createdAt,
+        updatedAt: novel.updatedAt,
+        entries,
+        relations,
+        relationGraphs,
+      });
+    }
+
+    return {
+      app: SITE_NAME,
+      version: 1,
+      kind: 'public-library',
+      generatedAt: new Date().toISOString(),
+      signature: getPublicSignature(),
+      novels,
+    };
+  }
+
+  function getSnapshotStats(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.novels)) {
+      return { novels: 0, entries: 0 };
+    }
+
+    let entries = 0;
+    for (const novel of snapshot.novels) {
+      const novelEntries = novel && novel.entries ? novel.entries : {};
+      for (const key of SECTION_KEYS) {
+        const list = Array.isArray(novelEntries[key]) ? novelEntries[key] : [];
+        entries += list.length;
+      }
+    }
+
+    return { novels: snapshot.novels.length, entries };
+  }
+
+  function readPublicPreview() {
+    try {
+      const raw = localStorage.getItem(PUBLIC_PREVIEW_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (
+        !parsed ||
+        parsed.kind !== 'public-library' ||
+        !Array.isArray(parsed.novels)
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      console.warn('读取公开快照预览失败：', error);
+      return null;
+    }
+  }
+
+  function storePublicPreview(snapshot) {
+    try {
+      localStorage.setItem(PUBLIC_PREVIEW_KEY, JSON.stringify(snapshot));
+      return true;
+    } catch (error) {
+      console.warn('本机预览快照过大：', error);
+      return false;
+    }
+  }
+
+  function formatSnapshotTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '未知时间';
+    const pad = (number) => String(number).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function renderPublish() {
+    const publicNovels = state.novels.filter(isNovelPublic);
+    let publicEntries = 0;
+    let privateInPublic = 0;
+    let totalEntries = 0;
+
+    for (const novel of state.novels) {
+      const total = countNovelEntries(novel);
+      totalEntries += total;
+      if (isNovelPublic(novel)) {
+        const visible = countPublicEntries(novel);
+        publicEntries += visible;
+        privateInPublic += total - visible;
+      }
+    }
+
+    renderPublishSummary({
+      publicNovels: publicNovels.length,
+      publicEntries,
+      privateInPublic,
+      privateTotal: totalEntries - publicEntries,
+    });
+    renderPublishNovelList();
+    updatePublishSnapshotStatus();
+  }
+
+  function renderPublishSummary({
+    publicNovels,
+    publicEntries,
+    privateInPublic,
+    privateTotal,
+  }) {
+    const cards = [
+      {
+        tone: 'public',
+        iconName: 'i-world',
+        label: '已解锁小说',
+        value: String(publicNovels),
+        hint:
+          state.novels.length > 0
+            ? `共 ${state.novels.length} 本，其余只在本机`
+            : '书架还空着',
+      },
+      {
+        tone: 'public',
+        iconName: 'i-books',
+        label: '会进入快照的条目',
+        value: String(publicEntries),
+        hint:
+          privateInPublic > 0
+            ? `另有 ${privateInPublic} 条在解锁小说中保持私密`
+            : '解锁小说中的全部条目',
+      },
+      {
+        tone: 'private',
+        iconName: 'i-lock',
+        label: '只留在本机',
+        value: String(privateTotal),
+        hint: '私密条目、评论与回收站不会公开',
+      },
+    ];
+
+    const fragment = document.createDocumentFragment();
+    for (const card of cards) {
+      const node = el('article', `publish-summary-card is-${card.tone}`);
+      const head = el('div', 'publish-summary-head');
+      head.append(icon(card.iconName), el('span', '', card.label));
+      node.append(
+        head,
+        el('strong', 'publish-summary-value', card.value),
+        el('p', 'publish-summary-hint', card.hint)
+      );
+      fragment.appendChild(node);
+    }
+    els.publishSummary.replaceChildren(fragment);
+  }
+
+  function renderPublishNovelList() {
+    const novels = [...state.novels].sort(
+      (a, b) =>
+        pinWeight(b) - pinWeight(a) || timeValue(b.updatedAt) - timeValue(a.updatedAt)
+    );
+    const fragment = document.createDocumentFragment();
+
+    for (const novel of novels) {
+      fragment.appendChild(createPublishNovelRow(novel));
+    }
+
+    els.publishNovelList.replaceChildren(fragment);
+    els.publishNovelList.hidden = novels.length === 0;
+    els.publishEmpty.hidden = novels.length > 0;
+  }
+
+  function createPublishNovelRow(novel) {
+    const isPublic = isNovelPublic(novel);
+    const total = countNovelEntries(novel);
+    const visible = countPublicEntries(novel);
+    const row = el('article', `publish-novel-row${isPublic ? ' is-public' : ''}`);
+    row.dataset.novelId = novel.id;
+
+    const coverSlot = el('span', 'publish-novel-cover');
+    coverSlot.appendChild(createCover(novel, 'publish'));
+
+    const main = el('div', 'publish-novel-main');
+    const titleRow = el('div', 'publish-novel-title-row');
+    const title = el('a', 'publish-novel-name', novel.title);
+    title.href = novelHash(novel.id);
+    titleRow.append(
+      title,
+      createVisibilityChip(isPublic, isPublic ? '已解锁' : '未解锁')
+    );
+
+    const meta = el('p', 'publish-novel-meta');
+    meta.textContent = [
+      novel.genre || '未标注类型',
+      isPublic ? `${visible} / ${total} 条会公开` : `${total} 条仍在本机`,
+      `更新于 ${relativeDate(new Date(novel.updatedAt))}`,
+    ].join(' · ');
+    main.append(titleRow, meta);
+
+    const switchLabel = el('label', 'visibility-switch publish-switch');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = isPublic;
+    input.dataset.publishNovel = novel.id;
+    input.setAttribute('aria-label', `${isPublic ? '收回' : '公开'}《${novel.title}》`);
+    const track = el('span', 'visibility-switch-track');
+    track.setAttribute('aria-hidden', 'true');
+    track.appendChild(el('span', 'visibility-switch-thumb'));
+    const copy = el('span', 'visibility-switch-copy');
+    copy.append(
+      el('span', 'visibility-switch-title', isPublic ? '公开中' : '仅本机'),
+      el('span', 'visibility-switch-hint', isPublic ? '生成快照后生效' : '点击解锁')
+    );
+    switchLabel.append(input, track, copy);
+
+    row.append(coverSlot, main, switchLabel);
+    return row;
+  }
+
+  function setNovelVisibility(novelId, isPublic) {
+    const novel = findNovel(novelId);
+    if (!novel || isNovelPublic(novel) === isPublic) return;
+
+    const previous = state.novels;
+    state.novels = state.novels.map((item) =>
+      item.id === novelId
+        ? { ...item, visibility: isPublic ? 'public' : 'private' }
+        : item
+    );
+
+    if (!persist()) {
+      state.novels = previous;
+      renderPublish();
+      return;
+    }
+
+    renderPublish();
+    renderSidebar(state.route);
+    showToast(
+      isPublic
+        ? `《${novel.title}》已解锁，生成快照后会公开`
+        : `已收回《${novel.title}》，只会留在本机`
+    );
+  }
+
+  function downloadPublicSnapshot(snapshot) {
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'public-library.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function exportPublicLibrary() {
+    const snapshot = buildPublicSnapshot();
+    const stats = getSnapshotStats(snapshot);
+    const stored = storePublicPreview(snapshot);
+    downloadPublicSnapshot(snapshot);
+    updatePublishSnapshotStatus(snapshot);
+
+    if (stats.novels === 0) {
+      showToast('已生成空白快照，发布后公开页会回到空白状态');
+      return;
+    }
+
+    showToast(
+      `已生成公开快照：${stats.novels} 本小说、${stats.entries} 条内容${
+        stored ? '，本机预览已更新' : '；本机预览空间不足，可部署后查看'
+      }`
+    );
+  }
+
+  function openPublicPreview() {
+    const snapshot = buildPublicSnapshot();
+    const stored = storePublicPreview(snapshot);
+    const link = document.createElement('a');
+    link.href = 'public.html?preview=1';
+    link.target = '_blank';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    updatePublishSnapshotStatus(snapshot);
+
+    if (!stored) {
+      showToast('本机预览空间不足，请先生成快照并部署后查看', 'error');
+      return;
+    }
+    showToast('已打开本机预览，预览内容不会自动上传');
+  }
+
+  function updatePublishSnapshotStatus(snapshot = readPublicPreview()) {
+    if (!els.publishSnapshotStatus) return;
+
+    if (!snapshot) {
+      els.publishSnapshotStatus.classList.remove('is-stale');
+      els.publishSnapshotStatus.textContent =
+        '还没有生成过快照。生成后会下载 public-library.json，并自动启用本机预览。';
+      return;
+    }
+
+    const stats = getSnapshotStats(snapshot);
+    const generated = formatSnapshotTime(snapshot.generatedAt);
+    const stale =
+      typeof snapshot.signature === 'string' &&
+      snapshot.signature !== getPublicSignature();
+    els.publishSnapshotStatus.classList.toggle('is-stale', stale);
+    els.publishSnapshotStatus.textContent = stale
+      ? `本机预览快照生成于 ${generated}，包含 ${stats.novels} 本小说、${stats.entries} 条内容；此后公开范围或内容有变化，建议重新生成后再发布。`
+      : `本机预览快照生成于 ${generated}，包含 ${stats.novels} 本小说、${stats.entries} 条内容。下载的 public-library.json 部署后才会对所有人可见。`;
+  }
+
   /* ---------- Feedback ---------- */
 
   function showToast(message, variant = 'success') {
@@ -8088,6 +8683,15 @@
     els.exportBtn.addEventListener('click', exportLibrary);
     els.footerExportBtn.addEventListener('click', exportLibrary);
     els.importFile.addEventListener('change', handleImportFile);
+
+    els.publishPreviewBtn.addEventListener('click', openPublicPreview);
+    els.publishExportBtn.addEventListener('click', exportPublicLibrary);
+    els.publishEmptyNewBtn.addEventListener('click', () => openNovelEditor());
+    els.publishNovelList.addEventListener('change', (event) => {
+      const input = event.target.closest('[data-publish-novel]');
+      if (!input) return;
+      setNovelVisibility(input.dataset.publishNovel, input.checked);
+    });
 
     els.commentFab.addEventListener('click', openCommentComposer);
     els.commentForm.addEventListener('submit', (event) => {
@@ -8330,6 +8934,7 @@
     els.novelCoverUploadBtn.addEventListener('click', () => els.novelCoverInput.click());
     els.novelCoverRemoveBtn.addEventListener('click', removeNovelCover);
     els.novelCoverInput.addEventListener('change', handleNovelCoverFile);
+    els.novelPublicInput.addEventListener('change', syncNovelVisibilityHint);
 
     els.novelForm.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -8369,6 +8974,11 @@
     });
     els.entryTitleInput.addEventListener('input', clearEntryTitleError);
     els.entryNotesInput.addEventListener('input', updateEntryNotesCount);
+    els.entryForm
+      .querySelectorAll('input[name="entryVisibility"]')
+      .forEach((input) =>
+        input.addEventListener('change', syncEntryVisibilityHint)
+      );
 
     els.entryForm.addEventListener('submit', (event) => {
       event.preventDefault();

@@ -87,6 +87,18 @@
             </div>
           </div>
         </div>
+
+        <div class="field visibility-field">
+          <span class="field-label">公开范围</span>
+          <label class="visibility-switch" for="novelPublicInput">
+            <input type="checkbox" id="novelPublicInput" name="novelPublic">
+            <span class="visibility-switch-track" aria-hidden="true"><span class="visibility-switch-thumb"></span></span>
+            <span class="visibility-switch-copy">
+              <span class="visibility-switch-title">解锁到公开网站</span>
+              <span class="visibility-switch-hint" id="novelVisibilityHint">未解锁：小说与所有条目只在这台电脑可见。</span>
+            </span>
+          </label>
+        </div>
       </div>
 
       <footer class="dialog-actions">
@@ -125,6 +137,34 @@
         <div class="field">
           <label for="entrySummaryInput"><span id="entrySummaryLabelText">一句话介绍</span> <span class="field-optional">选填</span></label>
           <input type="text" id="entrySummaryInput" name="summary" maxlength="160" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <span class="field-label" id="entryVisibilityLabel">公开范围</span>
+          <div class="visibility-picker" role="radiogroup" aria-labelledby="entryVisibilityLabel">
+            <label class="visibility-option">
+              <input type="radio" name="entryVisibility" value="inherit" checked>
+              <span class="visibility-option-copy">
+                <span class="visibility-option-title">跟随小说</span>
+                <span class="visibility-option-desc">小说解锁时一起公开</span>
+              </span>
+            </label>
+            <label class="visibility-option">
+              <input type="radio" name="entryVisibility" value="public">
+              <span class="visibility-option-copy">
+                <span class="visibility-option-title">公开</span>
+                <span class="visibility-option-desc">小说解锁时可见</span>
+              </span>
+            </label>
+            <label class="visibility-option">
+              <input type="radio" name="entryVisibility" value="private">
+              <span class="visibility-option-copy">
+                <span class="visibility-option-title">私密</span>
+                <span class="visibility-option-desc">永不进入快照</span>
+              </span>
+            </label>
+          </div>
+          <p class="field-hint visibility-hint" id="entryVisibilityHint"></p>
         </div>
 
         <div class="field">

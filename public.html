@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>公开书架 · Coin's Creative Cabin</title>
+  <meta name="description" content="Coin's Creative Cabin 的公开书架：只展示作者选择解锁的故事、人物与世界设定。">
+  <meta name="theme-color" content="#1b2540">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  <link rel="stylesheet" href="assets/css/public.css">
+</head>
+<body class="public-body">
+  <svg class="icon-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m11 18-6-6 6-6"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.4-3.3 2.4-5.2 5.5-5.2s5.1 1.9 5.5 5.2"/><path d="M15.5 5.2a3 3 0 0 1 0 5.7"/><path d="M17 14.4c2.1.5 3.3 2.2 3.6 4.6"/></symbol>
+    <symbol id="i-world" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.8 9.5h16.4M3.8 14.5h16.4"/><path d="M12 3.5c-2.4 2.2-3.6 5-3.6 8.5s1.2 6.3 3.6 8.5c2.4-2.2 3.6-5 3.6-8.5S14.4 5.7 12 3.5Z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v2.5"/></symbol>
+    <symbol id="i-lore" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="M12 7.5c.4 2.7 1.3 3.6 4 4-2.7.4-3.6 1.3-4 4-.4-2.7-1.3-3.6-4-4 2.7-.4 3.6-1.3 4-4Z"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></symbol>
+    <symbol id="i-notes" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6Z"/><path d="M15 3v4h4"/><path d="M9 11h7M9 15h7M9 19h4"/></symbol>
+    <symbol id="i-outline" viewBox="0 0 24 24"><path d="M4 6h2M4 12h2M4 18h2"/><path d="M10 6h10M10 12h10M10 18h10"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#publicMain">跳到主要内容</a>
+
+  <div class="public-page">
+    <header class="public-topbar">
+      <a class="brand public-brand" href="public.html" aria-label="Coin's Creative Cabin 公开书架首页">
+        <span class="avatar" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <path d="M32 10c1.7 11.3 4.7 15.2 16 17-11.3 1.8-14.3 5.7-16 17-1.7-11.3-4.7-15.2-16-17 11.3-1.8 14.3-5.7 16-17Z" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="name">Coin's Creative Cabin</span>
+          <span class="tagline">PUBLIC STORIES</span>
+        </span>
+      </a>
+      <div class="public-top-meta">
+        <span class="public-badge">
+          <svg class="icon" aria-hidden="true"><use href="#i-world"></use></svg>
+          只读公开书架
+        </span>
+        <span class="public-updated" id="publicUpdated"></span>
+      </div>
+    </header>
+
+    <div class="public-preview-banner" id="publicPreviewBanner" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+      <p>本机预览 · 尚未发布。这份内容只有在这台电脑上才能看到。</p>
+      <a class="public-preview-link" href="index.html#/publish">回到创作小屋</a>
+    </div>
+
+    <main class="public-content" id="publicMain">
+      <div class="public-loading" id="publicLoading">
+        <span class="public-loading-dot" aria-hidden="true"></span>
+        正在打开公开书架…
+      </div>
+
+      <section class="public-view" id="publicShelfView" hidden>
+        <header class="public-hero">
+          <p class="eyebrow">PUBLIC STORIES</p>
+          <h1>公开书架</h1>
+          <p class="public-hero-desc" id="publicShelfIntro">这里收录作者选择公开的故事档案。没有解锁的内容不会出现在这一页。</p>
+        </header>
+
+        <div class="public-toolbar" id="publicShelfToolbar" hidden>
+          <div class="search-box">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+            <input type="search" id="publicSearchInput" placeholder="搜索书名、类型或简介…" aria-label="搜索公开小说" autocomplete="off" spellcheck="false">
+            <button type="button" class="search-clear" id="publicSearchClearBtn" aria-label="清空搜索" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+            </button>
+          </div>
+          <label class="sort-control">
+            <span>排序</span>
+            <select id="publicSortSelect">
+              <option value="updated">最近更新</option>
+              <option value="title">书名顺序</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="public-count" id="publicShelfCount" aria-live="polite"></p>
+
+        <div class="novel-grid public-novel-grid" id="publicNovelGrid"></div>
+
+        <div class="empty-state" id="publicShelfEmpty" hidden>
+          <div class="public-empty-icon" aria-hidden="true">
+            <svg class="icon"><use href="#i-world"></use></svg>
+          </div>
+          <h3 id="publicShelfEmptyTitle">公开书架还空着</h3>
+          <p id="publicShelfEmptyText">作者还没有解锁任何小说。之后公开的故事会出现在这里。</p>
+        </div>
+
+        <div class="empty-state empty-filtered" id="publicNoResults" hidden>
+          <div class="public-empty-icon" aria-hidden="true">
+            <svg class="icon"><use href="#i-search"></use></svg>
+          </div>
+          <h3>没有找到这本书</h3>
+          <p>换个关键词，或者清空搜索再看看。</p>
+          <div class="empty-actions">
+            <button class="btn ghost" id="publicNoResultsClearBtn" type="button">清空搜索</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="public-view" id="publicNovelView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            公开书架
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current" id="publicCrumbNovel"></span>
+        </nav>
+
+        <header class="novel-hero public-novel-hero" id="publicNovelHero">
+          <div class="novel-hero-cover" id="publicNovelCover"></div>
+          <div class="novel-hero-body">
+            <div class="novel-kicker" id="publicNovelKicker"></div>
+            <h1 id="publicNovelTitle"></h1>
+            <p class="novel-hero-summary" id="publicNovelSummary"></p>
+            <p class="novel-hero-meta" id="publicNovelMeta"></p>
+          </div>
+        </header>
+
+        <section class="panel synopsis-card public-synopsis" id="publicNovelSynopsis">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">SYNOPSIS</p>
+              <h2 class="panel-title">故事简介</h2>
+            </div>
+          </div>
+          <p class="synopsis-body" id="publicNovelDescription"></p>
+        </section>
+
+        <div class="overview-head-block">
+          <div>
+            <p class="eyebrow">THE STORY</p>
+            <h2 class="overview-title">故事档案</h2>
+          </div>
+          <p class="overview-note" id="publicNovelSectionNote">只展示已经公开的条目。</p>
+        </div>
+
+        <div class="section-card-grid" id="publicSectionGrid"></div>
+      </section>
+
+      <section class="public-view" id="publicSectionView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            公开书架
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <a class="back-link public-crumb-link" id="publicCrumbNovelLink" href="#/"></a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current" id="publicCrumbSection"></span>
+        </nav>
+
+        <header class="content-head">
+          <div class="content-head-text">
+            <p class="eyebrow" id="publicSectionEyebrow"></p>
+            <h1 class="content-title">
+              <span id="publicSectionTitle"></span>
+              <span class="title-count" id="publicSectionCount">0</span>
+            </h1>
+            <p class="content-desc" id="publicSectionDesc"></p>
+          </div>
+        </header>
+
+        <div class="entry-grid" id="publicEntryGrid"></div>
+
+        <div class="empty-state" id="publicSectionEmpty" hidden>
+          <div class="public-empty-icon" aria-hidden="true">
+            <svg class="icon" id="publicSectionEmptyIcon"><use href="#i-notes"></use></svg>
+          </div>
+          <h3 id="publicSectionEmptyTitle">这一区还没有公开内容</h3>
+          <p id="publicSectionEmptyText">作者暂时没有公开这一区的条目。</p>
+        </div>
+
+        <section class="panel public-relations" id="publicSectionRelations" hidden>
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">RELATIONS</p>
+              <h2 class="panel-title">人物关系</h2>
+            </div>
+          </div>
+          <ul class="public-relation-list" id="publicSectionRelationList"></ul>
+        </section>
+      </section>
+
+      <section class="public-view" id="publicEntryView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            公开书架
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <a class="back-link public-crumb-link" id="publicEntryCrumbNovel" href="#/"></a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <a class="back-link public-crumb-link" id="publicEntryCrumbSection" href="#/"></a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current" id="publicEntryCrumb"></span>
+        </nav>
+
+        <article class="entry-detail panel public-entry-detail">
+          <header class="entry-detail-head">
+            <div class="entry-detail-kicker" id="publicEntryKicker"></div>
+            <h1 class="entry-detail-title" id="publicEntryTitle"></h1>
+            <p class="entry-detail-subtitle" id="publicEntrySubtitle" hidden></p>
+          </header>
+
+          <div class="entry-detail-body">
+            <p class="entry-lead" id="publicEntryLead" hidden></p>
+
+            <div class="public-entry-map" id="publicEntryMapPanel" hidden>
+              <div class="public-block-head">
+                <h3 class="entry-block-title">地图</h3>
+                <span class="public-map-city-count" id="publicEntryMapCount"></span>
+              </div>
+              <div class="public-map" id="publicEntryMap"></div>
+            </div>
+
+            <section class="entry-detail-block">
+              <h3 class="entry-block-title" id="publicEntryNotesTitle">详细内容</h3>
+              <div class="entry-notes" id="publicEntryNotes"></div>
+              <p class="entry-notes-empty" id="publicEntryNotesEmpty" hidden>这条档案没有更多文字内容。</p>
+            </section>
+
+            <section class="public-relations public-entry-relations" id="publicEntryRelations" hidden>
+              <div class="public-block-head">
+                <h3 class="entry-block-title">人物关系</h3>
+              </div>
+              <ul class="public-relation-list" id="publicEntryRelationList"></ul>
+            </section>
+          </div>
+
+          <footer class="entry-detail-meta" id="publicEntryMeta"></footer>
+        </article>
+      </section>
+
+      <section class="public-view public-missing" id="publicMissingView" hidden>
+        <div class="missing-card">
+          <div class="public-empty-icon" aria-hidden="true">
+            <svg class="icon"><use href="#i-lock"></use></svg>
+          </div>
+          <h1 id="publicMissingTitle">这一页没有公开</h1>
+          <p id="publicMissingText">可能链接有误，或者作者还没有公开这部分内容。</p>
+          <a class="btn primary" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            回到公开书架
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="public-footer">
+      <p><span class="public-footer-mark" aria-hidden="true"></span>这里只展示作者选择公开的故事档案。</p>
+      <p class="public-footer-brand">Coin's Creative Cabin · PUBLIC STORIES</p>
+    </footer>
+  </div>
+
+  <script src="assets/js/public.js"></script>
+</body>
+</html>
