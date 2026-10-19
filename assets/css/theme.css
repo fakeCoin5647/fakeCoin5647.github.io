@@ -3313,6 +3313,429 @@ body {
   }
 }
 
+/* ---------- 角色关系图 ---------- */
+
+.content-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+}
+
+.view-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.view-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.view-switch-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.view-switch-btn:hover {
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--ink);
+}
+
+.view-switch-btn.is-active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 2px 8px -4px rgba(30, 40, 90, 0.45);
+}
+
+.view-switch-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.character-graph-panel {
+  overflow: hidden;
+}
+
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.75rem 0.95rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.graph-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.graph-meta strong {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.graph-meta-sep {
+  color: var(--faint);
+}
+
+.graph-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.graph-actions .btn {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.graph-actions .btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.character-graph-scroll {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  background-color: rgba(255, 255, 255, 0.3);
+  background-image: radial-gradient(rgba(73, 86, 116, 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.character-graph {
+  display: block;
+  width: 100%;
+  min-width: 720px;
+  height: auto;
+  aspect-ratio: 1000 / 620;
+  user-select: none;
+}
+
+.character-graph.is-dragging {
+  cursor: grabbing;
+}
+
+.graph-edge {
+  cursor: pointer;
+  outline: none;
+}
+
+.graph-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+}
+
+.graph-edge-line {
+  fill: none;
+  stroke: rgba(79, 91, 123, 0.4);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke 0.16s ease, stroke-width 0.16s ease;
+}
+
+.graph-edge:hover .graph-edge-line,
+.graph-edge:focus-visible .graph-edge-line {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+}
+
+.graph-edge-label {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 500;
+  fill: #606a7e;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: rgba(248, 250, 255, 0.94);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: fill 0.16s ease;
+}
+
+.graph-edge:hover .graph-edge-label,
+.graph-edge:focus-visible .graph-edge-label {
+  fill: var(--accent);
+}
+
+.graph-node {
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+
+.graph-node.is-dragging {
+  cursor: grabbing;
+}
+
+.graph-node-halo {
+  fill: rgba(79, 109, 245, 0);
+  stroke: rgba(79, 109, 245, 0);
+  transition: fill 0.16s ease, stroke 0.16s ease;
+}
+
+.graph-node-core {
+  fill: var(--node-fill, #eef2ff);
+  stroke: var(--node-stroke, #9caddd);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 4px 6px rgba(31, 45, 90, 0.1));
+  transition: stroke-width 0.16s ease;
+}
+
+.graph-node:hover .graph-node-core,
+.graph-node:focus-visible .graph-node-core {
+  stroke-width: 2.6;
+}
+
+.graph-node:hover .graph-node-halo {
+  fill: rgba(79, 109, 245, 0.06);
+}
+
+.graph-node:focus-visible .graph-node-halo {
+  fill: rgba(79, 109, 245, 0.1);
+  stroke: rgba(79, 109, 245, 0.38);
+  stroke-width: 1.5;
+}
+
+.graph-node-initial {
+  font-family: var(--sans);
+  font-size: 24px;
+  font-weight: 600;
+  fill: var(--node-ink, #3b55d4);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.graph-node-name {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 600;
+  fill: var(--text);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: rgba(248, 250, 255, 0.95);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: auto;
+}
+
+.graph-node-role {
+  font-family: var(--sans);
+  font-size: 12px;
+  fill: var(--faint);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: rgba(248, 250, 255, 0.95);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: auto;
+}
+
+.graph-node.is-highlighted .graph-node-core {
+  animation: graph-node-highlight 1.9s ease;
+}
+
+@keyframes graph-node-highlight {
+  0%,
+  100% {
+    stroke-width: 1.6;
+  }
+  30% {
+    stroke-width: 4.2;
+  }
+}
+
+.graph-hint {
+  margin: 0;
+  padding: 0.55rem 0.95rem 0.65rem;
+  border-top: 1px solid var(--rule);
+  color: var(--faint);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ---------- 关系编辑 ---------- */
+
+.relation-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.relation-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.relation-route .field {
+  margin-bottom: 0.9rem;
+}
+
+.relation-route-mark {
+  padding-top: 2.15rem;
+  color: var(--accent);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.relation-select {
+  width: 100%;
+  height: 42px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.72);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 18px,
+    calc(100% - 11px) 18px;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.4;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.relation-select:hover {
+  border-color: var(--accent);
+}
+
+.relation-select:focus {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-weak);
+  outline-offset: 1px;
+}
+
+.relation-form-error {
+  margin: -0.35rem 0 0.9rem;
+}
+
+.relation-preset-field {
+  margin-bottom: 0.4rem;
+}
+
+.relation-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.relation-preset {
+  padding: 4px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.relation-preset:hover {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+.relation-hint {
+  margin: 0.15rem 0 0.9rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(79, 109, 245, 0.055);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.btn.ghost.relation-delete {
+  color: var(--danger);
+  border-color: rgba(210, 72, 72, 0.3);
+}
+
+.btn.ghost.relation-delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(210, 72, 72, 0.07);
+}
+
+@media (max-width: 560px) {
+  .content-head {
+    flex-wrap: wrap;
+  }
+
+  .content-head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .graph-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .graph-actions {
+    width: 100%;
+  }
+
+  .graph-actions .btn {
+    flex: 1;
+  }
+
+  .character-graph {
+    min-width: 680px;
+  }
+
+  .relation-route {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .relation-route-mark {
+    display: none;
+  }
+
+  .relation-dialog .dialog-hint {
+    display: none;
+  }
+}
+
 /* 打开条目时先淡出再淡入，遮住回到开头的跳变 */
 ::view-transition-old(root) {
   animation: route-fade-out 110ms ease-out both;
