@@ -35,12 +35,17 @@
           <p class="side-empty" id="sidebarNovelsEmpty">书架还空着</p>
         </div>
 
-        <div class="nav-group" id="sidebarSectionsGroup" hidden>
-          <a class="side-book" id="sidebarBookLink" href="#/">
-            <svg class="icon side-book-icon" aria-hidden="true"><use href="#i-book"></use></svg>
-            <span class="side-book-name" id="sidebarBookName"></span>
-          </a>
-          <div class="subnav side-sections" id="workspaceNav" aria-label="小说内容导航"></div>
+        <div class="nav-group side-current-group" id="sidebarSectionsGroup" hidden>
+          <div class="side-current-reveal">
+            <div class="side-current-inner">
+              <p class="side-current-label">当前小说</p>
+              <a class="side-book" id="sidebarBookLink" href="#/">
+                <svg class="icon side-book-icon" aria-hidden="true"><use href="#i-book"></use></svg>
+                <span class="side-book-name" id="sidebarBookName"></span>
+              </a>
+              <div class="subnav side-sections" id="workspaceNav" aria-label="小说内容导航"></div>
+            </div>
+          </div>
         </div>
       </nav>
 

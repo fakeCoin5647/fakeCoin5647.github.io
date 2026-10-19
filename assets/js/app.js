@@ -579,6 +579,7 @@
   };
 
   let isComposingTag = false;
+  let sidebarSectionsSettleTimer = 0;
 
   init();
 
@@ -1857,6 +1858,27 @@
     renderSidebar(route);
   }
 
+  function setSidebarSectionsVisible(visible) {
+    const group = els.sidebarSectionsGroup;
+    window.clearTimeout(sidebarSectionsSettleTimer);
+
+    if (!visible) {
+      group.hidden = true;
+      group.classList.remove('is-open', 'is-settled');
+      return;
+    }
+
+    if (!group.hidden) return;
+
+    group.hidden = false;
+    group.classList.remove('is-open', 'is-settled');
+    void group.offsetWidth;
+    group.classList.add('is-open');
+    sidebarSectionsSettleTimer = window.setTimeout(() => {
+      group.classList.add('is-settled');
+    }, 320);
+  }
+
   function renderSidebar(route = state.route) {
     const onShelf = Boolean(route && route.view === 'shelf');
     const onComments = Boolean(route && route.view === 'comments');
@@ -1917,7 +1939,7 @@
     els.sidebarNovelList.hidden = novels.length === 0;
     els.sidebarNovelsEmpty.hidden = novels.length > 0;
 
-    els.sidebarSectionsGroup.hidden = !currentNovel;
+    setSidebarSectionsVisible(Boolean(currentNovel));
     if (currentNovel) {
       els.sidebarBookLink.href = novelHash(currentNovel.id);
       els.sidebarBookLink.title = currentNovel.title;
