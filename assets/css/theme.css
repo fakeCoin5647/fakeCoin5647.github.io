@@ -3372,6 +3372,97 @@ body {
   overflow: hidden;
 }
 
+.graph-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.7rem 0.5rem 0.95rem;
+  border-bottom: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.graph-switcher-label {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+}
+
+.graph-tabs {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.3rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.graph-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.graph-tab:hover {
+  background: rgba(79, 109, 245, 0.06);
+  color: var(--accent);
+}
+
+.graph-tab.is-active {
+  border-color: rgba(79, 109, 245, 0.28);
+  background: rgba(79, 109, 245, 0.1);
+  color: var(--accent);
+}
+
+.graph-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.graph-tab-count {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.graph-tab.is-active .graph-tab-count {
+  color: var(--accent);
+}
+
+.graph-tab-add {
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
+}
+
+.graph-tab-add .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.graph-edit-btn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.graph-edit-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
 .graph-toolbar {
   display: flex;
   align-items: center;
@@ -3402,6 +3493,7 @@ body {
 
 .graph-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
 }
@@ -3414,6 +3506,70 @@ body {
 .graph-actions .btn .icon {
   width: 14px;
   height: 14px;
+}
+
+.graph-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.graph-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.graph-zoom-btn:hover:not(:disabled) {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+.graph-zoom-btn:focus-visible,
+.graph-zoom-level:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.graph-zoom-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.graph-zoom-btn .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.graph-zoom-level {
+  min-width: 42px;
+  height: 26px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.graph-zoom-level:hover {
+  color: var(--accent);
 }
 
 .character-graph-scroll {
@@ -3436,6 +3592,14 @@ body {
 }
 
 .character-graph.is-dragging {
+  cursor: grabbing;
+}
+
+.character-graph.is-zoomed {
+  cursor: grab;
+}
+
+.character-graph.is-panning {
   cursor: grabbing;
 }
 
@@ -3463,6 +3627,17 @@ body {
 .graph-edge:focus-visible .graph-edge-line {
   stroke: var(--accent);
   stroke-width: 2.2;
+}
+
+.graph-edge-arrow {
+  fill: rgba(79, 91, 123, 0.55);
+  pointer-events: none;
+  transition: fill 0.16s ease;
+}
+
+.graph-edge:hover .graph-edge-arrow,
+.graph-edge:focus-visible .graph-edge-arrow {
+  fill: var(--accent);
 }
 
 .graph-edge-label {
@@ -3585,6 +3760,52 @@ body {
   line-height: 1.6;
 }
 
+.graph-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 3rem 1.5rem;
+  background-color: rgba(255, 255, 255, 0.3);
+  background-image: radial-gradient(rgba(73, 86, 116, 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+  text-align: center;
+}
+
+.graph-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 0.9rem;
+  border-radius: 16px;
+  background: rgba(79, 109, 245, 0.09);
+  color: var(--accent);
+}
+
+.graph-empty-icon .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.graph-empty h3 {
+  margin: 0 0 0.4rem;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.graph-empty p {
+  max-width: 360px;
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
 /* ---------- 关系编辑 ---------- */
 
 .relation-dialog {
@@ -3644,6 +3865,95 @@ body {
 
 .relation-form-error {
   margin: -0.35rem 0 0.9rem;
+}
+
+.relation-direction-field {
+  margin-bottom: 0.95rem;
+}
+
+.relation-directions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.relation-direction {
+  position: relative;
+  display: block;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.58);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.relation-direction:hover {
+  border-color: rgba(79, 109, 245, 0.42);
+}
+
+.relation-direction.is-active {
+  border-color: rgba(79, 109, 245, 0.6);
+  background: var(--accent-weak);
+  box-shadow: 0 0 0 1px rgba(79, 109, 245, 0.16) inset;
+}
+
+.relation-direction:focus-within {
+  outline: 2px solid var(--accent-weak);
+  outline-offset: 1px;
+}
+
+.relation-direction input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.relation-direction-text {
+  display: block;
+  min-width: 0;
+}
+
+.relation-direction-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.relation-direction.is-active .relation-direction-title {
+  color: var(--accent);
+}
+
+.relation-direction-mark {
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.relation-direction-desc {
+  display: block;
+  margin-top: 2px;
+  padding-left: 1.35rem;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.relation-direction-note {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.graph-dialog {
+  width: min(500px, calc(100vw - 32px));
 }
 
 .relation-preset-field {
@@ -3710,8 +4020,22 @@ body {
     flex-wrap: wrap;
   }
 
+  .graph-switcher {
+    gap: 0.4rem;
+    padding: 0.45rem 0.6rem 0.45rem 0.7rem;
+  }
+
+  .graph-switcher-label {
+    display: none;
+  }
+
   .graph-actions {
     width: 100%;
+    justify-content: space-between;
+  }
+
+  .graph-zoom {
+    flex: none;
   }
 
   .graph-actions .btn {
