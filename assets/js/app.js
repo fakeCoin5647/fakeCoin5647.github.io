@@ -568,8 +568,11 @@
   function renderRoute({ scroll = false } = {}) {
     const route = parseRoute();
     state.route = route;
+    const compactEntry = scroll
+      && route.view === 'entry'
+      && window.matchMedia('(max-width: 880px)').matches;
 
-    if (scroll) {
+    if (scroll && !compactEntry) {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
 
@@ -582,6 +585,11 @@
     } else {
       showView('novel');
       renderNovelWorkspace(route);
+    }
+
+    if (compactEntry) {
+      const crumb = els.novelView.querySelector('.workspace-breadcrumb');
+      if (crumb) crumb.scrollIntoView({ block: 'start', behavior: 'auto' });
     }
 
     updateDocumentTitle(route);
@@ -828,6 +836,7 @@
     const { novel } = route;
     const status = NOVEL_STATUS[novel.status] || NOVEL_STATUS.planning;
 
+    els.novelView.classList.toggle('is-entry-view', route.view === 'entry');
     els.breadcrumbNovelTitle.textContent = novel.title;
 
     els.novelCoverSlot.replaceChildren(createCover(novel, 'hero'));

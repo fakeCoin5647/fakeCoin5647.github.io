@@ -812,6 +812,18 @@ body {
   padding: 1.6rem 0 0;
 }
 
+#novelView.is-entry-view .novel-hero {
+  display: none;
+}
+
+#novelView.is-entry-view .workspace {
+  padding-top: 0;
+}
+
+#novelView.is-entry-view .workspace-breadcrumb {
+  margin-bottom: 0.85rem;
+}
+
 .novel-hero {
   grid-template-columns: 150px minmax(0, 1fr);
   gap: 1.9rem;
