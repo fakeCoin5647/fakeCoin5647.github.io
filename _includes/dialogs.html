@@ -267,6 +267,55 @@
     </form>
   </dialog>
 
+  <dialog id="commentDialog" class="dialog comment-dialog" aria-labelledby="commentDialogTitle">
+    <form id="commentForm" novalidate>
+      <header class="dialog-head">
+        <div>
+          <p class="dialog-eyebrow" id="commentDialogEyebrow">MARGIN NOTE · NEW</p>
+          <h2 id="commentDialogTitle">写一条评论</h2>
+        </div>
+        <button type="button" class="icon-btn dialog-close" id="commentDialogCloseBtn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="comment-context-card">
+          <span class="comment-context-icon" aria-hidden="true">
+            <svg class="icon"><use href="#i-comment"></use></svg>
+          </span>
+          <div class="comment-context-copy">
+            <p class="comment-context-label">标注位置</p>
+            <p class="comment-context-target" id="commentTargetPath">我的书架</p>
+            <p class="comment-context-note" id="commentTargetNote"></p>
+          </div>
+        </div>
+
+        <div class="field" id="commentTargetField">
+          <label for="commentTargetSelect">选择页面或细目</label>
+          <select id="commentTargetSelect" class="comment-select"></select>
+        </div>
+
+        <div class="field comment-body-field">
+          <label for="commentBodyInput">评论内容 <span class="field-mark">必填</span></label>
+          <textarea id="commentBodyInput" name="body" rows="6" maxlength="2000" placeholder="写下你的想法、疑问，或留给未来自己的提醒…"></textarea>
+          <div class="field-foot">
+            <span class="field-hint">换行会保留，评论只保存在这台设备。</span>
+            <span class="field-hint counter" id="commentBodyCount">0 字</span>
+          </div>
+          <p class="field-error" id="commentBodyError" hidden>请先写下评论内容。</p>
+        </div>
+      </div>
+
+      <footer class="dialog-actions">
+        <button type="button" class="btn ghost relation-delete" id="commentDeleteBtn" hidden>删除评论</button>
+        <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
+        <button type="button" class="btn ghost" id="commentCancelBtn">取消</button>
+        <button type="submit" class="btn primary" id="commentSaveBtn">保存评论</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="mapDialog" class="dialog map-dialog" aria-labelledby="mapDialogTitle">
     <div class="map-shell">
       <header class="map-topbar">
