@@ -1117,6 +1117,18 @@ body {
   margin-bottom: 0.85rem;
 }
 
+#novelView.is-section-view .workspace-content,
+#novelView.is-entry-view .workspace-content {
+  display: flex;
+  flex-direction: column;
+  min-height: clamp(500px, 48vh, 560px);
+}
+
+#novelView.is-section-view .section-empty {
+  flex: 1;
+  justify-content: center;
+}
+
 .novel-hero {
   grid-template-columns: 150px minmax(0, 1fr);
   gap: 1.9rem;
