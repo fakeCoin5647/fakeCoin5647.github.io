@@ -2569,6 +2569,30 @@ body {
 
 /* ---------- 响应式 ---------- */
 
+@media (min-width: 881px) {
+  /* 书架少内容时也保持完整画布，底边渐隐进壁纸 */
+  #shelfView {
+    min-height: 450px;
+  }
+
+  .page:has(#shelfView:not([hidden])) .content {
+    padding-bottom: 120px;
+  }
+
+  .page:has(#shelfView:not([hidden])) .sidebar {
+    padding-bottom: 130px;
+  }
+
+  .page:has(#shelfView:not([hidden])) .sidebar-footer {
+    margin-top: auto;
+  }
+
+  .page:has(#shelfView:not([hidden])) {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent 100%);
+  }
+}
+
 @media (max-width: 880px) {
   body {
     background-attachment: scroll, scroll;
