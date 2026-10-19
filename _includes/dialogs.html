@@ -11,6 +11,23 @@
       </header>
 
       <div class="dialog-body">
+        <div class="cover-editor">
+          <div class="cover-edit-preview" id="novelCoverPreview" aria-hidden="true"></div>
+          <div class="cover-editor-copy">
+            <span class="field-label">小说封面 <span class="field-optional">选填</span></span>
+            <p class="cover-editor-hint">上传一张竖图，会自动裁成 2:3 并压缩，只保存在这台设备。</p>
+            <div class="cover-editor-actions">
+              <button type="button" class="btn ghost" id="novelCoverUploadBtn">
+                <svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg>
+                <span id="novelCoverUploadLabel">选择图片</span>
+              </button>
+              <button type="button" class="btn ghost" id="novelCoverRemoveBtn" hidden>移除封面</button>
+            </div>
+            <p class="cover-editor-status" id="novelCoverStatus" role="status" aria-live="polite"></p>
+            <input type="file" id="novelCoverInput" accept="image/*" hidden>
+          </div>
+        </div>
+
         <div class="form-split">
           <div class="field" id="novelTitleField">
             <label for="novelTitleInput">书名 <span class="field-mark">必填</span></label>

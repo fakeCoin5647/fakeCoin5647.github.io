@@ -7,6 +7,10 @@
   const MAX_TAGS = 8;
   const MAX_TAG_LENGTH = 16;
   const DEFAULT_APPEARANCE = { glassAlpha: 78, cardAlpha: 50, blur: 20 };
+  const COVER_WIDTH = 480;
+  const COVER_HEIGHT = 720;
+  const COVER_MAX_LENGTH = 240000;
+  const COVER_MAX_FILE_BYTES = 20 * 1024 * 1024;
 
   const NOVEL_STATUS = {
     planning: { label: '构思中', className: 'status-planning' },
@@ -266,6 +270,12 @@
     novelSummaryInput: $('#novelSummaryInput'),
     novelDescriptionInput: $('#novelDescriptionInput'),
     novelDescriptionCount: $('#novelDescriptionCount'),
+    novelCoverPreview: $('#novelCoverPreview'),
+    novelCoverUploadBtn: $('#novelCoverUploadBtn'),
+    novelCoverUploadLabel: $('#novelCoverUploadLabel'),
+    novelCoverRemoveBtn: $('#novelCoverRemoveBtn'),
+    novelCoverInput: $('#novelCoverInput'),
+    novelCoverStatus: $('#novelCoverStatus'),
 
     entryDialog: $('#entryDialog'),
     entryForm: $('#entryForm'),
@@ -338,7 +348,7 @@
     appearance: { ...DEFAULT_APPEARANCE },
     route: null,
     shelf: { query: '', status: 'all', sort: 'updated' },
-    novelDraft: { id: null, dirty: false },
+    novelDraft: { id: null, dirty: false, cover: '', coverBusy: false },
     entryDraft: { novelId: null, sectionKey: null, id: null, dirty: false },
     outlineDraft: { novelId: null, id: null, dirty: false, tags: [], hash: '' },
     draftTags: [],
@@ -504,6 +514,14 @@
     els.appearanceBtn.setAttribute('aria-expanded', 'false');
   }
 
+  function normalizeCover(raw) {
+    if (typeof raw !== 'string') return '';
+    const value = raw.trim();
+    if (!value || value.length > COVER_MAX_LENGTH) return '';
+    if (!/^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value)) return '';
+    return value;
+  }
+
   function normalizeNovel(raw) {
     if (!raw || typeof raw !== 'object') return null;
 
@@ -547,6 +565,7 @@
           ? raw.status
           : 'planning',
         tone,
+        cover: normalizeCover(raw.cover),
         pinned: raw.pinned === true,
         createdAt,
         updatedAt,
@@ -1311,12 +1330,18 @@
     if (novel.title.length > 12) cover.classList.add('is-long');
     if (novel.title.length > 22) cover.classList.add('is-very-long');
 
-    cover.append(
-      el('span', 'cover-spine'),
-      el('span', 'cover-frame'),
-      el('span', 'cover-title', novel.title),
-      el('span', 'cover-seal', '簿')
-    );
+    cover.append(el('span', 'cover-spine'), el('span', 'cover-frame'));
+
+    if (novel.cover) {
+      cover.classList.add('has-image');
+      cover.style.backgroundImage = `url("${novel.cover}")`;
+    } else {
+      cover.append(
+        el('span', 'cover-title', novel.title),
+        el('span', 'cover-seal', '簿')
+      );
+    }
+
     return cover;
   }
 
@@ -1757,8 +1782,14 @@
     const novel = novelId ? findNovel(novelId) : null;
     const isNew = !novel;
 
-    state.novelDraft = { id: novel ? novel.id : null, dirty: false };
+    state.novelDraft = {
+      id: novel ? novel.id : null,
+      dirty: false,
+      cover: novel ? novel.cover || '' : '',
+      coverBusy: false,
+    };
     els.novelForm.reset();
+    els.novelCoverInput.value = '';
     clearNovelTitleError();
 
     if (novel) {
@@ -1780,6 +1811,12 @@
     }
 
     updateNovelDescriptionCount();
+    updateNovelCoverPreview();
+    setNovelCoverBusy(false);
+    setNovelCoverStatus(
+      state.novelDraft.cover ? '当前使用自定义封面' : '',
+      ''
+    );
     els.novelDialog.showModal();
     requestAnimationFrame(() => els.novelTitleInput.focus());
 
@@ -1803,6 +1840,158 @@
 
   function updateNovelDescriptionCount() {
     els.novelDescriptionCount.textContent = `${els.novelDescriptionInput.value.length} 字`;
+  }
+
+  function updateNovelCoverPreview() {
+    const title = els.novelTitleInput.value.trim() || '未命名';
+    const toneInput = els.novelForm.querySelector('input[name="tone"]:checked');
+    const tone = toneInput ? Number(toneInput.value) : 0;
+    const cover = state.novelDraft.cover || '';
+
+    els.novelCoverPreview.replaceChildren(
+      createCover({ title, tone, cover }, 'preview')
+    );
+    els.novelCoverPreview.classList.toggle('has-image', Boolean(cover));
+    els.novelCoverRemoveBtn.hidden = !cover;
+  }
+
+  function setNovelCoverStatus(message, variant = '') {
+    els.novelCoverStatus.textContent = message;
+    els.novelCoverStatus.classList.toggle('is-error', variant === 'error');
+  }
+
+  function setNovelCoverBusy(busy) {
+    state.novelDraft.coverBusy = busy;
+    els.novelCoverUploadBtn.disabled = busy;
+    els.novelCoverRemoveBtn.disabled = busy;
+    els.novelSaveBtn.disabled = busy;
+    els.novelCoverUploadLabel.textContent = busy ? '处理中…' : '选择图片';
+  }
+
+  function decodeCoverFile(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        resolve({
+          source: image,
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+          release: () => URL.revokeObjectURL(url),
+        });
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('这张图片无法读取，请换成 JPG、PNG 或 WebP（HEIC 请先转换）'));
+      };
+      image.src = url;
+    });
+  }
+
+  async function prepareCoverImage(file) {
+    const looksLikeImage =
+      file.type.startsWith('image/') ||
+      /\.(?:jpe?g|png|webp|gif|bmp|avif)$/i.test(file.name);
+    if (!looksLikeImage) {
+      throw new Error('请选择一张图片文件');
+    }
+    if (file.size > COVER_MAX_FILE_BYTES) {
+      throw new Error('图片超过 20MB，换一张小一点的吧');
+    }
+
+    let decoded;
+    try {
+      if (typeof createImageBitmap === 'function') {
+        const bitmap = await createImageBitmap(file, {
+          imageOrientation: 'from-image',
+        });
+        decoded = {
+          source: bitmap,
+          width: bitmap.width,
+          height: bitmap.height,
+          release: () => bitmap.close(),
+        };
+      } else {
+        decoded = await decodeCoverFile(file);
+      }
+    } catch (error) {
+      decoded = await decodeCoverFile(file);
+    }
+
+    try {
+      if (!decoded.width || !decoded.height) {
+        throw new Error('这张图片没有可用的画面，请换一张');
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = COVER_WIDTH;
+      canvas.height = COVER_HEIGHT;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('浏览器无法处理这张图片');
+
+      context.fillStyle = '#f6f1e6';
+      context.fillRect(0, 0, COVER_WIDTH, COVER_HEIGHT);
+
+      const scale = Math.max(
+        COVER_WIDTH / decoded.width,
+        COVER_HEIGHT / decoded.height
+      );
+      const drawWidth = decoded.width * scale;
+      const drawHeight = decoded.height * scale;
+      context.drawImage(
+        decoded.source,
+        (COVER_WIDTH - drawWidth) / 2,
+        (COVER_HEIGHT - drawHeight) / 2,
+        drawWidth,
+        drawHeight
+      );
+
+      let quality = 0.84;
+      let dataUrl = canvas.toDataURL('image/jpeg', quality);
+      while (dataUrl.length > COVER_MAX_LENGTH && quality > 0.5) {
+        quality = Math.max(0.5, quality - 0.08);
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+      }
+
+      if (dataUrl.length > COVER_MAX_LENGTH) {
+        throw new Error('图片压缩后仍然太大，请换一张');
+      }
+      return dataUrl;
+    } finally {
+      decoded.release();
+    }
+  }
+
+  async function handleNovelCoverFile() {
+    const file = els.novelCoverInput.files && els.novelCoverInput.files[0];
+    els.novelCoverInput.value = '';
+    if (!file || state.novelDraft.coverBusy) return;
+
+    const draft = state.novelDraft;
+    setNovelCoverBusy(true);
+    setNovelCoverStatus('正在处理图片…');
+    try {
+      const cover = await prepareCoverImage(file);
+      if (state.novelDraft !== draft) return;
+      draft.cover = cover;
+      draft.dirty = true;
+      updateNovelCoverPreview();
+      setNovelCoverStatus('封面已就绪，保存后生效');
+    } catch (error) {
+      if (state.novelDraft !== draft) return;
+      setNovelCoverStatus(error.message, 'error');
+      showToast(error.message, 'error');
+    } finally {
+      if (state.novelDraft === draft) setNovelCoverBusy(false);
+    }
+  }
+
+  function removeNovelCover() {
+    if (!state.novelDraft.cover || state.novelDraft.coverBusy) return;
+    state.novelDraft.cover = '';
+    state.novelDraft.dirty = true;
+    updateNovelCoverPreview();
+    setNovelCoverStatus('已恢复自动书封，保存后生效');
   }
 
   function showNovelTitleError() {
@@ -1834,6 +2023,11 @@
   }
 
   function saveNovel() {
+    if (state.novelDraft.coverBusy) {
+      showToast('封面图片还在处理中，稍等一下');
+      return;
+    }
+
     const title = els.novelTitleInput.value.trim();
     if (!title) {
       showNovelTitleError();
@@ -1857,6 +2051,7 @@
         description: els.novelDescriptionInput.value.trim(),
         status: statusInput ? statusInput.value : 'planning',
         tone: toneInput ? Number(toneInput.value) : 0,
+        cover: state.novelDraft.cover || '',
         pinned: false,
         createdAt: now,
         updatedAt: now,
@@ -1883,6 +2078,7 @@
               description: els.novelDescriptionInput.value.trim(),
               status: statusInput ? statusInput.value : 'planning',
               tone: toneInput ? Number(toneInput.value) : novel.tone,
+              cover: state.novelDraft.cover || '',
               updatedAt: now,
             }
           : novel
@@ -4466,8 +4662,18 @@
     els.novelForm.addEventListener('input', () => {
       state.novelDraft.dirty = true;
     });
-    els.novelTitleInput.addEventListener('input', clearNovelTitleError);
+    els.novelTitleInput.addEventListener('input', () => {
+      clearNovelTitleError();
+      updateNovelCoverPreview();
+    });
     els.novelDescriptionInput.addEventListener('input', updateNovelDescriptionCount);
+    els.novelForm
+      .querySelectorAll('input[name="tone"]')
+      .forEach((input) => input.addEventListener('change', updateNovelCoverPreview));
+
+    els.novelCoverUploadBtn.addEventListener('click', () => els.novelCoverInput.click());
+    els.novelCoverRemoveBtn.addEventListener('click', removeNovelCover);
+    els.novelCoverInput.addEventListener('change', handleNovelCoverFile);
 
     els.novelForm.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -4491,8 +4697,14 @@
     });
 
     els.novelDialog.addEventListener('close', () => {
-      state.novelDraft = { id: null, dirty: false };
+      if (els.novelDialog.open) return;
+      state.novelDraft = { id: null, dirty: false, cover: '', coverBusy: false };
       els.novelForm.reset();
+      els.novelCoverInput.value = '';
+      els.novelSaveBtn.disabled = false;
+      els.novelCoverUploadBtn.disabled = false;
+      els.novelCoverRemoveBtn.disabled = false;
+      els.novelCoverUploadLabel.textContent = '选择图片';
       clearNovelTitleError();
     });
 

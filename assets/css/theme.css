@@ -1011,6 +1011,57 @@ body {
   height: 130px;
 }
 
+.book-cover.has-image {
+  padding-left: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.book-cover.has-image::before {
+  opacity: 0.05;
+}
+
+.book-cover.has-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 12, 24, 0.22), transparent 16%, transparent 84%, rgba(8, 12, 24, 0.14)),
+    linear-gradient(0deg, rgba(8, 12, 24, 0.2), transparent 34%);
+  pointer-events: none;
+}
+
+.book-cover.has-image .cover-frame {
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 0 20px rgba(8, 12, 24, 0.16);
+}
+
+.book-cover.cover-preview {
+  width: 88px;
+  height: 132px;
+}
+
+.cover-preview .cover-title {
+  font-size: 15px;
+}
+
+.cover-preview.is-long .cover-title {
+  font-size: 12.5px;
+}
+
+.cover-preview.is-very-long .cover-title {
+  font-size: 11px;
+}
+
+.cover-preview .cover-seal {
+  right: 10px;
+  bottom: 10px;
+  width: 16px;
+  height: 16px;
+  font-size: 8px;
+}
+
 .cover-title,
 .cover-seal {
   font-family: var(--reading);
@@ -1702,6 +1753,88 @@ body {
 
 .tone-option input:checked + .tone-swatch {
   box-shadow: 0 0 0 2px #fbfcff, 0 0 0 4px var(--accent);
+}
+
+.cover-editor {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.cover-edit-preview {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+}
+
+.cover-edit-preview .book-cover {
+  box-shadow: 0 12px 22px -14px rgba(30, 40, 90, 0.6);
+}
+
+.cover-editor-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.cover-editor-copy .field-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cover-editor-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.cover-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.cover-editor-actions .btn {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.cover-editor-actions .btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+#novelCoverRemoveBtn[hidden] {
+  display: none;
+}
+
+.cover-editor-status {
+  min-height: 15px;
+  margin: 0;
+  color: var(--accent);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.cover-editor-status:empty {
+  min-height: 0;
+}
+
+.cover-editor-status.is-error {
+  color: var(--danger);
 }
 
 .toast {
@@ -3162,6 +3295,46 @@ body {
 
   .map-city-editor .map-delete-city {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 680px) {
+  .cover-editor {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .cover-edit-preview .book-cover.cover-preview {
+    width: 76px;
+    height: 114px;
+  }
+
+  .cover-preview .cover-title {
+    font-size: 13px;
+  }
+
+  .cover-preview.is-long .cover-title {
+    font-size: 11px;
+  }
+
+  .cover-editor-copy {
+    gap: 6px;
+  }
+
+  .cover-editor-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .cover-edit-preview .book-cover.cover-preview {
+    width: 68px;
+    height: 102px;
+  }
+
+  .cover-preview .cover-seal {
+    display: none;
   }
 }
 
