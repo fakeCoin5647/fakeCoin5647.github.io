@@ -292,20 +292,6 @@
   const GRAPH_ZOOM_MIN = 1;
   const GRAPH_ZOOM_MAX = 2.6;
   const GRAPH_ZOOM_STEP = 0.2;
-  const GRAPH_RELATION_PRESETS = [
-    '亲人',
-    '朋友',
-    '恋人',
-    '师徒',
-    '同门',
-    '搭档',
-    '对手',
-    '宿敌',
-    '上下级',
-    '合作',
-    '旧识',
-    '恩人',
-  ];
   const GRAPH_NODE_TONES = [
     { fill: '#e7ecff', stroke: '#93a6f4', ink: '#3b55d4' },
     { fill: '#f6e9e1', stroke: '#dfa98e', ink: '#a85a38' },
