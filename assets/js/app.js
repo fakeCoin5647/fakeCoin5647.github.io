@@ -4,6 +4,7 @@
   const STORAGE_KEY = 'gushibu.library.v1';
   const APPEARANCE_KEY = 'gushibu.appearance.v1';
   const LIBRARY_VERSION = 1;
+  const SITE_NAME = "Coin's Creative Cabin";
   const MAX_TAGS = 8;
   const MAX_TAG_LENGTH = 16;
   const DEFAULT_APPEARANCE = { glassAlpha: 78, cardAlpha: 50, blur: 20 };
@@ -426,7 +427,7 @@
         trash,
       };
     } catch (error) {
-      console.warn('读取本地故事簿失败：', error);
+      console.warn('读取本地书架数据失败：', error);
       return { novels: [], trash: [] };
     }
   }
@@ -845,19 +846,19 @@
 
   function updateDocumentTitle(route) {
     if (route.view === 'shelf') {
-      document.title = '故事簿 · 我的小说书架';
+      document.title = `${SITE_NAME} · 我的小说书架`;
     } else if (route.view === 'trash') {
-      document.title = '回收站 · 故事簿';
+      document.title = `回收站 · ${SITE_NAME}`;
     } else if (route.view === 'missing') {
-      document.title = '这一页还没有写进故事里 · 故事簿';
+      document.title = `这一页还没有写进故事里 · ${SITE_NAME}`;
     } else if (route.view === 'novel') {
-      document.title = `${route.novel.title} · 故事簿`;
+      document.title = `${route.novel.title} · ${SITE_NAME}`;
     } else if (route.view === 'section') {
-      document.title = `${SECTIONS[route.sectionKey].label} · ${route.novel.title} · 故事簿`;
+      document.title = `${SECTIONS[route.sectionKey].label} · ${route.novel.title} · ${SITE_NAME}`;
     } else if (route.view === 'entry') {
-      document.title = `${route.entry.title} · ${route.novel.title} · 故事簿`;
+      document.title = `${route.entry.title} · ${route.novel.title} · ${SITE_NAME}`;
     } else if (route.view === 'outline-editor') {
-      document.title = `${route.entry ? '编辑大纲' : '新增大纲'} · ${route.novel.title} · 故事簿`;
+      document.title = `${route.entry ? '编辑大纲' : '新增大纲'} · ${route.novel.title} · ${SITE_NAME}`;
     }
   }
 
@@ -4229,7 +4230,7 @@
           : [];
 
       if (!rawNovels && rawTrash.length === 0) {
-        throw new Error('这不是故事簿的备份文件');
+        throw new Error(`这不是 ${SITE_NAME} 的备份文件`);
       }
 
       const incoming = [];
@@ -4385,7 +4386,7 @@
 
     const now = new Date();
     const payload = {
-      app: '故事簿',
+      app: SITE_NAME,
       version: LIBRARY_VERSION,
       exportedAt: now.toISOString(),
       novels: state.novels,
@@ -4397,7 +4398,7 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `故事簿-备份-${fileDate(now)}.json`;
+    link.download = `${SITE_NAME}-备份-${fileDate(now)}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -5052,7 +5053,7 @@
         state.route.view === 'outline-editor' &&
         state.outlineDraft.dirty
       ) {
-        showToast('其他标签页刚刚修改了故事簿，请先保存这条大纲', 'error');
+        showToast('其他标签页刚刚修改了书架，请先保存这条大纲', 'error');
         return;
       }
       const library = loadLibrary();

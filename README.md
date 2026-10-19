@@ -1,4 +1,4 @@
-# 故事簿 · STORY NOTES
+# Coin's Creative Cabin · STORY NOTES
 
 一座放在浏览器里的私人小说书架：点开一本书，整理它的角色、背景、设定、地图与资料。夜图书馆壁纸配磨砂玻璃卡片，左侧栏直达书架、小说与各内容分区；无需登录，零依赖；站点外壳使用 Jekyll 构建，可直接部署到 GitHub Pages。
 
@@ -214,7 +214,7 @@ GitHub Pages 会检测到 `_config.yml` 并自动用 Jekyll 构建，不需要 A
 ```bash
 git init
 git add _config.yml index.html _layouts _includes assets favicon.svg README.md
-git commit -m "故事簿：用 Jekyll 搭建的小说设定集书架"
+git commit -m "Coin's Creative Cabin：用 Jekyll 搭建的小说设定集"
 git branch -M main
 git remote add origin https://github.com/<用户名>/<仓库名>.git
 git push -u origin main
