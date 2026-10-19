@@ -1102,15 +1102,18 @@ body {
   padding: 1.6rem 0 0;
 }
 
-#novelView.is-entry-view .novel-hero {
+#novelView.is-entry-view .novel-hero,
+#novelView.is-section-view .novel-hero {
   display: none;
 }
 
-#novelView.is-entry-view .workspace {
+#novelView.is-entry-view .workspace,
+#novelView.is-section-view .workspace {
   padding-top: 0;
 }
 
-#novelView.is-entry-view .workspace-breadcrumb {
+#novelView.is-entry-view .workspace-breadcrumb,
+#novelView.is-section-view .workspace-breadcrumb {
   margin-bottom: 0.85rem;
 }
 

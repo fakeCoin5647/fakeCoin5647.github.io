@@ -1158,6 +1158,7 @@
       'is-entry-view',
       route.view === 'entry' || route.view === 'outline-editor'
     );
+    els.novelView.classList.toggle('is-section-view', route.view === 'section');
     els.breadcrumbNovelTitle.textContent = novel.title;
 
     els.novelCoverSlot.replaceChildren(createCover(novel, 'hero'));
@@ -1475,7 +1476,7 @@
     const headText = el('div', 'content-head-text');
     headText.appendChild(el('p', 'eyebrow', config.eyebrow));
 
-    const heading = el('h2', 'content-title');
+    const heading = el('h1', 'content-title');
     heading.append(
       document.createTextNode(config.label),
       el('span', 'title-count', entries.length)
@@ -1683,7 +1684,7 @@
 
     actions.append(pinBtn, editBtn, deleteBtn);
 
-    const title = el('h2', 'entry-detail-title', entry.title);
+    const title = el('h1', 'entry-detail-title', entry.title);
     const subtitle = entry.subtitle
       ? el('p', 'entry-detail-subtitle', entry.subtitle)
       : null;
