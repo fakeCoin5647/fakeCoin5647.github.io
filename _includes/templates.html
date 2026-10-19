@@ -1,0 +1,51 @@
+  <template id="novelCardTemplate">
+    <article class="novel-card">
+      <a class="novel-card-main" href="#/">
+        <span class="novel-cover-slot"></span>
+        <span class="novel-card-info">
+          <span class="novel-kicker">
+            <span class="status-pill"><i aria-hidden="true"></i><span class="status-text"></span></span>
+            <span class="novel-genre"></span>
+          </span>
+          <span class="novel-card-title"></span>
+          <span class="novel-card-summary"></span>
+          <span class="novel-card-meta"></span>
+          <time class="novel-card-date"></time>
+        </span>
+      </a>
+      <div class="card-actions novel-actions">
+        <button type="button" class="icon-btn pin-btn" data-action="pin-novel" title="置顶小说" aria-label="置顶小说" aria-pressed="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg>
+        </button>
+        <button type="button" class="icon-btn" data-action="edit-novel" title="编辑小说资料" aria-label="编辑小说资料">
+          <svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>
+        </button>
+        <button type="button" class="icon-btn danger-hover" data-action="delete-novel" title="删除小说" aria-label="删除小说">
+          <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+        </button>
+      </div>
+    </article>
+  </template>
+
+  <template id="entryCardTemplate">
+    <article class="entry-card">
+      <a class="entry-card-main" href="#/">
+        <h3 class="entry-card-title"></h3>
+        <p class="entry-card-subtitle"></p>
+        <p class="entry-card-excerpt"></p>
+        <div class="entry-card-tags"></div>
+        <time class="entry-card-date"></time>
+      </a>
+      <div class="card-actions entry-actions">
+        <button type="button" class="icon-btn pin-btn" data-action="pin-entry" title="置顶条目" aria-label="置顶条目" aria-pressed="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg>
+        </button>
+        <button type="button" class="icon-btn" data-action="edit-entry" title="编辑条目" aria-label="编辑条目">
+          <svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>
+        </button>
+        <button type="button" class="icon-btn danger-hover" data-action="delete-entry" title="删除条目" aria-label="删除条目">
+          <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+        </button>
+      </div>
+    </article>
+  </template>

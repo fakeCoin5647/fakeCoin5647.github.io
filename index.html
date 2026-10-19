@@ -1,0 +1,188 @@
+---
+layout: default
+---
+<section class="view" id="shelfView" aria-labelledby="shelfHeroTitle">
+        <div class="shelf-hero">
+          <div class="hero-copy">
+            <p class="eyebrow">一座私人的故事书架</p>
+            <h1 id="shelfHeroTitle">把每一个世界，<br><em>慢慢写成一本书</em>。</h1>
+            <p class="hero-desc">先安放人物、背景与规则，再让故事一点点长出来。</p>
+            <div class="hero-actions">
+              <button class="btn primary" id="newNovelBtn" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+                新建小说
+                <kbd>N</kbd>
+              </button>
+            </div>
+            <p class="hero-caption"><span class="caption-dot" aria-hidden="true"></span>无需登录，小说与设定只保存在这台设备的浏览器中</p>
+          </div>
+
+          <aside class="hero-note" aria-label="书架概览">
+            <span class="note-pin" aria-hidden="true"></span>
+            <div class="note-head">
+              <span>SHELF LOG</span>
+              <span class="note-head-dot">·</span>
+              <span>本机</span>
+            </div>
+            <p class="note-quote">先造一个世界，<br>再讲一个故事。</p>
+            <div class="note-stats">
+              <div>
+                <strong id="statNovels">00</strong>
+                <span>本小说</span>
+              </div>
+              <div>
+                <strong id="statCharacters">00</strong>
+                <span>位角色</span>
+              </div>
+              <div>
+                <strong id="statEntries">00</strong>
+                <span>条词条</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <section class="shelf-section" id="shelf" aria-labelledby="shelfHeading">
+          <div class="shelf-heading">
+            <div>
+              <p class="eyebrow">MY BOOKSHELF</p>
+              <h2 id="shelfHeading">我的书架</h2>
+            </div>
+            <p class="shelf-heading-note">点开一本书，走进它的世界。</p>
+          </div>
+
+          <div class="shelf-toolbar" id="shelfToolbar">
+            <div class="search-sort-row">
+              <div class="search-box">
+                <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+                <input type="search" id="shelfSearchInput" placeholder="搜索书名、类型或简介…" aria-label="搜索小说" autocomplete="off" spellcheck="false">
+                <button type="button" class="search-clear" id="shelfSearchClearBtn" aria-label="清空搜索" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+                </button>
+                <kbd class="search-kbd" aria-hidden="true">/</kbd>
+              </div>
+              <label class="sort-control">
+                <span>排序</span>
+                <select id="shelfSortSelect">
+                  <option value="updated">最近更新</option>
+                  <option value="created">最新创建</option>
+                  <option value="title">书名顺序</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="filter-row">
+              <div class="status-filters" id="shelfStatusFilters" role="group" aria-label="按小说状态筛选">
+                <button type="button" class="filter-pill is-active" data-status="all" aria-pressed="true">全部 <span class="filter-count">0</span></button>
+                <button type="button" class="filter-pill" data-status="planning" aria-pressed="false">构思中 <span class="filter-count">0</span></button>
+                <button type="button" class="filter-pill" data-status="drafting" aria-pressed="false">写作中 <span class="filter-count">0</span></button>
+                <button type="button" class="filter-pill" data-status="revising" aria-pressed="false">修订中 <span class="filter-count">0</span></button>
+                <button type="button" class="filter-pill" data-status="done" aria-pressed="false">已完成 <span class="filter-count">0</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="list-meta">
+            <p id="shelfResultCount" aria-live="polite">书架还空着</p>
+            <button type="button" class="link-btn" id="shelfClearFiltersBtn" hidden>清除筛选</button>
+          </div>
+
+          <div class="novel-grid" id="novelGrid"></div>
+
+          <div class="empty-state" id="shelfEmpty" hidden>
+            <svg class="empty-art" viewBox="0 0 200 140" aria-hidden="true">
+              <rect x="40" y="70" width="120" height="14" rx="3" fill="#e5dac8"/>
+              <rect x="53" y="42" width="24" height="28" rx="2" fill="#a6502f"/>
+              <rect x="81" y="32" width="26" height="38" rx="2" fill="#557258"/>
+              <rect x="111" y="46" width="22" height="24" rx="2" fill="#8a6a3d"/>
+              <path d="M53 42h24M81 32h26M111 46h22" stroke="#f6eee0" stroke-opacity=".6"/>
+              <path d="M61 34v-8M91 24v-8M119 40v-8" stroke="#b9ab95" stroke-linecap="round"/>
+              <path d="M145 34c.9 5.7 2.4 7.7 8 8.5-5.6.9-7.1 2.9-8 8.5-.9-5.6-2.4-7.6-8-8.5 5.6-.8 7.1-2.8 8-8.5Z" fill="#b04f28"/>
+              <path d="M45 96h110" stroke="#d9cdb9" stroke-linecap="round"/>
+            </svg>
+            <h3>书架还空着</h3>
+            <p>先给第一本小说留一个位置。哪怕只有一个书名，也可以从这里慢慢长出人物与世界。</p>
+            <div class="empty-actions">
+              <button class="btn primary" id="shelfEmptyNewBtn" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+                新建第一本小说
+              </button>
+              <button class="btn ghost" id="shelfEmptyImportBtn" type="button">导入旧备份</button>
+            </div>
+          </div>
+
+          <div class="empty-state empty-filtered" id="shelfNoResults" hidden>
+            <svg class="empty-art small" viewBox="0 0 120 100" aria-hidden="true">
+              <circle cx="54" cy="44" r="24" fill="none" stroke="#cfc3ad" stroke-width="2.5"/>
+              <path d="m72 62 16 16" stroke="#cfc3ad" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M44 44h20M54 34v20" stroke="#b04f28" stroke-width="2" stroke-linecap="round" opacity=".65"/>
+            </svg>
+            <h3>没有找到这排书</h3>
+            <p>换个关键词，或者清除筛选，再看看书架。</p>
+            <div class="empty-actions">
+              <button class="btn ghost" id="shelfNoResultsClearBtn" type="button">清除筛选</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="novelView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            我的书架
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current" id="breadcrumbNovelTitle"></span>
+        </nav>
+
+        <header class="novel-hero">
+          <div class="novel-hero-cover" id="novelCoverSlot"></div>
+          <div class="novel-hero-body">
+            <div class="novel-kicker">
+              <span class="status-pill" id="novelStatusPill"><i aria-hidden="true"></i><span id="novelStatusText"></span></span>
+              <span class="novel-genre" id="novelGenreLabel"></span>
+            </div>
+            <h1 id="novelTitle"></h1>
+            <p class="novel-hero-summary" id="novelHeroSummary"></p>
+            <p class="novel-hero-meta" id="novelHeroMeta"></p>
+            <div class="novel-hero-actions">
+              <button type="button" class="btn ghost" data-action="edit-novel">
+                <svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>
+                编辑小说资料
+              </button>
+              <button type="button" class="icon-btn pin-btn" id="novelPinBtn" data-action="pin-novel" aria-label="置顶小说" title="置顶小说" aria-pressed="false">
+                <svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg>
+              </button>
+              <button type="button" class="icon-btn danger-hover" data-action="delete-novel" aria-label="删除这本小说" title="删除这本小说">
+                <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div class="workspace">
+          <aside class="workspace-aside">
+            <p class="workspace-nav-label">本书内容</p>
+            <nav class="workspace-nav" id="workspaceNav" aria-label="小说内容导航"></nav>
+            <p class="workspace-nav-note"><span class="caption-dot" aria-hidden="true"></span>所有内容只保存在本机</p>
+          </aside>
+          <section class="workspace-content" id="workspaceContent" aria-label="小说内容"></section>
+        </div>
+      </section>
+
+      <section class="view missing-view" id="missingView" hidden>
+        <div class="missing-card">
+          <svg class="empty-art small" viewBox="0 0 120 100" aria-hidden="true">
+            <rect x="30" y="18" width="60" height="74" rx="4" fill="#fbf8f1" stroke="#cfc3ad"/>
+            <path d="M42 34h36M42 46h30M42 58h34" stroke="#ded2be" stroke-width="2" stroke-linecap="round"/>
+            <path d="M82 66c.7 4.4 1.8 5.9 6.2 6.6-4.4.7-5.5 2.2-6.2 6.6-.7-4.4-1.8-5.9-6.2-6.6 4.4-.7 5.5-2.2 6.2-6.6Z" fill="#b04f28"/>
+          </svg>
+          <h1>这一页还没有写进故事里</h1>
+          <p>可能链接有误，或者这本小说已经被删除。</p>
+          <a class="btn primary" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            回到书架
+          </a>
+        </div>
+      </section>

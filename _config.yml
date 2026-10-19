@@ -1,0 +1,6 @@
+title: 故事簿
+description: 一座放在浏览器里的私人故事书架：整理小说、角色、背景、设定与地图。
+lang: zh-CN
+exclude:
+  - README.md
+  - github-pages-upload

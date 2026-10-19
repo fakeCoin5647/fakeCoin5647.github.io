@@ -1,0 +1,152 @@
+<dialog id="novelDialog" class="dialog" aria-labelledby="novelDialogTitle">
+    <form id="novelForm" novalidate>
+      <header class="dialog-head">
+        <div>
+          <p class="dialog-eyebrow" id="novelDialogEyebrow">NEW NOVEL</p>
+          <h2 id="novelDialogTitle">新建小说</h2>
+        </div>
+        <button type="button" class="icon-btn dialog-close" id="novelDialogCloseBtn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="form-split">
+          <div class="field" id="novelTitleField">
+            <label for="novelTitleInput">书名 <span class="field-mark">必填</span></label>
+            <input type="text" id="novelTitleInput" name="title" maxlength="60" placeholder="比如：长夜将明" autocomplete="off">
+            <p class="field-error" id="novelTitleError" hidden>请先给这本小说起一个名字。</p>
+          </div>
+          <div class="field">
+            <label for="novelGenreInput">类型 <span class="field-optional">选填</span></label>
+            <input type="text" id="novelGenreInput" name="genre" maxlength="20" list="genreSuggestions" placeholder="奇幻 / 悬疑 / 科幻…" autocomplete="off">
+            <datalist id="genreSuggestions">
+              <option value="奇幻"></option>
+              <option value="科幻"></option>
+              <option value="悬疑"></option>
+              <option value="言情"></option>
+              <option value="历史"></option>
+              <option value="现实"></option>
+              <option value="青春"></option>
+              <option value="武侠"></option>
+              <option value="其他"></option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="novelSummaryInput">一句话简介 <span class="field-optional">选填</span></label>
+          <input type="text" id="novelSummaryInput" name="summary" maxlength="160" placeholder="用一句话说清这个故事最核心的部分" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label for="novelDescriptionInput">故事简介 <span class="field-optional">选填</span></label>
+          <textarea id="novelDescriptionInput" name="description" rows="6" placeholder="时代、地点、主要冲突、故事气质……想到什么就先写下来。"></textarea>
+          <div class="field-foot">
+            <span class="field-hint">纯文本即可，换行会保留</span>
+            <span class="field-hint counter" id="novelDescriptionCount">0 字</span>
+          </div>
+        </div>
+
+        <div class="form-split">
+          <div class="field">
+            <span class="field-label" id="novelStatusLabel">创作状态</span>
+            <div class="status-picker" role="radiogroup" aria-labelledby="novelStatusLabel">
+              <label class="status-option"><input type="radio" name="status" value="planning" checked><span>构思中</span></label>
+              <label class="status-option"><input type="radio" name="status" value="drafting"><span>写作中</span></label>
+              <label class="status-option"><input type="radio" name="status" value="revising"><span>修订中</span></label>
+              <label class="status-option"><input type="radio" name="status" value="done"><span>已完成</span></label>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label" id="novelToneLabel">书封色调</span>
+            <div class="tone-picker" role="radiogroup" aria-labelledby="novelToneLabel">
+              <label class="tone-option tone-rust" title="赭红"><input type="radio" name="tone" value="0" checked aria-label="赭红"><span class="tone-swatch" aria-hidden="true"></span></label>
+              <label class="tone-option tone-pine" title="松绿"><input type="radio" name="tone" value="1" aria-label="松绿"><span class="tone-swatch" aria-hidden="true"></span></label>
+              <label class="tone-option tone-indigo" title="靛青"><input type="radio" name="tone" value="2" aria-label="靛青"><span class="tone-swatch" aria-hidden="true"></span></label>
+              <label class="tone-option tone-ochre" title="秋褐"><input type="radio" name="tone" value="3" aria-label="秋褐"><span class="tone-swatch" aria-hidden="true"></span></label>
+              <label class="tone-option tone-plum" title="绛紫"><input type="radio" name="tone" value="4" aria-label="绛紫"><span class="tone-swatch" aria-hidden="true"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="dialog-actions">
+        <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
+        <button type="button" class="btn ghost" id="novelCancelBtn">取消</button>
+        <button type="submit" class="btn primary" id="novelSaveBtn">放上书架</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="entryDialog" class="dialog" aria-labelledby="entryDialogTitle">
+    <form id="entryForm" novalidate>
+      <header class="dialog-head">
+        <div>
+          <p class="dialog-eyebrow" id="entryDialogEyebrow">NEW ENTRY</p>
+          <h2 id="entryDialogTitle">新增条目</h2>
+        </div>
+        <button type="button" class="icon-btn dialog-close" id="entryDialogCloseBtn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="form-split">
+          <div class="field" id="entryTitleField">
+            <label for="entryTitleInput"><span id="entryTitleLabelText">名称</span> <span class="field-mark">必填</span></label>
+            <input type="text" id="entryTitleInput" name="title" maxlength="60" autocomplete="off">
+            <p class="field-error" id="entryTitleError" hidden>请先填写一个名称。</p>
+          </div>
+          <div class="field">
+            <label for="entrySubtitleInput"><span id="entrySubtitleLabelText">身份 / 定位</span> <span class="field-optional">选填</span></label>
+            <input type="text" id="entrySubtitleInput" name="subtitle" maxlength="60" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="entrySummaryInput"><span id="entrySummaryLabelText">一句话介绍</span> <span class="field-optional">选填</span></label>
+          <input type="text" id="entrySummaryInput" name="summary" maxlength="160" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label for="entryNotesInput"><span id="entryNotesLabelText">详细内容</span> <span class="field-optional">选填</span></label>
+          <textarea id="entryNotesInput" name="notes" rows="8"></textarea>
+          <div class="field-foot">
+            <span class="field-hint">纯文本即可，换行会保留</span>
+            <span class="field-hint counter" id="entryNotesCount">0 字</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="entryTagInput">标签 <span class="field-optional">选填</span></label>
+          <div class="tag-editor" id="entryTagEditor">
+            <input type="text" id="entryTagInput" list="entryTagSuggestions" maxlength="16" placeholder="输入后按回车" autocomplete="off" aria-describedby="entryTagHint">
+          </div>
+          <datalist id="entryTagSuggestions"></datalist>
+          <p class="field-hint" id="entryTagHint">最多 8 个，回车或逗号确认</p>
+        </div>
+      </div>
+
+      <footer class="dialog-actions">
+        <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
+        <button type="button" class="btn ghost" id="entryCancelBtn">取消</button>
+        <button type="submit" class="btn primary" id="entrySaveBtn">保存条目</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog" class="dialog dialog-small" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+    <div class="confirm-content">
+      <p class="dialog-eyebrow">PLEASE CONFIRM</p>
+      <h2 id="confirmTitle">确定要删除？</h2>
+      <p id="confirmMessage" class="confirm-message"></p>
+      <div class="confirm-actions">
+        <button type="button" class="btn ghost" id="confirmCancelBtn">取消</button>
+        <button type="button" class="btn danger" id="confirmOkBtn">删除</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>

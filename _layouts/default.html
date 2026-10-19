@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include head.html %}
+</head>
+<body>
+  {% include icon-sprite.html %}
+
+  <a class="skip-link" href="#mainContent">跳到主要内容</a>
+
+  <div class="page">
+    {% include site-header.html %}
+
+    <main id="mainContent">
+{{ content }}
+    </main>
+
+    {% include site-footer.html %}
+  </div>
+
+  {% include templates.html %}
+  {% include dialogs.html %}
+
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
