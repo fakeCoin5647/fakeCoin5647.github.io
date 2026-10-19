@@ -57,7 +57,7 @@
       notesPlaceholder: '经历、性格、欲望、秘密、说话方式、与他人的关系……',
       emptyError: '请先给这个角色一个名字。',
       emptyTitle: '还没有角色登场',
-      emptyText: '先给主角一个名字，再慢慢补上他的欲望与秘密。',
+      emptyText: '先让第一位角色登场，再添上与他相连的人，关系线会在这里慢慢长出来。',
       addLabel: '新增角色',
       backLabel: '返回角色列表',
     },
@@ -172,6 +172,38 @@
     '#3c7fa8',
     '#a34f6a',
     '#59636e',
+  ];
+
+  const GRAPH_WIDTH = 1000;
+  const GRAPH_HEIGHT = 620;
+  const GRAPH_NODE_RADIUS = 40;
+  const GRAPH_MIN_X = 110;
+  const GRAPH_MAX_X = GRAPH_WIDTH - 110;
+  const GRAPH_MIN_Y = 96;
+  const GRAPH_MAX_Y = GRAPH_HEIGHT - 118;
+  const GRAPH_MAX_RELATIONS = 160;
+  const GRAPH_MAX_LABEL_LENGTH = 24;
+  const GRAPH_RELATION_PRESETS = [
+    '亲人',
+    '朋友',
+    '恋人',
+    '师徒',
+    '同门',
+    '搭档',
+    '对手',
+    '宿敌',
+    '上下级',
+    '合作',
+    '旧识',
+    '恩人',
+  ];
+  const GRAPH_NODE_TONES = [
+    { fill: '#e7ecff', stroke: '#93a6f4', ink: '#3b55d4' },
+    { fill: '#f6e9e1', stroke: '#dfa98e', ink: '#a85a38' },
+    { fill: '#e4f1eb', stroke: '#8dc4ab', ink: '#2d7a56' },
+    { fill: '#f0e7f6', stroke: '#bfa1d3', ink: '#7a4e96' },
+    { fill: '#f7efdd', stroke: '#dcc28f', ink: '#93691f' },
+    { fill: '#e3eff5', stroke: '#93bfd4', ink: '#356f8d' },
   ];
 
   const MAP_DIRECTIONS = ['E', 'NE', 'NW', 'W', 'SW', 'SE'];
@@ -296,6 +328,23 @@
     entryTagInput: $('#entryTagInput'),
     entryTagSuggestions: $('#entryTagSuggestions'),
 
+    relationDialog: $('#relationDialog'),
+    relationForm: $('#relationForm'),
+    relationDialogEyebrow: $('#relationDialogEyebrow'),
+    relationDialogTitle: $('#relationDialogTitle'),
+    relationDialogCloseBtn: $('#relationDialogCloseBtn'),
+    relationFromSelect: $('#relationFromSelect'),
+    relationToSelect: $('#relationToSelect'),
+    relationLabelField: $('#relationLabelField'),
+    relationLabelInput: $('#relationLabelInput'),
+    relationLabelError: $('#relationLabelError'),
+    relationFormError: $('#relationFormError'),
+    relationPresets: $('#relationPresets'),
+    relationDeleteBtn: $('#relationDeleteBtn'),
+    relationCancelBtn: $('#relationCancelBtn'),
+    relationSaveBtn: $('#relationSaveBtn'),
+    relationFormHint: $('#relationFormHint'),
+
     confirmDialog: $('#confirmDialog'),
     confirmTitle: $('#confirmTitle'),
     confirmMessage: $('#confirmMessage'),
@@ -354,6 +403,8 @@
     sidebarScroll: null,
     listScrolls: Object.create(null),
     mapEditor: null,
+    charactersView: 'graph',
+    relationDraft: { novelId: null, id: null },
   };
 
   let isComposingTag = false;
@@ -569,6 +620,7 @@
         createdAt,
         updatedAt,
         entries,
+        relations: normalizeCharacterRelations(raw.relations),
       },
       skippedEntries,
     };
@@ -595,6 +647,7 @@
       createdAt,
       updatedAt,
       map: normalizeMap(raw.map),
+      graphPos: normalizeGraphPos(raw.graphPos),
     };
   }
 
@@ -731,6 +784,53 @@
       if (result.length >= MAX_TAGS) break;
     }
     return result;
+  }
+
+  function normalizeGraphPos(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const x = Number(raw.x);
+    const y = Number(raw.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return {
+      x: Math.round(Math.min(Math.max(x, GRAPH_MIN_X), GRAPH_MAX_X)),
+      y: Math.round(Math.min(Math.max(y, GRAPH_MIN_Y), GRAPH_MAX_Y)),
+    };
+  }
+
+  function normalizeCharacterRelations(raw) {
+    if (!Array.isArray(raw)) return [];
+    const result = [];
+    const pairSeen = new Set();
+    const idSeen = new Set();
+
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const source = cleanText(item.source, 80);
+      const target = cleanText(item.target, 80);
+      if (!source || !target || source === target) continue;
+
+      const pairKey = source < target ? `${source}|${target}` : `${target}|${source}`;
+      if (pairSeen.has(pairKey)) continue;
+      pairSeen.add(pairKey);
+
+      let id = cleanText(item.id, 80);
+      if (!id || idSeen.has(id)) id = makeId();
+      idSeen.add(id);
+
+      result.push({
+        id,
+        source,
+        target,
+        label: cleanText(item.label, GRAPH_MAX_LABEL_LENGTH) || '关联',
+      });
+      if (result.length >= GRAPH_MAX_RELATIONS) break;
+    }
+
+    return result;
+  }
+
+  function relationPairKey(source, target) {
+    return source < target ? `${source}|${target}` : `${target}|${source}`;
   }
 
   function makeId() {
@@ -1547,11 +1647,19 @@
     addBtn.appendChild(icon('i-plus'));
     addBtn.appendChild(document.createTextNode(config.addLabel));
 
-    head.append(headText, addBtn);
+    if (sectionKey === 'characters' && entries.length > 0) {
+      const headActions = el('div', 'content-head-actions');
+      headActions.append(createCharactersViewSwitch(), addBtn);
+      head.append(headText, headActions);
+    } else {
+      head.append(headText, addBtn);
+    }
     fragment.appendChild(head);
 
     if (entries.length === 0) {
       fragment.appendChild(createSectionEmpty(novel, sectionKey));
+    } else if (sectionKey === 'characters' && state.charactersView === 'graph') {
+      fragment.appendChild(createCharacterGraphPanel(novel));
     } else {
       const grid = el('div', 'entry-grid');
       for (const entry of entries) {
@@ -1695,7 +1803,11 @@
     const back = document.createElement('a');
     back.className = 'back-link entry-back-link';
     back.href = sectionHash(novel.id, sectionKey);
-    back.append(icon('i-arrow-left'), document.createTextNode(config.backLabel));
+    const backLabel =
+      sectionKey === 'characters' && state.charactersView === 'graph'
+        ? '返回角色关系图'
+        : config.backLabel;
+    back.append(icon('i-arrow-left'), document.createTextNode(backLabel));
     fragment.appendChild(back);
 
     const article = el('article', 'entry-detail panel');
@@ -1792,22 +1904,888 @@
     els.workspaceContent.replaceChildren(fragment);
   }
 
+  /* ---------- Character graph ---------- */
+
+  function createCharactersViewSwitch() {
+    const group = el('div', 'view-switch');
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', '切换角色展示方式');
+
+    const options = [
+      { view: 'graph', label: '关系图', iconName: 'i-users' },
+      { view: 'list', label: '档案', iconName: 'i-notes' },
+    ];
+
+    for (const option of options) {
+      const active = state.charactersView === option.view;
+      const button = el('button', 'view-switch-btn');
+      button.type = 'button';
+      button.dataset.action = 'characters-view';
+      button.dataset.view = option.view;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.append(icon(option.iconName), document.createTextNode(option.label));
+      group.appendChild(button);
+    }
+
+    return group;
+  }
+
+  function createCharacterGraphPanel(novel) {
+    const nodes = getGraphEntries(novel);
+    const relations = getGraphRelations(novel, nodes);
+    const positions = resolveGraphPositions(nodes, relations);
+
+    const panel = el('section', 'character-graph-panel panel');
+    const toolbar = el('div', 'graph-toolbar');
+    const meta = el('p', 'graph-meta');
+    meta.append(
+      el('strong', '', nodes.length),
+      document.createTextNode(' 位角色'),
+      el('span', 'graph-meta-sep', ' · '),
+      el('strong', '', relations.length),
+      document.createTextNode(' 条关系')
+    );
+
+    const actions = el('div', 'graph-actions');
+    const layoutBtn = el('button', 'btn ghost');
+    layoutBtn.type = 'button';
+    layoutBtn.dataset.action = 'layout-graph';
+    layoutBtn.dataset.novelId = novel.id;
+    layoutBtn.append(icon('i-fit'), document.createTextNode('自动排布'));
+
+    const addRelationBtn = el('button', 'btn primary');
+    addRelationBtn.type = 'button';
+    addRelationBtn.dataset.action = 'add-relation';
+    addRelationBtn.dataset.novelId = novel.id;
+    addRelationBtn.append(icon('i-link'), document.createTextNode('添加关系'));
+
+    actions.append(layoutBtn, addRelationBtn);
+    toolbar.append(meta, actions);
+
+    const scroll = el('div', 'character-graph-scroll');
+    const svg = svgEl('svg', {
+      class: 'character-graph',
+      viewBox: `0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`,
+      role: 'group',
+      'aria-label': `人物关系图，共 ${nodes.length} 位角色、${relations.length} 条关系`,
+    });
+    svg.appendChild(
+      svgEl('title', {}, `人物关系图：${nodes.length} 位角色，${relations.length} 条关系`)
+    );
+
+    const edgeLayer = svgEl('g', { class: 'graph-edges' });
+    const nodeLayer = svgEl('g', { class: 'graph-nodes' });
+    svg.append(edgeLayer, nodeLayer);
+    scroll.appendChild(svg);
+
+    const edgeViews = relations.map((relation, index) => {
+      const source = nodes.find((node) => node.id === relation.source);
+      const target = nodes.find((node) => node.id === relation.target);
+      const fullText = `${source.title} 与 ${target.title}：${relation.label}`;
+      const group = svgEl('g', {
+        class: 'graph-edge',
+        tabindex: '0',
+        role: 'button',
+        'aria-label': `编辑关系：${fullText}`,
+        'data-relation-id': relation.id,
+      });
+      group.appendChild(svgEl('title', {}, `${source.title} — ${relation.label} — ${target.title}`));
+
+      const hit = svgEl('path', { class: 'graph-edge-hit' });
+      const line = svgEl('path', { class: 'graph-edge-line' });
+      const label = svgEl('text', { class: 'graph-edge-label' });
+      label.textContent = shortenGraphText(relation.label, 12);
+      group.append(hit, line, label);
+      edgeLayer.appendChild(group);
+
+      const openEditor = () =>
+        openRelationEditor({ novelId: novel.id, relationId: relation.id });
+      group.addEventListener('click', (event) => {
+        event.preventDefault();
+        openEditor();
+      });
+      group.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openEditor();
+        }
+      });
+
+      return {
+        relation,
+        line,
+        hit,
+        label,
+        curveSign: index % 2 === 0 ? 1 : -1,
+        labelSide: index % 2 === 0 ? 1 : -1,
+      };
+    });
+
+    nodes.forEach((entry, index) => {
+      const point = positions.get(entry.id) || {
+        x: GRAPH_WIDTH / 2,
+        y: (GRAPH_MIN_Y + GRAPH_MAX_Y) / 2,
+      };
+      const tone = GRAPH_NODE_TONES[index % GRAPH_NODE_TONES.length];
+      const href = entryHash(novel.id, 'characters', entry.id);
+      const group = svgEl('g', {
+        class: 'graph-node',
+        tabindex: '0',
+        role: 'link',
+        'aria-label': `打开角色「${entry.title}」的人物档案`,
+        transform: `translate(${point.x} ${point.y})`,
+        'data-node-id': entry.id,
+        'data-entry-id': entry.id,
+      });
+      group.style.setProperty('--node-fill', tone.fill);
+      group.style.setProperty('--node-stroke', tone.stroke);
+      group.style.setProperty('--node-ink', tone.ink);
+      group.appendChild(
+        svgEl(
+          'title',
+          {},
+          entry.subtitle ? `${entry.title} · ${entry.subtitle}` : entry.title
+        )
+      );
+
+      const halo = svgEl('circle', {
+        class: 'graph-node-halo',
+        cx: '0',
+        cy: '0',
+        r: '50',
+      });
+      const core = svgEl('circle', {
+        class: 'graph-node-core',
+        cx: '0',
+        cy: '0',
+        r: String(GRAPH_NODE_RADIUS),
+      });
+      const initial = svgEl('text', { class: 'graph-node-initial' });
+      initial.textContent = getGraphInitial(entry.title);
+      const name = svgEl('text', { class: 'graph-node-name', y: '59' });
+      name.textContent = shortenGraphText(entry.title, 8);
+      group.append(halo, core, initial, name);
+
+      if (entry.subtitle) {
+        const role = svgEl('text', { class: 'graph-node-role', y: '77' });
+        role.textContent = shortenGraphText(entry.subtitle, 11);
+        group.appendChild(role);
+      }
+
+      const activate = () => {
+        if (suppressNodeClick) return;
+        window.location.hash = href;
+      };
+      group.addEventListener('click', (event) => {
+        event.preventDefault();
+        activate();
+      });
+      group.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          activate();
+        }
+      });
+
+      nodeLayer.appendChild(group);
+    });
+
+    for (const view of edgeViews) layoutGraphEdge(view, positions);
+    layoutGraphEdgeLabels(edgeViews, positions);
+
+    let suppressNodeClick = false;
+    let dragState = null;
+
+    const layoutAllEdges = () => {
+      for (const view of edgeViews) layoutGraphEdge(view, positions);
+      layoutGraphEdgeLabels(edgeViews, positions);
+    };
+
+    svg.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      const nodeEl = event.target instanceof Element ? event.target.closest('.graph-node') : null;
+      if (!nodeEl) return;
+      const nodeId = nodeEl.dataset.nodeId;
+      const origin = positions.get(nodeId);
+      if (!origin) return;
+
+      dragState = {
+        nodeId,
+        nodeEl,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        origin: { ...origin },
+        moved: false,
+      };
+      // Pointer capture is deferred until the drag threshold so a plain click
+      // still targets the node and triggers navigation.
+    });
+
+    svg.addEventListener('pointermove', (event) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      const dxClient = event.clientX - dragState.startClientX;
+      const dyClient = event.clientY - dragState.startClientY;
+
+      if (!dragState.moved) {
+        if (Math.hypot(dxClient, dyClient) < 4) return;
+        dragState.moved = true;
+        if (!svg.hasPointerCapture(event.pointerId)) {
+          svg.setPointerCapture(event.pointerId);
+        }
+        dragState.nodeEl.classList.add('is-dragging');
+        svg.classList.add('is-dragging');
+      }
+
+      const rect = svg.getBoundingClientRect();
+      const scaleX = GRAPH_WIDTH / Math.max(rect.width, 1);
+      const scaleY = GRAPH_HEIGHT / Math.max(rect.height, 1);
+      const next = {
+        x: Math.min(
+          GRAPH_MAX_X,
+          Math.max(GRAPH_MIN_X, dragState.origin.x + dxClient * scaleX)
+        ),
+        y: Math.min(
+          GRAPH_MAX_Y,
+          Math.max(GRAPH_MIN_Y, dragState.origin.y + dyClient * scaleY)
+        ),
+      };
+
+      positions.set(dragState.nodeId, next);
+      dragState.nodeEl.setAttribute(
+        'transform',
+        `translate(${next.x.toFixed(1)} ${next.y.toFixed(1)})`
+      );
+      layoutAllEdges();
+      event.preventDefault();
+    });
+
+    const finishDrag = (event, cancelled = false) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return false;
+      const finished = dragState;
+      dragState = null;
+      finished.nodeEl.classList.remove('is-dragging');
+      svg.classList.remove('is-dragging');
+      if (svg.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+
+      if (cancelled) {
+        positions.set(finished.nodeId, finished.origin);
+        finished.nodeEl.setAttribute(
+          'transform',
+          `translate(${finished.origin.x} ${finished.origin.y})`
+        );
+        layoutAllEdges();
+        return true;
+      }
+
+      if (finished.moved) {
+        suppressNodeClick = true;
+        window.setTimeout(() => {
+          suppressNodeClick = false;
+        }, 0);
+        if (!persistCharacterGraphPositions(novel.id, positions)) {
+          showToast('角色位置未能保存', 'error');
+        }
+      }
+      return true;
+    };
+
+    svg.addEventListener('pointerup', (event) => finishDrag(event));
+    svg.addEventListener('pointercancel', (event) => finishDrag(event, true));
+
+    const hint = el('p', 'graph-hint');
+    if (relations.length === 0) {
+      hint.textContent =
+        nodes.length < 2
+          ? '再添加一位角色，就能画出第一条关系。'
+          : '还没有关系线。拖动角色调整位置，或点击「添加关系」把角色连起来。';
+    } else {
+      hint.textContent = '拖动角色调整位置 · 点击连线修改关系 · 点击角色阅读档案';
+    }
+
+    panel.append(toolbar, scroll, hint);
+    return panel;
+  }
+
+  function getGraphEntries(novel) {
+    return [...novel.entries.characters].sort(
+      (a, b) =>
+        timeValue(a.createdAt) - timeValue(b.createdAt) ||
+        a.title.localeCompare(b.title, 'zh-Hans-CN')
+    );
+  }
+
+  function getGraphRelations(novel, nodes) {
+    const ids = new Set(nodes.map((node) => node.id));
+    const list = Array.isArray(novel.relations) ? novel.relations : [];
+    return list.filter(
+      (relation) => ids.has(relation.source) && ids.has(relation.target)
+    );
+  }
+
+  function resolveGraphPositions(nodes, relations) {
+    const positions = new Map();
+    const missing = [];
+
+    for (const node of nodes) {
+      if (node.graphPos) {
+        positions.set(node.id, { x: node.graphPos.x, y: node.graphPos.y });
+      } else {
+        missing.push(node);
+      }
+    }
+
+    if (positions.size === 0) {
+      return computeAutoGraphPositions(nodes, relations);
+    }
+
+    for (const node of missing) {
+      positions.set(node.id, findFreeGraphSpot(positions));
+    }
+    return positions;
+  }
+
+  function computeAutoGraphPositions(nodes, relations) {
+    if (relations.length === 0) return computeRingGraphPositions(nodes);
+    return computeForceGraphPositions(nodes, relations);
+  }
+
+  function computeRingGraphPositions(nodes) {
+    const positions = new Map();
+    const n = nodes.length;
+    const cx = GRAPH_WIDTH / 2;
+    const cy = (GRAPH_MIN_Y + GRAPH_MAX_Y) / 2;
+
+    if (n === 1) {
+      positions.set(nodes[0].id, { x: cx, y: cy - 8 });
+      return positions;
+    }
+
+    if (n <= 10) {
+      const radius = Math.min(262, Math.max(152, 86 + n * 17));
+      const radiusY = Math.min(190, radius * 0.76);
+      nodes.forEach((node, index) => {
+        const angle = (index / n) * Math.PI * 2 - Math.PI / 2;
+        positions.set(node.id, {
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radiusY,
+        });
+      });
+      return positions;
+    }
+
+    const cols = Math.ceil(Math.sqrt(n * 1.35));
+    const rows = Math.ceil(n / cols);
+    const gapX = Math.min(190, (GRAPH_MAX_X - GRAPH_MIN_X) / Math.max(cols - 1, 1));
+    const gapY = Math.min(160, (GRAPH_MAX_Y - GRAPH_MIN_Y) / Math.max(rows - 1, 1));
+    const totalX = (cols - 1) * gapX;
+    const totalY = (rows - 1) * gapY;
+    const startX = GRAPH_MIN_X + (GRAPH_MAX_X - GRAPH_MIN_X - totalX) / 2;
+    const startY = GRAPH_MIN_Y + (GRAPH_MAX_Y - GRAPH_MIN_Y - totalY) / 2;
+
+    nodes.forEach((node, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      positions.set(node.id, {
+        x: startX + col * gapX,
+        y: startY + row * gapY,
+      });
+    });
+
+    return positions;
+  }
+
+  function computeForceGraphPositions(nodes, relations) {
+    const n = nodes.length;
+    const cx = GRAPH_WIDTH / 2;
+    const cy = (GRAPH_MIN_Y + GRAPH_MAX_Y) / 2;
+    const points = nodes.map((node, index) => {
+      const angle =
+        (index / n) * Math.PI * 2 -
+        Math.PI / 2 +
+        (((index * 37) % 11) - 5) * 0.012;
+      const radius = Math.min(268, 132 + n * 12);
+      return {
+        id: node.id,
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius * 0.76,
+        vx: 0,
+        vy: 0,
+        fx: 0,
+        fy: 0,
+      };
+    });
+
+    const indexById = new Map(points.map((point, index) => [point.id, index]));
+    const links = [];
+    for (const relation of relations) {
+      const sourceIndex = indexById.get(relation.source);
+      const targetIndex = indexById.get(relation.target);
+      if (
+        sourceIndex !== undefined &&
+        targetIndex !== undefined &&
+        sourceIndex !== targetIndex
+      ) {
+        links.push([sourceIndex, targetIndex]);
+      }
+    }
+
+    const ideal = n > 14 ? 156 : n > 8 ? 176 : n > 4 ? 210 : 248;
+    const repulsion = ideal * ideal * 0.46;
+
+    for (let step = 0; step < 280; step += 1) {
+      for (const point of points) {
+        point.fx = 0;
+        point.fy = 0;
+      }
+
+      for (let i = 0; i < n; i += 1) {
+        for (let j = i + 1; j < n; j += 1) {
+          const a = points[i];
+          const b = points[j];
+          let dx = a.x - b.x;
+          let dy = a.y - b.y;
+          let distanceSq = dx * dx + dy * dy;
+          if (distanceSq < 1) {
+            dx = i - j || 1;
+            dy = ((i + 1) % 3) - 1;
+            distanceSq = dx * dx + dy * dy;
+          }
+          const distance = Math.sqrt(distanceSq);
+          const force = repulsion / distanceSq;
+          const fx = (dx / distance) * force;
+          const fy = (dy / distance) * force;
+          a.fx += fx;
+          a.fy += fy;
+          b.fx -= fx;
+          b.fy -= fy;
+        }
+      }
+
+      for (const [sourceIndex, targetIndex] of links) {
+        const a = points[sourceIndex];
+        const b = points[targetIndex];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const force = (distance - ideal) * 0.022;
+        const fx = (dx / distance) * force;
+        const fy = (dy / distance) * force;
+        a.fx += fx;
+        a.fy += fy;
+        b.fx -= fx;
+        b.fy -= fy;
+      }
+
+      for (const point of points) {
+        point.fx += (cx - point.x) * 0.0018;
+        point.fy += (cy - point.y) * 0.0022;
+        point.vx = (point.vx + point.fx) * 0.82;
+        point.vy = (point.vy + point.fy) * 0.82;
+        const speed = Math.hypot(point.vx, point.vy);
+        if (speed > 16) {
+          point.vx *= 16 / speed;
+          point.vy *= 16 / speed;
+        }
+        point.x = Math.min(
+          GRAPH_MAX_X,
+          Math.max(GRAPH_MIN_X, point.x + point.vx)
+        );
+        point.y = Math.min(
+          GRAPH_MAX_Y,
+          Math.max(GRAPH_MIN_Y, point.y + point.vy)
+        );
+      }
+
+      if (step % 30 === 0) resolveGraphOverlaps(points, ideal * 0.74);
+    }
+
+    resolveGraphOverlaps(points, 132);
+
+    const positions = new Map();
+    for (const point of points) {
+      positions.set(point.id, {
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+      });
+    }
+    return positions;
+  }
+
+  function resolveGraphOverlaps(points, minDistance) {
+    for (let pass = 0; pass < 8; pass += 1) {
+      for (let i = 0; i < points.length; i += 1) {
+        for (let j = i + 1; j < points.length; j += 1) {
+          const a = points[i];
+          const b = points[j];
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          let distance = Math.hypot(dx, dy);
+          if (distance >= minDistance) continue;
+          if (distance < 0.01) {
+            dx = i - j || 1;
+            dy = ((i + 1) % 3) - 1;
+            distance = Math.hypot(dx, dy);
+          }
+          const push = (minDistance - distance) / 2;
+          const nx = dx / distance;
+          const ny = dy / distance;
+          a.x -= nx * push;
+          a.y -= ny * push;
+          b.x += nx * push;
+          b.y += ny * push;
+        }
+      }
+      for (const point of points) {
+        point.x = Math.min(GRAPH_MAX_X, Math.max(GRAPH_MIN_X, point.x));
+        point.y = Math.min(GRAPH_MAX_Y, Math.max(GRAPH_MIN_Y, point.y));
+      }
+    }
+  }
+
+  function findFreeGraphSpot(positions) {
+    const candidates = [];
+    for (let x = 160; x <= GRAPH_WIDTH - 160; x += 170) {
+      for (let y = GRAPH_MIN_Y + 40; y <= GRAPH_MAX_Y - 30; y += 125) {
+        candidates.push({ x, y });
+      }
+    }
+
+    const center = {
+      x: GRAPH_WIDTH / 2,
+      y: (GRAPH_MIN_Y + GRAPH_MAX_Y) / 2,
+    };
+    const occupied = [...positions.values()];
+    let best = candidates[0];
+    let bestScore = -Infinity;
+
+    for (const candidate of candidates) {
+      let nearest = Infinity;
+      for (const point of occupied) {
+        nearest = Math.min(
+          nearest,
+          Math.hypot(candidate.x - point.x, candidate.y - point.y)
+        );
+      }
+      const centerDistance = Math.hypot(
+        candidate.x - center.x,
+        candidate.y - center.y
+      );
+      const score = nearest >= 138 ? 1000 - centerDistance : nearest;
+      if (score > bestScore) {
+        bestScore = score;
+        best = candidate;
+      }
+    }
+
+    return best;
+  }
+
+  function layoutGraphEdge(view, positions) {
+    const source = positions.get(view.relation.source);
+    const target = positions.get(view.relation.target);
+    if (!source || !target) return;
+
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const normalX = -dy / distance;
+    const normalY = dx / distance;
+    const controlX =
+      (source.x + target.x) / 2 +
+      normalX * Math.min(72, Math.max(24, distance * 0.16)) * view.curveSign;
+    const controlY =
+      (source.y + target.y) / 2 +
+      normalY * Math.min(72, Math.max(24, distance * 0.16)) * view.curveSign;
+
+    const trim = GRAPH_NODE_RADIUS + 6;
+    const sourceDirX = controlX - source.x;
+    const sourceDirY = controlY - source.y;
+    const sourceLength = Math.hypot(sourceDirX, sourceDirY) || 1;
+    const targetDirX = controlX - target.x;
+    const targetDirY = controlY - target.y;
+    const targetLength = Math.hypot(targetDirX, targetDirY) || 1;
+
+    const startX = source.x + (sourceDirX / sourceLength) * trim;
+    const startY = source.y + (sourceDirY / sourceLength) * trim;
+    const endX = target.x + (targetDirX / targetLength) * trim;
+    const endY = target.y + (targetDirY / targetLength) * trim;
+    const path = `M${startX.toFixed(1)} ${startY.toFixed(1)} Q${controlX.toFixed(
+      1
+    )} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`;
+
+    view.line.setAttribute('d', path);
+    view.hit.setAttribute('d', path);
+
+    view.geometry = {
+      startX,
+      startY,
+      controlX,
+      controlY,
+      endX,
+      endY,
+      normalX,
+      normalY,
+    };
+  }
+
+  function layoutGraphEdgeLabels(edgeViews, positions) {
+    if (edgeViews.length === 0) return;
+
+    if (edgeViews.length > 48) {
+      for (const view of edgeViews) {
+        placeGraphEdgeLabelMidpoint(view, 16 * view.labelSide);
+      }
+      return;
+    }
+
+    const nodePoints = [...positions.values()];
+    const placedRects = [];
+    const tValues = [0.5, 0.4, 0.6, 0.32, 0.68, 0.24, 0.76];
+
+    for (const view of edgeViews) {
+      const { startX, startY, controlX, controlY, endX, endY, normalX, normalY } =
+        view.geometry;
+      const textWidth = estimateGraphLabelWidth(view.label.textContent);
+      const rectWidth = Math.max(30, textWidth + 10);
+      const rectHeight = 22;
+      const baseSide = view.labelSide || 1;
+      const offsets = [
+        16 * baseSide,
+        -16 * baseSide,
+        28 * baseSide,
+        -28 * baseSide,
+        10 * baseSide,
+        -10 * baseSide,
+      ];
+      let best = null;
+      let bestPenalty = Infinity;
+
+      for (const t of tValues) {
+        const inverse = 1 - t;
+        const anchorX =
+          inverse * inverse * startX +
+          2 * inverse * t * controlX +
+          t * t * endX;
+        const anchorY =
+          inverse * inverse * startY +
+          2 * inverse * t * controlY +
+          t * t * endY;
+
+        for (const offset of offsets) {
+          const x = anchorX + normalX * offset;
+          const y = anchorY + normalY * offset;
+          const rect = {
+            left: x - rectWidth / 2,
+            right: x + rectWidth / 2,
+            top: y - rectHeight / 2,
+            bottom: y + rectHeight / 2,
+          };
+          if (
+            rect.left < 20 ||
+            rect.right > GRAPH_WIDTH - 20 ||
+            rect.top < 16 ||
+            rect.bottom > GRAPH_HEIGHT - 16
+          ) {
+            continue;
+          }
+
+          let penalty = t === 0.5 ? 0 : 5;
+          penalty += Math.abs(offset) * 0.12;
+
+          for (const point of nodePoints) {
+            const distance = Math.hypot(x - point.x, y - point.y);
+            if (distance < GRAPH_NODE_RADIUS + 14) penalty += 500;
+            const zone = {
+              left: point.x - 68,
+              right: point.x + 68,
+              top: point.y + 46,
+              bottom: point.y + 94,
+            };
+            if (graphRectsOverlap(rect, zone)) penalty += 600;
+          }
+
+          for (const other of placedRects) {
+            if (graphRectsOverlap(rect, other)) {
+              const overlapX =
+                Math.min(rect.right, other.right) - Math.max(rect.left, other.left);
+              const overlapY =
+                Math.min(rect.bottom, other.bottom) - Math.max(rect.top, other.top);
+              penalty += 400 + overlapX * overlapY;
+            }
+          }
+
+          if (penalty < bestPenalty) {
+            bestPenalty = penalty;
+            best = { x, y, rect };
+            if (penalty === 0) break;
+          }
+        }
+        if (bestPenalty === 0) break;
+      }
+
+      if (!best) {
+        placeGraphEdgeLabelMidpoint(view, 16 * baseSide);
+        placedRects.push(buildGraphLabelRect(view, rectWidth, rectHeight));
+        continue;
+      }
+
+      view.label.setAttribute('x', best.x.toFixed(1));
+      view.label.setAttribute('y', best.y.toFixed(1));
+      placedRects.push(best.rect);
+    }
+  }
+
+  function placeGraphEdgeLabelMidpoint(view, offset) {
+    const { startX, startY, controlX, controlY, endX, endY, normalX, normalY } =
+      view.geometry;
+    const anchorX = 0.25 * startX + 0.5 * controlX + 0.25 * endX;
+    const anchorY = 0.25 * startY + 0.5 * controlY + 0.25 * endY;
+    view.label.setAttribute(
+      'x',
+      Math.min(GRAPH_WIDTH - 66, Math.max(66, anchorX + normalX * offset)).toFixed(1)
+    );
+    view.label.setAttribute(
+      'y',
+      Math.min(GRAPH_HEIGHT - 28, Math.max(28, anchorY + normalY * offset)).toFixed(1)
+    );
+  }
+
+  function buildGraphLabelRect(view, width, height) {
+    const x = Number(view.label.getAttribute('x')) || 0;
+    const y = Number(view.label.getAttribute('y')) || 0;
+    return {
+      left: x - width / 2,
+      right: x + width / 2,
+      top: y - height / 2,
+      bottom: y + height / 2,
+    };
+  }
+
+  function estimateGraphLabelWidth(text) {
+    let width = 0;
+    for (const char of Array.from(String(text || ''))) {
+      width += /[\u0000-\u00ff]/.test(char) ? 8 : 15;
+    }
+    return width;
+  }
+
+  function graphRectsOverlap(a, b) {
+    return (
+      a.left < b.right &&
+      a.right > b.left &&
+      a.top < b.bottom &&
+      a.bottom > b.top
+    );
+  }
+
+  function persistCharacterGraphPositions(novelId, positions) {
+    const novel = findNovel(novelId);
+    if (!novel) return false;
+
+    const previous = state.novels;
+    const nextEntries = novel.entries.characters.map((entry) => {
+      const point = positions.get(entry.id);
+      if (!point) return entry;
+      return {
+        ...entry,
+        graphPos: {
+          x: Math.round(point.x),
+          y: Math.round(point.y),
+        },
+      };
+    });
+
+    state.novels = state.novels.map((item) =>
+      item.id === novelId
+        ? {
+            ...item,
+            entries: { ...item.entries, characters: nextEntries },
+          }
+        : item
+    );
+
+    if (!persist()) {
+      state.novels = previous;
+      return false;
+    }
+    return true;
+  }
+
+  function relayoutCharacterGraph(novelId) {
+    const novel = findNovel(novelId);
+    if (!novel) {
+      refreshCurrentView();
+      return;
+    }
+
+    const nodes = getGraphEntries(novel);
+    const relations = getGraphRelations(novel, nodes);
+    const positions = computeAutoGraphPositions(nodes, relations);
+    if (!persistCharacterGraphPositions(novelId, positions)) return;
+
+    refreshCurrentView();
+    showToast('关系图已重新排布');
+  }
+
+  function shortenGraphText(text, limit) {
+    const chars = Array.from(String(text));
+    if (chars.length <= limit) return String(text);
+    return `${chars.slice(0, limit).join('')}…`;
+  }
+
+  function getGraphInitial(title) {
+    const trimmed = String(title).trim();
+    if (!trimmed) return '·';
+    const words = trimmed.split(/\s+/).filter((word) => /[A-Za-z]/.test(word));
+    if (
+      words.length >= 2 &&
+      /^[A-Za-z]/.test(words[0]) &&
+      /^[A-Za-z]/.test(words[1])
+    ) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+    const first = Array.from(trimmed)[0];
+    return /[a-z]/.test(first) ? first.toUpperCase() : first;
+  }
+
+  function svgEl(tag, attributes = {}, text) {
+    const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [key, value] of Object.entries(attributes)) {
+      node.setAttribute(key, value);
+    }
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
   function highlightEntryCard(entryId, { scroll = false } = {}) {
     const card = els.workspaceContent.querySelector(
       `.entry-card[data-entry-id="${cssEscape(entryId)}"]`
     );
-    if (!card) return;
+    const target =
+      card ||
+      els.workspaceContent.querySelector(
+        `.graph-node[data-entry-id="${cssEscape(entryId)}"]`
+      );
+    if (!target) return;
 
     if (scroll) {
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      card.scrollIntoView({
+      const scrollTarget =
+        target.ownerSVGElement && target.closest('.character-graph-panel')
+          ? target.closest('.character-graph-panel')
+          : target;
+      scrollTarget.scrollIntoView({
         behavior: reduceMotion ? 'auto' : 'smooth',
         block: 'center',
       });
     }
 
-    card.classList.add('is-highlighted');
-    window.setTimeout(() => card.classList.remove('is-highlighted'), 1900);
+    target.classList.add('is-highlighted');
+    window.setTimeout(() => target.classList.remove('is-highlighted'), 1900);
   }
 
   /* ---------- Novel editor ---------- */
@@ -2090,6 +3068,7 @@
         createdAt: now,
         updatedAt: now,
         entries: createEmptyEntries(),
+        relations: [],
       };
       state.novels = [novel, ...state.novels];
     } else {
@@ -2450,6 +3429,259 @@
       refreshCurrentView();
       if (wasOnTargetSection) highlightEntryCard(result.id, { scroll: true });
       showToast('修改已保存');
+    }
+  }
+
+  /* ---------- Character relations ---------- */
+
+  function openRelationEditor({ novelId, relationId = null, fromId = null, toId = null }) {
+    const novel = findNovel(novelId);
+    if (!novel) {
+      showToast('这本小说已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const characters = [...novel.entries.characters].sort((a, b) =>
+      a.title.localeCompare(b.title, 'zh-Hans-CN')
+    );
+    if (characters.length < 2) {
+      showToast('至少需要两位角色才能添加关系', 'error');
+      return;
+    }
+
+    const relations = Array.isArray(novel.relations) ? novel.relations : [];
+    const relation = relationId
+      ? relations.find((item) => item.id === relationId)
+      : null;
+    if (relationId && !relation) {
+      showToast('这条关系已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    state.relationDraft = {
+      novelId,
+      id: relation ? relation.id : null,
+    };
+
+    els.relationForm.reset();
+    clearRelationErrors();
+
+    const fragment = document.createDocumentFragment();
+    for (const entry of characters) {
+      const option = document.createElement('option');
+      option.value = entry.id;
+      const base = entry.subtitle ? `${entry.title} · ${entry.subtitle}` : entry.title;
+      option.textContent = shortenGraphText(base, 32);
+      fragment.appendChild(option);
+    }
+    els.relationFromSelect.replaceChildren(fragment.cloneNode(true));
+    els.relationToSelect.replaceChildren(fragment);
+
+    let source = relation ? relation.source : fromId;
+    let target = relation ? relation.target : toId;
+    if (!characters.some((entry) => entry.id === source)) {
+      source = characters[0].id;
+    }
+    if (!characters.some((entry) => entry.id === target) || target === source) {
+      target = characters.find((entry) => entry.id !== source).id;
+    }
+
+    els.relationFromSelect.value = source;
+    els.relationToSelect.value = target;
+    els.relationLabelInput.value = relation ? relation.label : '';
+
+    els.relationDialogEyebrow.textContent = relation
+      ? 'RELATIONS · EDIT'
+      : 'RELATIONS · NEW';
+    els.relationDialogTitle.textContent = relation ? '编辑人物关系' : '添加人物关系';
+    els.relationSaveBtn.textContent = relation ? '保存修改' : '保存关系';
+    els.relationDeleteBtn.hidden = !relation;
+
+    els.relationDialog.showModal();
+    requestAnimationFrame(() => {
+      els.relationLabelInput.focus();
+      els.relationLabelInput.select();
+    });
+  }
+
+  function saveRelation() {
+    const { novelId, id } = state.relationDraft;
+    const novel = findNovel(novelId);
+    if (!novel) {
+      els.relationDialog.close();
+      showToast('这本小说已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const source = els.relationFromSelect.value;
+    const target = els.relationToSelect.value;
+    const label = els.relationLabelInput.value
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, GRAPH_MAX_LABEL_LENGTH);
+
+    clearRelationErrors();
+
+    if (!label) {
+      els.relationLabelField.classList.add('has-error');
+      els.relationLabelError.hidden = false;
+      els.relationLabelInput.focus();
+      return;
+    }
+
+    const characters = novel.entries.characters;
+    if (
+      !characters.some((entry) => entry.id === source) ||
+      !characters.some((entry) => entry.id === target)
+    ) {
+      showRelationFormError('这条关系连接的角色已经不在了。');
+      return;
+    }
+    if (source === target) {
+      showRelationFormError('关系需要连接两位不同的角色。');
+      return;
+    }
+
+    const relations = Array.isArray(novel.relations) ? novel.relations : [];
+    const pairKey = relationPairKey(source, target);
+    const duplicate = relations.find(
+      (relation) =>
+        relation.id !== id &&
+        relationPairKey(relation.source, relation.target) === pairKey
+    );
+    if (duplicate) {
+      showRelationFormError('这两位角色之间已经有一条关系了，点击那条线即可修改。');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    let nextRelations;
+    if (id) {
+      if (!relations.some((relation) => relation.id === id)) {
+        els.relationDialog.close();
+        showToast('这条关系已经不在了', 'error');
+        refreshCurrentView();
+        return;
+      }
+      nextRelations = relations.map((relation) =>
+        relation.id === id ? { ...relation, source, target, label } : relation
+      );
+    } else {
+      if (relations.length >= GRAPH_MAX_RELATIONS) {
+        showToast(`一部小说最多保留 ${GRAPH_MAX_RELATIONS} 条关系`, 'error');
+        return;
+      }
+      nextRelations = [
+        ...relations,
+        { id: makeId(), source, target, label },
+      ];
+    }
+
+    const previous = state.novels;
+    state.novels = state.novels.map((item) =>
+      item.id === novelId
+        ? { ...item, relations: nextRelations, updatedAt: now }
+        : item
+    );
+
+    if (!persist()) {
+      state.novels = previous;
+      return;
+    }
+
+    els.relationDialog.close();
+    refreshCurrentView();
+    showToast(id ? '关系已更新' : '关系已连接');
+  }
+
+  function askDeleteRelation() {
+    const { novelId, id } = state.relationDraft;
+    const novel = findNovel(novelId);
+    const relation = novel && Array.isArray(novel.relations)
+      ? novel.relations.find((item) => item.id === id)
+      : null;
+
+    if (!novel || !relation) {
+      els.relationDialog.close();
+      showToast('这条关系已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const source = novel.entries.characters.find((entry) => entry.id === relation.source);
+    const target = novel.entries.characters.find((entry) => entry.id === relation.target);
+    const route = source && target
+      ? `「${source.title}」与「${target.title}」之间的「${relation.label}」`
+      : `「${relation.label}」`;
+
+    openConfirm({
+      title: '删除这条关系？',
+      message: `${route}会从关系图中移除。`,
+      okLabel: '删除关系',
+      onConfirm: () => deleteRelation(novelId, relation.id),
+    });
+  }
+
+  function deleteRelation(novelId, relationId) {
+    const novel = findNovel(novelId);
+    if (!novel || !Array.isArray(novel.relations)) {
+      refreshCurrentView();
+      return;
+    }
+    if (!novel.relations.some((relation) => relation.id === relationId)) {
+      refreshCurrentView();
+      return;
+    }
+
+    const previous = state.novels;
+    const now = new Date().toISOString();
+    state.novels = state.novels.map((item) =>
+      item.id === novelId
+        ? {
+            ...item,
+            relations: item.relations.filter((relation) => relation.id !== relationId),
+            updatedAt: now,
+          }
+        : item
+    );
+
+    if (!persist()) {
+      state.novels = previous;
+      return;
+    }
+
+    els.relationDialog.close();
+    refreshCurrentView();
+    showToast('关系已删除');
+  }
+
+  function clearRelationErrors() {
+    els.relationLabelField.classList.remove('has-error');
+    els.relationLabelError.hidden = true;
+    els.relationFormError.hidden = true;
+    els.relationFormError.textContent = '';
+  }
+
+  function showRelationFormError(message) {
+    els.relationFormError.textContent = message;
+    els.relationFormError.hidden = false;
+  }
+
+  function setCharactersView(view) {
+    state.charactersView = view === 'list' ? 'list' : 'graph';
+    if (
+      state.route &&
+      state.route.view === 'section' &&
+      state.route.sectionKey === 'characters'
+    ) {
+      renderSection(state.route.novel, 'characters');
+      const button = els.workspaceContent.querySelector(
+        `[data-action="characters-view"][data-view="${state.charactersView}"]`
+      );
+      if (button) button.focus({ preventScroll: true });
     }
   }
 
@@ -4385,6 +5617,11 @@
         merged.entries[key] = [...entryMap.values()];
       }
 
+      merged.relations = mergeCharacterRelations(
+        current.relations,
+        inc.relations,
+        incomingIsNewer
+      );
       merged.updatedAt = incomingIsNewer ? inc.updatedAt : current.updatedAt;
       novelMap.set(current.id, merged);
       if (changed) updatedNovels += 1;
@@ -4392,6 +5629,23 @@
 
     state.novels = [...novelMap.values()];
     return { addedNovels, updatedNovels, addedEntries, updatedEntries };
+  }
+
+  function mergeCharacterRelations(currentRelations, incomingRelations, incomingIsNewer) {
+    const currentList = Array.isArray(currentRelations) ? currentRelations : [];
+    const incomingList = Array.isArray(incomingRelations) ? incomingRelations : [];
+    const preferred = incomingIsNewer ? incomingList : currentList;
+    const fallback = incomingIsNewer ? currentList : incomingList;
+    const relationMap = new Map();
+
+    for (const relation of fallback) {
+      relationMap.set(relationPairKey(relation.source, relation.target), relation);
+    }
+    for (const relation of preferred) {
+      relationMap.set(relationPairKey(relation.source, relation.target), relation);
+    }
+
+    return normalizeCharacterRelations([...relationMap.values()]);
   }
 
   function mergeTrash(incoming) {
@@ -4799,6 +6053,46 @@
       clearEntryTitleError();
     });
 
+    els.relationForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveRelation();
+    });
+
+    els.relationForm.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        saveRelation();
+      }
+    });
+
+    els.relationDialogCloseBtn.addEventListener('click', () =>
+      els.relationDialog.close()
+    );
+    els.relationCancelBtn.addEventListener('click', () =>
+      els.relationDialog.close()
+    );
+
+    els.relationLabelInput.addEventListener('input', clearRelationErrors);
+    els.relationFromSelect.addEventListener('change', clearRelationErrors);
+    els.relationToSelect.addEventListener('change', clearRelationErrors);
+
+    els.relationPresets.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-relation-preset]');
+      if (!button) return;
+      els.relationLabelInput.value = button.dataset.relationPreset;
+      clearRelationErrors();
+      els.relationLabelInput.focus();
+    });
+
+    els.relationDeleteBtn.addEventListener('click', () => askDeleteRelation());
+
+    els.relationDialog.addEventListener('close', () => {
+      if (els.relationDialog.open) return;
+      state.relationDraft = { novelId: null, id: null };
+      els.relationForm.reset();
+      clearRelationErrors();
+    });
+
     els.entryTagEditor.addEventListener('click', (event) => {
       if (event.target === els.entryTagEditor) els.entryTagInput.focus();
     });
@@ -5024,6 +6318,7 @@
       if (
         els.novelDialog.open ||
         els.entryDialog.open ||
+        els.relationDialog.open ||
         els.confirmDialog.open ||
         els.mapDialog.open
       ) {
@@ -5182,6 +6477,18 @@
       case 'pin-entry':
         event.preventDefault();
         if (sectionKey && entryId) toggleEntryPin(novelId, sectionKey, entryId);
+        break;
+      case 'characters-view':
+        event.preventDefault();
+        setCharactersView(actionEl.dataset.view);
+        break;
+      case 'add-relation':
+        event.preventDefault();
+        if (novelId) openRelationEditor({ novelId });
+        break;
+      case 'layout-graph':
+        event.preventDefault();
+        if (novelId) relayoutCharacterGraph(novelId);
         break;
       case 'restore-trash':
         event.preventDefault();
