@@ -1,44 +1,9 @@
 ---
 layout: default
 ---
-<section class="view" id="shelfView" aria-labelledby="shelfHeroTitle">
-        <header class="page-head">
-          <div class="page-head-copy">
-            <p class="eyebrow">STORY ARCHIVE</p>
-            <h1 id="shelfHeroTitle">我的创作小屋</h1>
-            <p class="page-desc">把每一个世界收进书架：人物、背景、设定与地图，都从一本小说开始，慢慢长出来。</p>
-            <p class="local-note"><span class="caption-dot" aria-hidden="true"></span>无需登录，内容只保存在这台设备的浏览器中</p>
-          </div>
-          <button class="btn primary" id="newNovelBtn" type="button">
-            <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
-            新建小说
-            <kbd>N</kbd>
-          </button>
-        </header>
-
-        <div class="stat-grid" aria-label="书架概览">
-          <div class="stat-card">
-            <span class="stat-icon" aria-hidden="true"><svg class="icon"><use href="#i-book"></use></svg></span>
-            <span class="stat-copy"><strong id="statNovels">00</strong><span>本小说</span></span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon" aria-hidden="true"><svg class="icon"><use href="#i-users"></use></svg></span>
-            <span class="stat-copy"><strong id="statCharacters">00</strong><span>位角色</span></span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon" aria-hidden="true"><svg class="icon"><use href="#i-notes"></use></svg></span>
-            <span class="stat-copy"><strong id="statEntries">00</strong><span>条词条</span></span>
-          </div>
-        </div>
-
+<section class="view" id="shelfView" aria-labelledby="shelfHeading">
         <section class="shelf-section" id="shelf" aria-labelledby="shelfHeading">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">MY BOOKSHELF</p>
-              <h2 id="shelfHeading">我的书架</h2>
-            </div>
-            <p class="section-note">点开一本书，走进它的世界。</p>
-          </div>
+          <h1 class="sr-only" id="shelfHeading">我的书架</h1>
 
           <div class="shelf-toolbar" id="shelfToolbar">
             <div class="search-sort-row">
@@ -58,6 +23,11 @@ layout: default
                   <option value="title">书名顺序</option>
                 </select>
               </label>
+              <button class="btn primary shelf-new-btn" id="newNovelBtn" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+                新建小说
+                <kbd>N</kbd>
+              </button>
             </div>
 
             <div class="filter-row">

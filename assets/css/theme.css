@@ -634,7 +634,7 @@ body {
   color: var(--accent-deep);
 }
 
-/* ---------- 书架页头部与统计 ---------- */
+/* ---------- 页面头部 ---------- */
 
 .page-head {
   display: flex;
@@ -677,62 +677,6 @@ body {
 
 .page-head > .btn {
   flex: none;
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
-  margin-bottom: 2.2rem;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  min-width: 0;
-  padding: 0.95rem 1.05rem;
-  border: 1px solid var(--rule);
-  border-radius: 14px;
-  background: var(--glass-soft);
-}
-
-.stat-icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex: none;
-  border-radius: 11px;
-  background: var(--accent-weak);
-  color: var(--accent);
-}
-
-.stat-icon .icon {
-  width: 18px;
-  height: 18px;
-}
-
-.stat-copy {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.stat-copy strong {
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 1.45rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-
-.stat-copy span {
-  color: var(--muted);
-  font-size: 0.8rem;
 }
 
 /* ---------- 书架列表 ---------- */
@@ -805,6 +749,13 @@ body {
   border-color: var(--rule);
   border-radius: 10px;
   background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.22));
+}
+
+.shelf-new-btn {
+  flex: none;
+  height: 42px;
+  padding: 0 0.95rem;
+  white-space: nowrap;
 }
 
 .filter-pill {
@@ -2820,43 +2771,6 @@ body {
     height: 36px;
   }
 
-  .stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.45rem;
-    margin-bottom: 1.6rem;
-  }
-
-  .stat-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.35rem;
-    padding: 0.7rem;
-  }
-
-  .stat-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-  }
-
-  .stat-icon .icon {
-    width: 15px;
-    height: 15px;
-  }
-
-  .stat-copy {
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .stat-copy strong {
-    font-size: 1.2rem;
-  }
-
-  .stat-copy span {
-    font-size: 0.7rem;
-  }
-
   .section-note {
     display: none;
   }
@@ -2872,6 +2786,14 @@ body {
   .sort-control {
     border-color: var(--rule);
     background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.05));
+  }
+
+  .shelf-new-btn {
+    padding: 0 0.85rem;
+  }
+
+  .shelf-new-btn kbd {
+    display: none;
   }
 
   .novel-card-main {
@@ -3039,10 +2961,6 @@ body {
 }
 
 @media (max-width: 420px) {
-  .stat-icon {
-    display: none;
-  }
-
   .section-head h2 {
     font-size: 1.02rem;
   }

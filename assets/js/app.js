@@ -228,10 +228,6 @@
     blurInput: $('#blurInput'),
     blurValue: $('#blurValue'),
 
-    statNovels: $('#statNovels'),
-    statCharacters: $('#statCharacters'),
-    statEntries: $('#statEntries'),
-
     breadcrumbNovelTitle: $('#breadcrumbNovelTitle'),
     novelCoverSlot: $('#novelCoverSlot'),
     novelStatusPill: $('#novelStatusPill'),
@@ -887,7 +883,6 @@
   /* ---------- Shelf ---------- */
 
   function renderShelf() {
-    renderShelfStats();
     syncShelfStatusFilters();
 
     const visible = getVisibleNovels();
@@ -918,24 +913,6 @@
     }
 
     renderSidebar(state.route);
-  }
-
-  function renderShelfStats() {
-    let characters = 0;
-    let entries = 0;
-
-    for (const novel of state.novels) {
-      characters += novel.entries.characters.length;
-      entries += countNovelEntries(novel);
-    }
-
-    els.statNovels.textContent = padCount(state.novels.length);
-    els.statCharacters.textContent = padCount(characters);
-    els.statEntries.textContent = padCount(entries);
-  }
-
-  function padCount(count) {
-    return String(count).padStart(2, '0');
   }
 
   function syncShelfStatusFilters() {
