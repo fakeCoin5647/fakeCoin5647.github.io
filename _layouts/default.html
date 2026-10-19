@@ -17,6 +17,12 @@
     </main>
   </div>
 
+  <button type="button" class="comment-fab" id="commentFab" aria-haspopup="dialog" aria-controls="commentDialog" aria-label="为当前页面添加评论">
+    <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+    <span class="comment-fab-label">评论</span>
+    <span class="comment-fab-count" id="commentFabCount" hidden>0</span>
+  </button>
+
   {% include templates.html %}
   {% include dialogs.html %}
 
