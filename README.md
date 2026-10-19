@@ -1,0 +1,167 @@
+# 故事簿 · STORY NOTES
+
+一座放在浏览器里的私人小说书架：点开一本书，整理它的角色、背景、设定、地图与资料。纸感排版，无需登录，零依赖；站点外壳使用 Jekyll 构建，可直接部署到 GitHub Pages。
+
+> 小说与设定数据只保存在每位访问者自己的浏览器里，Jekyll 只负责生成静态页面外壳。
+
+## 功能
+
+- **书架首页**：用书封卡片陈列所有小说，支持搜索、按创作状态筛选、按更新 / 创建时间或书名排序
+- **小说工作区**：每本小说都有独立概览，包含故事简介、五个内容分区与最近更新
+- **五个内容分区**：角色、背景、设定、地图、资料
+- **词条详情页**：每个角色 / 地点 / 设定都有独立页面，可记录标签、概要、详细档案
+- 小说与词条都支持置顶；生成式书封提供五种色调
+- 数据保存在浏览器本地，支持 JSON 导出与导入备份，多标签页自动同步
+- 键盘操作：书架页 `N` 新建小说，小说分区页 `N` 新建词条，`/` 聚焦搜索，`Ctrl / ⌘ + Enter` 保存
+- 响应式布局，支持 `prefers-reduced-motion`
+
+## 页面结构
+
+站点使用 hash 路由，刷新与浏览器前进 / 后退都能正常工作，也可以直接收藏某一页：
+
+| 地址 | 页面 |
+| --- | --- |
+| `#/` | 我的书架 |
+| `#/novel/<小说ID>` | 某本小说的概览 |
+| `#/novel/<小说ID>/characters` | 角色列表 |
+| `#/novel/<小说ID>/world` | 背景列表 |
+| `#/novel/<小说ID>/settings` | 设定列表 |
+| `#/novel/<小说ID>/maps` | 地图列表 |
+| `#/novel/<小说ID>/notes` | 资料列表 |
+| `#/novel/<小说ID>/<分区>/<词条ID>` | 词条详情 |
+
+## 项目结构（Jekyll）
+
+```text
+.
+├── _config.yml            # 站点标题、描述与构建排除项
+├── index.html             # 页面内容（含 front matter，交给 default 布局）
+├── _layouts/
+│   └── default.html       # HTML 骨架：引入头部、页头、页脚与对话框
+├── _includes/
+│   ├── head.html          # <head> 内容：标题、图标、样式
+│   ├── icon-sprite.html   # SVG 图标集合
+│   ├── site-header.html   # 顶部导航
+│   ├── site-footer.html   # 页脚
+│   ├── templates.html     # 前端使用的 <template>
+│   └── dialogs.html       # 新建 / 编辑 / 导入等 <dialog>
+├── assets/
+│   ├── css/styles.css     # 全部样式
+│   └── js/app.js          # 全部交互与本地数据逻辑
+├── favicon.svg
+└── README.md
+```
+
+`index.html` 只保留书架与小说工作区的页面结构，由 `default.html` 布局包裹；页头、页脚、模板与对话框拆进 `_includes/`。这样以后新增页面或公共区块时不必重复复制 HTML。样式与脚本仍是纯静态文件，不使用任何前端依赖。
+
+## 本地预览
+
+Jekyll 需要先渲染 Liquid 再提供页面，**不能直接双击 `index.html`，也不能用普通静态服务器打开源码目录**，否则只会看到未渲染的页面。
+
+安装 Ruby 后运行：
+
+```bash
+gem install jekyll bundler
+jekyll serve
+```
+
+然后访问 <http://localhost:4000>。修改 `index.html`、`_includes/` 或 `assets/` 后刷新即可；改动 `_config.yml` 需要重启。
+
+如果不想在本地安装 Ruby，也可以先把文件上传到 GitHub，让 GitHub Pages 自动构建（见下一节）。
+
+## 数据与备份
+
+- 所有内容保存在当前浏览器的 `localStorage` 中，存储键为 `gushibu.library.v1`，不会上传到任何服务器。
+- 清理浏览器数据、使用无痕模式、更换浏览器或设备后，原数据将无法读取。
+- 建议定期点击「导出备份」保存 JSON 文件；在新设备上点击「导入备份」即可合并。
+- 导入以小说 ID 和词条 ID 去重：内容较新（`updatedAt` 更晚）的版本会覆盖旧版本，置顶状态会保留。
+- 本地预览和线上站点的数据互不相通，切换域名后请用导出 / 导入迁移。
+- 导出的备份包含全部小说与词条，请勿把备份 JSON 提交到公开仓库。
+
+## 数据结构
+
+`gushibu.library.v1` 的内容形如：
+
+```json
+{
+  "version": 1,
+  "novels": [
+    {
+      "id": "小说 ID",
+      "title": "书名",
+      "genre": "类型",
+      "summary": "一句话简介",
+      "description": "故事简介",
+      "status": "planning | drafting | revising | done",
+      "tone": 0,
+      "pinned": false,
+      "createdAt": "ISO 时间",
+      "updatedAt": "ISO 时间",
+      "entries": {
+        "characters": [],
+        "world": [],
+        "settings": [],
+        "maps": [],
+        "notes": []
+      }
+    }
+  ]
+}
+```
+
+每个词条包含 `id / title / subtitle / summary / notes / tags / pinned / createdAt / updatedAt`。分区配置集中在 `app.js` 顶部的 `SECTIONS` 常量里，之后要新增分区、改字段名或接入图片、关系图、时间线等能力，都可以从这个结构继续扩展。
+
+## 部署到 GitHub Pages
+
+GitHub Pages 会检测到 `_config.yml` 并自动用 Jekyll 构建，不需要 Actions 工作流，也不需要本地构建产物。
+
+### 用户主页（地址最短）
+
+1. 在 GitHub 新建仓库，仓库名必须是 `<你的用户名>.github.io`。
+2. 将以下内容放到仓库根目录（保持文件夹结构）：
+   - `_config.yml`
+   - `index.html`
+   - `_layouts/`（内含 `default.html`）
+   - `_includes/`（内含 6 个 HTML 片段）
+   - `assets/css/styles.css`
+   - `assets/js/app.js`
+   - `favicon.svg`
+   - `README.md`（可选）
+3. 不要在仓库里放 `.nojekyll`。若仓库之前上传过纯静态版本，请先删除根目录的 `.nojekyll`、`styles.css` 和 `app.js`，只保留新的 Jekyll 结构；否则 Pages 会跳过 Jekyll，页面将无法正确渲染。
+4. 打开仓库的 **Settings → Pages → Build and deployment**：
+   - **Source**：`Deploy from a branch`
+   - **Branch**：`main`
+   - **Folder**：`/ (root)`
+   - 点击 **Save**
+5. 等待 **Actions** 中的 `pages build and deployment` 完成（约 1–2 分钟），访问 `https://<你的用户名>.github.io/`。
+
+### 项目主页
+
+仓库名可以随意，访问地址为 `https://<你的用户名>.github.io/<仓库名>/`。站点全部使用相对路径，不需要修改代码，Pages 设置同上。
+
+### 第一次推送
+
+```bash
+git init
+git add _config.yml index.html _layouts _includes assets favicon.svg README.md
+git commit -m "故事簿：用 Jekyll 搭建的小说设定集书架"
+git branch -M main
+git remote add origin https://github.com/<用户名>/<仓库名>.git
+git push -u origin main
+```
+
+也可以直接在 GitHub 仓库页面用 **Add file → Upload files** 上传，注意保留 `_layouts`、`_includes` 和 `assets` 的层级；浏览器上传支持直接拖入文件夹。
+
+### 部署提示
+
+- 如果页面没有立即更新，查看仓库 **Actions** 中 Pages 的构建状态，并在浏览器中强制刷新。
+- 仓库代码是公开的，但小说内容只存在每位访问者自己的浏览器里，不会进入仓库。
+- 不需要 `npm install` 或任何构建脚本；Jekyll 由 GitHub Pages 提供。
+
+## 自定义
+
+- 配色、书封色调与字体：修改 `assets/css/styles.css` 顶部 `:root` 及 `.tone-*` 变量。
+- 站点标题、描述与构建排除项：修改 `_config.yml`；页面 `<title>` 与 meta 描述在 `_includes/head.html`。
+- 页面主体文案：修改 `index.html`；页头与页脚文案在 `_includes/site-header.html`、`_includes/site-footer.html`。
+- 公共区块与对话框：修改 `_includes/templates.html`、`_includes/dialogs.html`。
+- 分区名称、字段提示、空状态文案与交互：修改 `assets/js/app.js` 中的 `SECTIONS`；若调整存储结构，请同步更新存储键或在读取时做兼容处理。
