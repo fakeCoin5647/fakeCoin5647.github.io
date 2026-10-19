@@ -1919,15 +1919,16 @@ body {
   background: rgba(31, 38, 60, 0.82);
   color: #fff;
   font-size: 0.68rem;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+  box-shadow: 0 8px 20px -12px rgba(31, 38, 60, 0.55);
+  transition: background 0.16s ease;
 }
 
 .map-preview-btn:hover .map-preview-hint,
 .map-preview-btn:focus-visible .map-preview-hint {
-  opacity: 1;
-  transform: none;
+  background: rgba(31, 38, 60, 0.95);
 }
 
 .map-preview-empty {
