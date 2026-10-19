@@ -351,6 +351,7 @@
     draftTags: [],
     confirmAction: null,
     pendingHighlight: null,
+    sidebarScroll: null,
     mapEditor: null,
   };
 
@@ -786,6 +787,7 @@
   }
 
   function renderRoute({ scroll = false } = {}) {
+    const previousRoute = state.route;
     const route = parseRoute();
     state.route = route;
 
@@ -803,7 +805,17 @@
       && route.view === 'entry'
       && window.matchMedia('(max-width: 880px)').matches;
 
-    if (scroll && !compactEntry) {
+    const keepSidebarScroll = scroll
+      && state.sidebarScroll !== null
+      && previousRoute
+      && previousRoute.novel
+      && route.novel
+      && previousRoute.novel.id === route.novel.id
+      && window.matchMedia('(min-width: 881px)').matches;
+    const sidebarScroll = state.sidebarScroll;
+    state.sidebarScroll = null;
+
+    if (scroll && !compactEntry && !keepSidebarScroll) {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
 
@@ -819,6 +831,10 @@
     } else {
       showView('novel');
       renderNovelWorkspace(route);
+    }
+
+    if (keepSidebarScroll) {
+      window.scrollTo({ top: sidebarScroll, behavior: 'auto' });
     }
 
     if (compactEntry) {
@@ -4542,6 +4558,23 @@
     );
     els.blurInput.addEventListener('input', () =>
       updateAppearance('blur', els.blurInput.value)
+    );
+
+    document.addEventListener(
+      'click',
+      (event) => {
+        const target = event.target;
+        const link =
+          target instanceof Element ? target.closest('.side-nav a') : null;
+        const plainClick =
+          event.button === 0 &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.shiftKey &&
+          !event.altKey;
+        state.sidebarScroll = link && plainClick ? window.scrollY : null;
+      },
+      true
     );
 
     document.addEventListener('click', (event) => {
