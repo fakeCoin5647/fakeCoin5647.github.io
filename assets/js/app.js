@@ -12,6 +12,21 @@
   const COVER_HEIGHT = 720;
   const COVER_MAX_LENGTH = 240000;
   const COVER_MAX_FILE_BYTES = 20 * 1024 * 1024;
+  const COMMENT_MAX_LENGTH = 2000;
+  const COMMENT_MAX_COUNT = 1000;
+  const COMMENT_TARGET_KINDS = new Set([
+    'page',
+    'novel',
+    'section',
+    'entry',
+    'entry-card',
+    'block',
+  ]);
+  const COMMENT_BLOCK_LABELS = {
+    summary: '简介',
+    notes: '详细内容',
+    map: '地图',
+  };
 
   const NOVEL_STATUS = {
     planning: { label: '构思中', className: 'status-planning' },
@@ -228,7 +243,38 @@
     shelfView: $('#shelfView'),
     trashView: $('#trashView'),
     novelView: $('#novelView'),
+    commentsView: $('#commentsView'),
     missingView: $('#missingView'),
+
+    commentsToolbar: $('#commentsToolbar'),
+    commentsSearchInput: $('#commentsSearchInput'),
+    commentsSearchClearBtn: $('#commentsSearchClearBtn'),
+    commentsSortSelect: $('#commentsSortSelect'),
+    commentsCount: $('#commentsCount'),
+    commentsList: $('#commentsList'),
+    commentsEmpty: $('#commentsEmpty'),
+    commentsNoResults: $('#commentsNoResults'),
+    commentsClearSearchBtn: $('#commentsClearSearchBtn'),
+    commentsNoResultsClearBtn: $('#commentsNoResultsClearBtn'),
+
+    commentFab: $('#commentFab'),
+    commentFabCount: $('#commentFabCount'),
+
+    commentDialog: $('#commentDialog'),
+    commentForm: $('#commentForm'),
+    commentDialogEyebrow: $('#commentDialogEyebrow'),
+    commentDialogTitle: $('#commentDialogTitle'),
+    commentDialogCloseBtn: $('#commentDialogCloseBtn'),
+    commentTargetField: $('#commentTargetField'),
+    commentTargetSelect: $('#commentTargetSelect'),
+    commentTargetPath: $('#commentTargetPath'),
+    commentTargetNote: $('#commentTargetNote'),
+    commentBodyInput: $('#commentBodyInput'),
+    commentBodyCount: $('#commentBodyCount'),
+    commentBodyError: $('#commentBodyError'),
+    commentDeleteBtn: $('#commentDeleteBtn'),
+    commentCancelBtn: $('#commentCancelBtn'),
+    commentSaveBtn: $('#commentSaveBtn'),
 
     trashList: $('#trashList'),
     trashEmpty: $('#trashEmpty'),
@@ -279,6 +325,8 @@
     workspaceContent: $('#workspaceContent'),
 
     sidebarShelfLink: $('#sidebarShelfLink'),
+    sidebarCommentsLink: $('#sidebarCommentsLink'),
+    sidebarCommentCount: $('#sidebarCommentCount'),
     sidebarTrashLink: $('#sidebarTrashLink'),
     sidebarTrashCount: $('#sidebarTrashCount'),
     sidebarNovelList: $('#sidebarNovelList'),
@@ -417,9 +465,19 @@
   const state = {
     novels: [],
     trash: [],
+    comments: [],
     appearance: { ...DEFAULT_APPEARANCE },
     route: null,
     shelf: { query: '', status: 'all', sort: 'updated' },
+    commentDirectory: { query: '', sort: 'newest' },
+    commentDraft: {
+      mode: null,
+      id: null,
+      candidates: [],
+      targetKey: null,
+      dirty: false,
+    },
+    pendingCommentFocus: null,
     novelDraft: { id: null, dirty: false, cover: '', coverBusy: false },
     entryDraft: { novelId: null, sectionKey: null, id: null, dirty: false },
     outlineDraft: { novelId: null, id: null, dirty: false, tags: [], hash: '' },
@@ -444,6 +502,7 @@
     const library = loadLibrary();
     state.novels = library.novels;
     state.trash = library.trash;
+    state.comments = library.comments;
     state.appearance = loadAppearance();
     applyAppearance();
     els.year.textContent = new Date().getFullYear();
@@ -474,9 +533,9 @@
     try {
       raw = localStorage.getItem(STORAGE_KEY);
     } catch (error) {
-      return { novels: [], trash: [] };
+      return { novels: [], trash: [], comments: [] };
     }
-    if (!raw) return { novels: [], trash: [] };
+    if (!raw) return { novels: [], trash: [], comments: [] };
 
     try {
       const parsed = JSON.parse(raw);
@@ -489,8 +548,14 @@
         parsed && !Array.isArray(parsed) && Array.isArray(parsed.trash)
           ? parsed.trash
           : [];
+      const rawComments =
+        parsed && !Array.isArray(parsed) && Array.isArray(parsed.comments)
+          ? parsed.comments
+          : [];
       const seen = new Set();
       const trash = [];
+      const commentSeen = new Set();
+      const comments = [];
 
       for (const rawItem of rawTrash) {
         const item = normalizeTrashItem(rawItem);
@@ -500,13 +565,23 @@
       }
       trash.sort((a, b) => timeValue(b.deletedAt) - timeValue(a.deletedAt));
 
+      for (const rawItem of rawComments) {
+        if (comments.length >= COMMENT_MAX_COUNT) break;
+        const comment = normalizeComment(rawItem);
+        if (!comment || commentSeen.has(comment.id)) continue;
+        commentSeen.add(comment.id);
+        comments.push(comment);
+      }
+      comments.sort((a, b) => timeValue(b.createdAt) - timeValue(a.createdAt));
+
       return {
         novels: list.map((item) => normalizeNovel(item)?.novel).filter(Boolean),
         trash,
+        comments,
       };
     } catch (error) {
       console.warn('读取本地书架数据失败：', error);
-      return { novels: [], trash: [] };
+      return { novels: [], trash: [], comments: [] };
     }
   }
 
@@ -518,6 +593,7 @@
           version: LIBRARY_VERSION,
           novels: state.novels,
           trash: state.trash,
+          comments: state.comments,
         })
       );
       return true;
@@ -734,6 +810,83 @@
     };
   }
 
+  function normalizeComment(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const body =
+      typeof raw.body === 'string'
+        ? raw.body.replace(/\r\n?/g, '\n').trim().slice(0, COMMENT_MAX_LENGTH)
+        : '';
+    if (!body) return null;
+
+    const target = normalizeCommentTarget(raw.target);
+    if (!target) return null;
+
+    const createdAt = parseDate(raw.createdAt) || new Date().toISOString();
+    const updatedAt = parseDate(raw.updatedAt) || createdAt;
+
+    return {
+      id: cleanText(raw.id, 80) || makeId(),
+      body,
+      createdAt,
+      updatedAt,
+      target,
+    };
+  }
+
+  function normalizeCommentTarget(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const kind = COMMENT_TARGET_KINDS.has(raw.kind) ? raw.kind : null;
+    if (!kind) return null;
+
+    const hash =
+      typeof raw.hash === 'string' ? raw.hash.trim().slice(0, 320) : '';
+    if (!hash.startsWith('#/') || hash === '#/comments') return null;
+
+    const novelId = cleanText(raw.novelId, 80) || null;
+    const sectionKey =
+      typeof raw.sectionKey === 'string' &&
+      Object.prototype.hasOwnProperty.call(SECTIONS, raw.sectionKey)
+        ? raw.sectionKey
+        : null;
+    const entryId = cleanText(raw.entryId, 80) || null;
+    const block = Object.prototype.hasOwnProperty.call(
+      COMMENT_BLOCK_LABELS,
+      raw.block
+    )
+      ? raw.block
+      : null;
+
+    if (kind === 'novel' && !novelId) return null;
+    if (kind === 'section' && (!novelId || !sectionKey)) return null;
+    if (
+      (kind === 'entry' || kind === 'entry-card') &&
+      (!novelId || !sectionKey || !entryId)
+    ) {
+      return null;
+    }
+    if (kind === 'block' && (!novelId || !sectionKey || !entryId || !block)) {
+      return null;
+    }
+
+    return {
+      kind,
+      hash,
+      anchor: block ? `block:${block}` : cleanText(raw.anchor, 160) || 'page',
+      novelId,
+      sectionKey,
+      entryId,
+      block,
+      label: cleanText(raw.label, 120) || '原位置',
+      novelTitle: cleanText(raw.novelTitle, 60),
+      sectionLabel:
+        cleanText(raw.sectionLabel, 20) ||
+        (sectionKey ? SECTIONS[sectionKey].label : ''),
+      entryTitle: cleanText(raw.entryTitle, 60),
+    };
+  }
+
   function normalizeMap(raw) {
     if (!raw || typeof raw !== 'object') return null;
 
@@ -943,6 +1096,10 @@
       return parts.length === 1 ? { view: 'trash' } : { view: 'missing' };
     }
 
+    if (parts[0] === 'comments') {
+      return parts.length === 1 ? { view: 'comments' } : { view: 'missing' };
+    }
+
     if (parts[0] !== 'novel' || !parts[1]) return { view: 'missing' };
 
     const novel = findNovel(parts[1]);
@@ -975,7 +1132,9 @@
 
   function listScrollKey(route) {
     if (!route) return null;
-    if (route.view === 'shelf' || route.view === 'trash') return route.view;
+    if (route.view === 'shelf' || route.view === 'trash' || route.view === 'comments') {
+      return route.view;
+    }
     if (route.view === 'novel') return `novel:${route.novel.id}`;
     if (route.view === 'section') {
       return `section:${route.novel.id}:${route.sectionKey}`;
@@ -1050,6 +1209,9 @@
     } else if (route.view === 'trash') {
       showView('trash');
       renderTrash();
+    } else if (route.view === 'comments') {
+      showView('comments');
+      renderComments();
     } else if (route.view === 'missing') {
       showView('missing');
       renderSidebar(route);
@@ -1067,6 +1229,8 @@
       if (crumb) crumb.scrollIntoView({ block: 'start', behavior: 'auto' });
     }
 
+    syncCommentFab(route);
+    applyPendingCommentFocus();
     updateDocumentTitle(route);
   }
 
@@ -1078,6 +1242,7 @@
     els.shelfView.hidden = name !== 'shelf';
     els.trashView.hidden = name !== 'trash';
     els.novelView.hidden = name !== 'novel';
+    els.commentsView.hidden = name !== 'comments';
     els.missingView.hidden = name !== 'missing';
   }
 
@@ -1086,6 +1251,8 @@
       document.title = `${SITE_NAME} · 我的小说书架`;
     } else if (route.view === 'trash') {
       document.title = `回收站 · ${SITE_NAME}`;
+    } else if (route.view === 'comments') {
+      document.title = `评论与标注 · ${SITE_NAME}`;
     } else if (route.view === 'missing') {
       document.title = `这一页还没有写进故事里 · ${SITE_NAME}`;
     } else if (route.view === 'novel') {
@@ -1445,6 +1612,7 @@
 
   function renderSidebar(route = state.route) {
     const onShelf = Boolean(route && route.view === 'shelf');
+    const onComments = Boolean(route && route.view === 'comments');
     const onTrash = Boolean(route && route.view === 'trash');
     const currentNovel =
       route && ['novel', 'section', 'entry', 'outline-editor'].includes(route.view)
@@ -1457,6 +1625,17 @@
     } else {
       els.sidebarShelfLink.removeAttribute('aria-current');
     }
+
+    els.sidebarCommentsLink.classList.toggle('is-active', onComments);
+    if (onComments) {
+      els.sidebarCommentsLink.setAttribute('aria-current', 'page');
+    } else {
+      els.sidebarCommentsLink.removeAttribute('aria-current');
+    }
+    const commentCount = state.comments.length;
+    els.sidebarCommentCount.textContent =
+      commentCount > 99 ? '99+' : String(commentCount);
+    els.sidebarCommentCount.hidden = commentCount === 0;
 
     els.sidebarTrashLink.classList.toggle('is-active', onTrash);
     if (onTrash) {
@@ -1714,6 +1893,7 @@
     const fragment = document.createDocumentFragment();
 
     const head = el('header', 'content-head');
+    head.dataset.commentAnchor = 'page';
     const headText = el('div', 'content-head-text');
     headText.appendChild(el('p', 'eyebrow', config.eyebrow));
 
@@ -1897,6 +2077,7 @@
     fragment.appendChild(back);
 
     const article = el('article', 'entry-detail panel');
+    article.dataset.commentAnchor = 'page';
 
     const head = el('header', 'entry-detail-head');
     const kicker = el('div', 'entry-detail-kicker');
@@ -1948,7 +2129,9 @@
     const body = el('div', 'entry-detail-body');
 
     if (entry.summary) {
-      body.appendChild(el('p', 'entry-lead', entry.summary));
+      const lead = el('p', 'entry-lead', entry.summary);
+      lead.dataset.commentAnchor = 'block:summary';
+      body.appendChild(lead);
     }
 
     if (sectionKey === 'maps') {
@@ -1956,6 +2139,7 @@
     }
 
     const block = el('section', 'entry-detail-block');
+    block.dataset.commentAnchor = 'block:notes';
     block.appendChild(el('h3', 'entry-block-title', config.notesLabel));
 
     if (entry.notes) {
@@ -4732,6 +4916,7 @@
 
   function createMapPanel(novel, sectionKey, entry) {
     const block = el('section', 'entry-detail-block entry-map-block');
+    block.dataset.commentAnchor = 'block:map';
     const head = el('div', 'entry-map-head');
     const headText = el('div');
     headText.appendChild(el('h3', 'entry-block-title', '地图工坊'));
@@ -6210,6 +6395,876 @@
     if (runAction && action) action();
   }
 
+  /* ---------- Comments ---------- */
+
+  function canCommentOnRoute(route) {
+    return Boolean(route && !['comments', 'missing'].includes(route.view));
+  }
+
+  function commentTargetKey(target) {
+    return `${target.kind}|${target.hash}|${target.anchor}`;
+  }
+
+  function buildCommentTarget({
+    kind,
+    hash,
+    anchor = 'page',
+    novelId = null,
+    sectionKey = null,
+    entryId = null,
+    block = null,
+    label,
+    novelTitle = '',
+    sectionLabel = '',
+    entryTitle = '',
+  }) {
+    return {
+      kind,
+      hash,
+      anchor,
+      novelId,
+      sectionKey,
+      entryId,
+      block,
+      label: label || '原位置',
+      novelTitle,
+      sectionLabel,
+      entryTitle,
+    };
+  }
+
+  function createCommentCandidate(target, optionLabel, group) {
+    return {
+      key: commentTargetKey(target),
+      optionLabel,
+      group,
+      target,
+    };
+  }
+
+  function getCommentTargetCandidates(route) {
+    if (!canCommentOnRoute(route)) return [];
+    const candidates = [];
+
+    if (route.view === 'shelf') {
+      const pageTarget = buildCommentTarget({
+        kind: 'page',
+        hash: '#/',
+        label: '我的书架',
+      });
+      candidates.push(
+        createCommentCandidate(pageTarget, '本页 · 我的书架', 'page')
+      );
+
+      for (const novel of getVisibleNovels()) {
+        const target = buildCommentTarget({
+          kind: 'novel',
+          hash: novelHash(novel.id),
+          novelId: novel.id,
+          novelTitle: novel.title,
+          label: `《${novel.title}》`,
+        });
+        candidates.push(
+          createCommentCandidate(target, `小说 · 《${novel.title}》`, 'detail')
+        );
+      }
+      return candidates;
+    }
+
+    if (route.view === 'trash') {
+      const target = buildCommentTarget({
+        kind: 'page',
+        hash: '#/trash',
+        label: '回收站',
+      });
+      return [createCommentCandidate(target, '本页 · 回收站', 'page')];
+    }
+
+    const novel = route.novel;
+    if (!novel) return [];
+
+    if (route.view === 'outline-editor') {
+      const editing = Boolean(route.entry);
+      const title = editing ? route.entry.title : '新增大纲';
+      const target = buildCommentTarget({
+        kind: editing ? 'entry' : 'page',
+        hash: editing
+          ? outlineEditorHash(novel.id, route.entry.id)
+          : sectionHash(novel.id, 'outline'),
+        novelId: novel.id,
+        sectionKey: 'outline',
+        entryId: editing ? route.entry.id : null,
+        label: editing ? `大纲编辑 · ${title}` : `大纲 · 《${novel.title}》`,
+        novelTitle: novel.title,
+        sectionLabel: SECTIONS.outline.label,
+        entryTitle: editing ? title : '',
+      });
+      return [
+        createCommentCandidate(
+          target,
+          editing ? `本页 · 大纲编辑` : `本页 · 大纲列表`,
+          'page'
+        ),
+      ];
+    }
+
+    if (route.view === 'novel') {
+      const pageTarget = buildCommentTarget({
+        kind: 'page',
+        hash: novelHash(novel.id),
+        novelId: novel.id,
+        label: `《${novel.title}》 · 概览`,
+        novelTitle: novel.title,
+      });
+      candidates.push(
+        createCommentCandidate(pageTarget, '本页 · 故事概览', 'page')
+      );
+
+      for (const key of SECTION_KEYS) {
+        const config = SECTIONS[key];
+        const target = buildCommentTarget({
+          kind: 'section',
+          hash: sectionHash(novel.id, key),
+          novelId: novel.id,
+          sectionKey: key,
+          label: `${config.label} · 《${novel.title}》`,
+          novelTitle: novel.title,
+          sectionLabel: config.label,
+        });
+        candidates.push(
+          createCommentCandidate(target, `分区 · ${config.label}`, 'detail')
+        );
+      }
+      return candidates;
+    }
+
+    if (route.view === 'section') {
+      const config = SECTIONS[route.sectionKey];
+      const pageTarget = buildCommentTarget({
+        kind: 'page',
+        hash: sectionHash(novel.id, route.sectionKey),
+        novelId: novel.id,
+        sectionKey: route.sectionKey,
+        label: `${config.label} · 《${novel.title}》`,
+        novelTitle: novel.title,
+        sectionLabel: config.label,
+      });
+      candidates.push(
+        createCommentCandidate(
+          pageTarget,
+          `本页 · ${config.label}列表`,
+          'page'
+        )
+      );
+
+      for (const entry of sortEntries(novel.entries[route.sectionKey])) {
+        const target = buildCommentTarget({
+          kind: 'entry-card',
+          hash: sectionHash(novel.id, route.sectionKey),
+          anchor: `entry:${entry.id}`,
+          novelId: novel.id,
+          sectionKey: route.sectionKey,
+          entryId: entry.id,
+          label: `${config.label} · ${entry.title}`,
+          novelTitle: novel.title,
+          sectionLabel: config.label,
+          entryTitle: entry.title,
+        });
+        candidates.push(
+          createCommentCandidate(target, `细目 · ${entry.title}`, 'detail')
+        );
+      }
+      return candidates;
+    }
+
+    if (route.view === 'entry') {
+      const config = SECTIONS[route.sectionKey];
+      const entry = route.entry;
+      const pageTarget = buildCommentTarget({
+        kind: 'page',
+        hash: entryHash(novel.id, route.sectionKey, entry.id),
+        novelId: novel.id,
+        sectionKey: route.sectionKey,
+        entryId: entry.id,
+        label: `${config.label} · ${entry.title}`,
+        novelTitle: novel.title,
+        sectionLabel: config.label,
+        entryTitle: entry.title,
+      });
+      candidates.push(
+        createCommentCandidate(pageTarget, `本页 · ${entry.title}`, 'page')
+      );
+
+      if (entry.summary) {
+        const summaryTarget = buildCommentTarget({
+          kind: 'block',
+          hash: entryHash(novel.id, route.sectionKey, entry.id),
+          anchor: 'block:summary',
+          block: 'summary',
+          novelId: novel.id,
+          sectionKey: route.sectionKey,
+          entryId: entry.id,
+          label: `简介 · ${entry.title}`,
+          novelTitle: novel.title,
+          sectionLabel: config.label,
+          entryTitle: entry.title,
+        });
+        candidates.push(
+          createCommentCandidate(summaryTarget, '段落 · 简介', 'detail')
+        );
+      }
+
+      const notesTarget = buildCommentTarget({
+        kind: 'block',
+        hash: entryHash(novel.id, route.sectionKey, entry.id),
+        anchor: 'block:notes',
+        block: 'notes',
+        novelId: novel.id,
+        sectionKey: route.sectionKey,
+        entryId: entry.id,
+        label: `${config.notesLabel} · ${entry.title}`,
+        novelTitle: novel.title,
+        sectionLabel: config.label,
+        entryTitle: entry.title,
+      });
+      candidates.push(
+        createCommentCandidate(notesTarget, `段落 · ${config.notesLabel}`, 'detail')
+      );
+
+      if (route.sectionKey === 'maps') {
+        const mapTarget = buildCommentTarget({
+          kind: 'block',
+          hash: entryHash(novel.id, route.sectionKey, entry.id),
+          anchor: 'block:map',
+          block: 'map',
+          novelId: novel.id,
+          sectionKey: route.sectionKey,
+          entryId: entry.id,
+          label: `地图 · ${entry.title}`,
+          novelTitle: novel.title,
+          sectionLabel: config.label,
+          entryTitle: entry.title,
+        });
+        candidates.push(
+          createCommentCandidate(mapTarget, '段落 · 地图画布', 'detail')
+        );
+      }
+
+      return candidates;
+    }
+
+    return [];
+  }
+
+  function formatCommentTargetPath(target) {
+    if (!target) return '未选择位置';
+    if (!target.novelId) {
+      if (target.hash === '#/') return '我的书架';
+      if (target.hash === '#/trash') return '回收站';
+      return target.label || '页面';
+    }
+
+    const parts = [
+      `《${target.novelTitle || '未命名小说'}》`,
+    ];
+    if (target.sectionKey && SECTIONS[target.sectionKey]) {
+      parts.push(SECTIONS[target.sectionKey].label);
+    }
+    if (target.entryTitle) parts.push(target.entryTitle);
+    if (target.block) {
+      const blockLabel =
+        target.block === 'notes' && SECTIONS[target.sectionKey]
+          ? SECTIONS[target.sectionKey].notesLabel
+          : COMMENT_BLOCK_LABELS[target.block] || '段落';
+      parts.push(blockLabel);
+    }
+    return parts.join(' / ');
+  }
+
+  function describeCommentTarget(target) {
+    const novel = target.novelId ? findNovel(target.novelId) : null;
+    const sectionConfig = target.sectionKey
+      ? SECTIONS[target.sectionKey] || null
+      : null;
+    const entry =
+      novel && sectionConfig && target.entryId
+        ? novel.entries[target.sectionKey].find(
+            (item) => item.id === target.entryId
+          ) || null
+        : null;
+
+    let available = true;
+    let reason = '';
+    if (target.novelId && !novel) {
+      available = false;
+      reason = '原小说已删除';
+    } else if (target.sectionKey && !sectionConfig) {
+      available = false;
+      reason = '原分区已不存在';
+    } else if (target.entryId && !entry) {
+      available = false;
+      reason = '原词条已删除';
+    }
+
+    let label = target.label || '原位置';
+    if (target.kind === 'novel' && novel) {
+      label = `《${novel.title}》`;
+    } else if (target.kind === 'section' && novel && sectionConfig) {
+      label = `${sectionConfig.label} · 《${novel.title}》`;
+    } else if (target.kind === 'entry-card' && novel && entry) {
+      label = `${sectionConfig.label} · ${entry.title}`;
+    } else if (target.kind === 'block' && novel && entry) {
+      const blockLabel =
+        target.block === 'notes' && sectionConfig
+          ? sectionConfig.notesLabel
+          : COMMENT_BLOCK_LABELS[target.block] || '段落';
+      label = `${blockLabel} · ${entry.title}`;
+    } else if (target.kind === 'entry' && novel && entry) {
+      label = `大纲编辑 · ${entry.title}`;
+    } else if (target.kind === 'page' && novel) {
+      if (entry && sectionConfig) {
+        label = `${sectionConfig.label} · ${entry.title}`;
+      } else if (sectionConfig) {
+        label = `${sectionConfig.label} · 《${novel.title}》`;
+      } else {
+        label = `《${novel.title}》 · 概览`;
+      }
+    } else if (target.kind === 'page' && !target.novelId) {
+      if (target.hash === '#/') label = '我的书架';
+      else if (target.hash === '#/trash') label = '回收站';
+    }
+
+    return { available, reason, label, novel, sectionConfig, entry };
+  }
+
+  function countCommentsForTarget(target) {
+    const key = commentTargetKey(target);
+    return state.comments.filter(
+      (comment) => commentTargetKey(comment.target) === key
+    ).length;
+  }
+
+  function findComment(id) {
+    return state.comments.find((comment) => comment.id === id) || null;
+  }
+
+  function syncCommentFab(route = state.route) {
+    const count = state.comments.length;
+    els.commentFab.hidden = !canCommentOnRoute(route);
+    els.commentFabCount.textContent = count > 99 ? '99+' : String(count);
+    els.commentFabCount.hidden = count === 0;
+  }
+
+  function getSelectedCommentTarget() {
+    const candidate = state.commentDraft.candidates.find(
+      (item) => item.key === state.commentDraft.targetKey
+    );
+    return candidate ? candidate.target : null;
+  }
+
+  function openCommentComposer() {
+    const route = state.route;
+    if (!canCommentOnRoute(route)) return;
+    const candidates = getCommentTargetCandidates(route);
+    if (candidates.length === 0) {
+      showToast('这个页面暂时没有可以标注的位置', 'error');
+      return;
+    }
+
+    state.commentDraft = {
+      mode: 'create',
+      id: null,
+      candidates,
+      targetKey: candidates[0].key,
+      dirty: false,
+    };
+    populateCommentDialog();
+    if (!els.commentDialog.open) els.commentDialog.showModal();
+    window.requestAnimationFrame(() => els.commentBodyInput.focus());
+  }
+
+  function openCommentEditor(commentId) {
+    const comment = findComment(commentId);
+    if (!comment) {
+      showToast('这条评论已经不在了', 'error');
+      return;
+    }
+
+    state.commentDraft = {
+      mode: 'edit',
+      id: comment.id,
+      candidates: [createCommentCandidate(comment.target, comment.target.label, 'page')],
+      targetKey: commentTargetKey(comment.target),
+      dirty: false,
+    };
+    populateCommentDialog();
+    if (!els.commentDialog.open) els.commentDialog.showModal();
+    window.requestAnimationFrame(() => {
+      els.commentBodyInput.focus();
+      els.commentBodyInput.setSelectionRange(
+        els.commentBodyInput.value.length,
+        els.commentBodyInput.value.length
+      );
+    });
+  }
+
+  function populateCommentDialog() {
+    const isEdit = state.commentDraft.mode === 'edit';
+    const comment = isEdit ? findComment(state.commentDraft.id) : null;
+
+    els.commentDialogEyebrow.textContent = isEdit
+      ? 'MARGIN NOTE · EDIT'
+      : 'MARGIN NOTE · NEW';
+    els.commentDialogTitle.textContent = isEdit ? '编辑评论' : '写一条评论';
+    els.commentTargetField.hidden = isEdit;
+    els.commentDeleteBtn.hidden = !isEdit;
+    els.commentSaveBtn.textContent = isEdit ? '保存修改' : '保存评论';
+    els.commentBodyInput.value = comment ? comment.body : '';
+    els.commentBodyError.hidden = true;
+    updateCommentBodyState();
+
+    const groups = new Map([
+      ['page', { label: '当前页面', items: [] }],
+      ['detail', { label: '页面中的细目', items: [] }],
+    ]);
+    for (const candidate of state.commentDraft.candidates) {
+      const group = groups.get(candidate.group) || groups.get('page');
+      group.items.push(candidate);
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (const group of groups.values()) {
+      if (group.items.length === 0) continue;
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group.label;
+      for (const item of group.items) {
+        const option = document.createElement('option');
+        option.value = item.key;
+        option.textContent = item.optionLabel;
+        optgroup.appendChild(option);
+      }
+      fragment.appendChild(optgroup);
+    }
+    els.commentTargetSelect.replaceChildren(fragment);
+    if (state.commentDraft.targetKey) {
+      els.commentTargetSelect.value = state.commentDraft.targetKey;
+    }
+    syncCommentDialogTarget();
+  }
+
+  function syncCommentDialogTarget() {
+    const target = getSelectedCommentTarget();
+    els.commentTargetPath.textContent = formatCommentTargetPath(target);
+    if (!target) {
+      els.commentTargetNote.textContent = '';
+      return;
+    }
+
+    if (state.commentDraft.mode === 'edit') {
+      els.commentTargetNote.textContent = '编辑时位置保持不变；如需换位置，请删除后重新添加。';
+      return;
+    }
+
+    const count = countCommentsForTarget(target);
+    els.commentTargetNote.textContent =
+      count > 0
+        ? `这个位置已经有 ${count} 条评论。`
+        : '评论会收进左侧的「评论」目录。';
+  }
+
+  function updateCommentBodyState() {
+    const value = els.commentBodyInput.value;
+    els.commentBodyCount.textContent = `${value.length} 字`;
+    els.commentBodyError.hidden = true;
+    els.commentSaveBtn.disabled = value.trim().length === 0;
+  }
+
+  function attemptCloseCommentDialog() {
+    if (!els.commentDialog.open) return;
+    if (!state.commentDraft.dirty) {
+      els.commentDialog.close();
+      return;
+    }
+
+    openConfirm({
+      title: '放弃这条评论？',
+      message: '尚未保存的评论内容会丢失。',
+      okLabel: '放弃评论',
+      onConfirm: () => {
+        state.commentDraft.dirty = false;
+        els.commentDialog.close();
+      },
+    });
+  }
+
+  function saveComment() {
+    const body = els.commentBodyInput.value
+      .replace(/\r\n?/g, '\n')
+      .trim()
+      .slice(0, COMMENT_MAX_LENGTH);
+    if (!body) {
+      els.commentBodyError.hidden = false;
+      els.commentBodyInput.focus();
+      return;
+    }
+
+    if (state.commentDraft.mode === 'edit') {
+      const id = state.commentDraft.id;
+      const current = findComment(id);
+      if (!current) {
+        els.commentDialog.close();
+        showToast('这条评论已经不在了', 'error');
+        return;
+      }
+
+      const previous = state.comments;
+      state.comments = state.comments.map((comment) =>
+        comment.id === id
+          ? {
+              ...comment,
+              body,
+              updatedAt: new Date().toISOString(),
+            }
+          : comment
+      );
+      if (!persist()) {
+        state.comments = previous;
+        return;
+      }
+
+      state.commentDraft.dirty = false;
+      els.commentDialog.close();
+      afterCommentMutation();
+      showToast('评论已更新');
+      return;
+    }
+
+    const target = getSelectedCommentTarget();
+    if (!target) {
+      showToast('请选择评论的位置', 'error');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const comment = {
+      id: makeId(),
+      body,
+      createdAt: now,
+      updatedAt: now,
+      target: { ...target },
+    };
+    const previous = state.comments;
+    state.comments = [comment, ...state.comments].slice(0, COMMENT_MAX_COUNT);
+    if (!persist()) {
+      state.comments = previous;
+      return;
+    }
+
+    state.commentDraft.dirty = false;
+    els.commentDialog.close();
+    afterCommentMutation();
+    showToast('评论已保存');
+  }
+
+  function afterCommentMutation() {
+    renderSidebar(state.route);
+    syncCommentFab(state.route);
+    if (state.route && state.route.view === 'comments') {
+      renderComments();
+    }
+  }
+
+  function askDeleteComment(commentId) {
+    const comment = findComment(commentId);
+    if (!comment) return;
+    openConfirm({
+      title: '删除这条评论？',
+      message: '删除后会从评论目录中移除，无法恢复。',
+      okLabel: '删除评论',
+      onConfirm: () => deleteComment(commentId),
+    });
+  }
+
+  function deleteComment(commentId) {
+    const previous = state.comments;
+    state.comments = state.comments.filter(
+      (comment) => comment.id !== commentId
+    );
+    if (state.comments.length === previous.length) return;
+    if (!persist()) {
+      state.comments = previous;
+      return;
+    }
+
+    if (state.commentDraft.id === commentId) {
+      state.commentDraft.dirty = false;
+      if (els.commentDialog.open) els.commentDialog.close();
+    }
+    afterCommentMutation();
+    showToast('评论已删除');
+  }
+
+  function matchesCommentQuery(comment, query) {
+    if (!query) return true;
+    const info = describeCommentTarget(comment.target);
+    const haystack = [
+      comment.body,
+      comment.target.label,
+      info.label,
+      comment.target.novelTitle,
+      comment.target.entryTitle,
+      comment.target.sectionLabel,
+      formatCommentTargetPath(comment.target),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(query);
+  }
+
+  function groupComments(comments) {
+    const groups = new Map();
+
+    for (const comment of comments) {
+      const target = comment.target;
+      const key = target.novelId || '__site__';
+      if (!groups.has(key)) {
+        const novel = target.novelId ? findNovel(target.novelId) : null;
+        groups.set(key, {
+          key,
+          novel,
+          title: target.novelId
+            ? novel
+              ? novel.title
+              : `${target.novelTitle || '未知小说'}（已删除）`
+            : '书架与回收站',
+          comments: [],
+        });
+      }
+      groups.get(key).comments.push(comment);
+    }
+
+    return [...groups.values()];
+  }
+
+  function renderComments() {
+    syncCommentsSearchBox();
+    const query = state.commentDirectory.query.trim().toLowerCase();
+    const direction = state.commentDirectory.sort === 'oldest' ? 1 : -1;
+    const sorted = [...state.comments].sort(
+      (a, b) =>
+        (timeValue(a.createdAt) - timeValue(b.createdAt)) * direction
+    );
+    const visible = sorted.filter((comment) =>
+      matchesCommentQuery(comment, query)
+    );
+    const hasComments = state.comments.length > 0;
+
+    els.commentsToolbar.hidden = !hasComments;
+    els.commentsCount.hidden = !hasComments;
+    els.commentsEmpty.hidden = hasComments;
+    els.commentsNoResults.hidden = !hasComments || visible.length > 0;
+    els.commentsList.hidden = visible.length === 0;
+    els.commentsClearSearchBtn.hidden = !query;
+    els.commentsSortSelect.value = state.commentDirectory.sort;
+
+    if (!hasComments) {
+      els.commentsCount.textContent = '还没有评论';
+    } else if (visible.length === 0) {
+      els.commentsCount.textContent = '没有匹配的评论';
+    } else if (query) {
+      els.commentsCount.textContent = `筛选出 ${visible.length} 条评论`;
+    } else {
+      els.commentsCount.textContent = `共 ${visible.length} 条评论`;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (const group of groupComments(visible)) {
+      fragment.appendChild(createCommentGroup(group));
+    }
+    els.commentsList.replaceChildren(fragment);
+
+    renderSidebar(state.route);
+  }
+
+  function createCommentGroup(group) {
+    const section = el('section', 'comment-group');
+    const head = el('header', 'comment-group-head');
+
+    const titleWrap = el('div', 'comment-group-title');
+    const iconWrap = el('span', 'comment-group-icon');
+    iconWrap.appendChild(icon(group.novel ? 'i-book' : 'i-comment'));
+    titleWrap.appendChild(iconWrap);
+
+    if (group.novel) {
+      const link = el('a', 'comment-group-link', group.title);
+      link.href = novelHash(group.novel.id);
+      titleWrap.appendChild(link);
+    } else {
+      titleWrap.appendChild(el('span', 'comment-group-name', group.title));
+    }
+
+    const count = el(
+      'span',
+      'comment-group-count',
+      `${group.comments.length} 条`
+    );
+    head.append(titleWrap, count);
+
+    const list = el('div', 'comment-list');
+    for (const comment of group.comments) {
+      list.appendChild(createCommentCard(comment));
+    }
+    section.append(head, list);
+    return section;
+  }
+
+  function createCommentCard(comment) {
+    const info = describeCommentTarget(comment.target);
+    const card = el(
+      'article',
+      info.available ? 'comment-card' : 'comment-card is-unavailable'
+    );
+    card.dataset.commentId = comment.id;
+
+    const head = el('div', 'comment-card-head');
+    const targetWrap = el('div', 'comment-target-wrap');
+    const chip = el('span', 'comment-target-chip');
+    chip.append(icon('i-comment'), el('span', '', info.label));
+    targetWrap.appendChild(chip);
+    if (!info.available) {
+      targetWrap.appendChild(
+        el('span', 'comment-missing-chip', info.reason || '原位置已不存在')
+      );
+    }
+
+    const created = new Date(comment.createdAt);
+    const updated = new Date(comment.updatedAt);
+    const edited = updated.getTime() - created.getTime() > 2000;
+    const time = document.createElement('time');
+    time.className = 'comment-time';
+    time.dateTime = comment.updatedAt;
+    time.title = `创建于 ${fullDate(created)}${
+      edited ? ` · 更新于 ${fullDate(updated)}` : ''
+    }`;
+    time.textContent = edited
+      ? `编辑于 ${relativeDate(updated)}`
+      : `评论于 ${relativeDate(created)}`;
+    head.append(targetWrap, time);
+
+    const body = el('p', 'comment-body', comment.body);
+
+    const actions = el('div', 'comment-card-actions');
+    const jumpBtn = el('button', 'btn ghost comment-jump');
+    jumpBtn.type = 'button';
+    jumpBtn.dataset.action = 'jump-comment';
+    jumpBtn.dataset.commentId = comment.id;
+    jumpBtn.disabled = !info.available;
+    if (!info.available) jumpBtn.title = info.reason || '原位置已不存在';
+    jumpBtn.append(icon('i-arrow-right'), document.createTextNode('跳转定位'));
+
+    const editBtn = el('button', 'btn ghost comment-edit');
+    editBtn.type = 'button';
+    editBtn.dataset.action = 'edit-comment';
+    editBtn.dataset.commentId = comment.id;
+    editBtn.append(icon('i-pencil'), document.createTextNode('编辑'));
+
+    const deleteBtn = el('button', 'icon-btn danger-hover');
+    deleteBtn.type = 'button';
+    deleteBtn.dataset.action = 'delete-comment';
+    deleteBtn.dataset.commentId = comment.id;
+    deleteBtn.setAttribute('aria-label', '删除这条评论');
+    deleteBtn.title = '删除评论';
+    deleteBtn.appendChild(icon('i-trash'));
+
+    actions.append(jumpBtn, editBtn, deleteBtn);
+    card.append(head, body, actions);
+    return card;
+  }
+
+  function syncCommentsSearchBox() {
+    const hasValue = els.commentsSearchInput.value.length > 0;
+    const box = els.commentsSearchInput.closest('.search-box');
+    if (box) box.classList.toggle('has-value', hasValue);
+    els.commentsSearchClearBtn.hidden = !hasValue;
+  }
+
+  function clearCommentSearch({ focus = true } = {}) {
+    state.commentDirectory.query = '';
+    els.commentsSearchInput.value = '';
+    syncCommentsSearchBox();
+    renderComments();
+    if (focus) els.commentsSearchInput.focus();
+  }
+
+  function jumpToComment(commentId) {
+    const comment = findComment(commentId);
+    if (!comment) return;
+    const info = describeCommentTarget(comment.target);
+    if (!info.available) {
+      showToast(info.reason || '这条评论的原位置已经不存在', 'error');
+      return;
+    }
+
+    state.pendingCommentFocus = {
+      id: comment.id,
+      target: { ...comment.target },
+    };
+    if (window.location.hash === comment.target.hash) {
+      applyPendingCommentFocus();
+    } else {
+      window.location.hash = comment.target.hash;
+    }
+  }
+
+  function applyPendingCommentFocus() {
+    const pending = state.pendingCommentFocus;
+    if (!pending) return;
+    state.pendingCommentFocus = null;
+    const target = pending.target;
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (target.kind === 'entry-card' && target.entryId) {
+          highlightEntryCard(target.entryId, { scroll: true });
+          return;
+        }
+
+        const anchor = findCommentAnchorElement(target);
+        if (!anchor) {
+          showToast('没有找到这条评论的位置', 'error');
+          return;
+        }
+
+        const reduceMotion = window.matchMedia(
+          '(prefers-reduced-motion: reduce)'
+        ).matches;
+        anchor.scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
+          block: 'center',
+        });
+        anchor.classList.add('is-comment-focus');
+        window.setTimeout(
+          () => anchor.classList.remove('is-comment-focus'),
+          2400
+        );
+      });
+    });
+  }
+
+  function findCommentAnchorElement(target) {
+    const view = document.querySelector('#mainContent .view:not([hidden])');
+    if (!view) return null;
+
+    if (target.kind === 'block' && target.block) {
+      const block = view.querySelector(
+        `[data-comment-anchor="block:${target.block}"]`
+      );
+      if (block) return block;
+    }
+
+    return view.querySelector('[data-comment-anchor="page"]');
+  }
+
   /* ---------- Import / export ---------- */
 
   async function handleImportFile() {
@@ -6228,13 +7283,18 @@
         parsed && !Array.isArray(parsed) && Array.isArray(parsed.trash)
           ? parsed.trash
           : [];
+      const rawComments =
+        parsed && !Array.isArray(parsed) && Array.isArray(parsed.comments)
+          ? parsed.comments
+          : [];
 
-      if (!rawNovels && rawTrash.length === 0) {
+      if (!rawNovels && rawTrash.length === 0 && rawComments.length === 0) {
         throw new Error(`这不是 ${SITE_NAME} 的备份文件`);
       }
 
       const incoming = [];
       const incomingTrash = [];
+      const incomingComments = [];
       let skipped = 0;
 
       for (const raw of rawNovels || []) {
@@ -6256,24 +7316,42 @@
         incomingTrash.push(item);
       }
 
-      if (incoming.length === 0 && incomingTrash.length === 0) {
+      for (const raw of rawComments) {
+        const comment = normalizeComment(raw);
+        if (!comment) {
+          skipped += 1;
+          continue;
+        }
+        incomingComments.push(comment);
+      }
+
+      if (
+        incoming.length === 0 &&
+        incomingTrash.length === 0 &&
+        incomingComments.length === 0
+      ) {
         throw new Error('文件里没有有效的内容');
       }
 
       const previousNovels = state.novels;
       const previousTrash = state.trash;
+      const previousComments = state.comments;
       const counts = mergeLibraries(incoming);
       const addedTrash = mergeTrash(incomingTrash);
+      const commentCounts = mergeComments(incomingComments);
       const changed =
         counts.addedNovels > 0 ||
         counts.updatedNovels > 0 ||
         counts.addedEntries > 0 ||
         counts.updatedEntries > 0 ||
-        addedTrash > 0;
+        addedTrash > 0 ||
+        commentCounts.added > 0 ||
+        commentCounts.updated > 0;
 
       if (!changed) {
         state.novels = previousNovels;
         state.trash = previousTrash;
+        state.comments = previousComments;
         showToast('没有发现需要导入的新内容');
         return;
       }
@@ -6281,6 +7359,7 @@
       if (!persist()) {
         state.novels = previousNovels;
         state.trash = previousTrash;
+        state.comments = previousComments;
         return;
       }
 
@@ -6293,6 +7372,8 @@
       if (counts.updatedNovels) parts.push(`更新 ${counts.updatedNovels} 本小说`);
       if (counts.updatedEntries) parts.push(`更新 ${counts.updatedEntries} 条内容`);
       if (addedTrash) parts.push(`回收站 ${addedTrash} 项`);
+      if (commentCounts.added) parts.push(`新增 ${commentCounts.added} 条评论`);
+      if (commentCounts.updated) parts.push(`更新 ${commentCounts.updated} 条评论`);
       if (skipped) parts.push(`跳过 ${skipped} 条无效内容`);
       showToast(`导入完成：${parts.join('，')}`);
     } catch (error) {
@@ -6436,9 +7517,42 @@
     return added;
   }
 
+  function mergeComments(incoming) {
+    const commentMap = new Map(
+      state.comments.map((comment) => [comment.id, comment])
+    );
+    let added = 0;
+    let updated = 0;
+
+    for (const comment of incoming) {
+      const current = commentMap.get(comment.id);
+      if (!current) {
+        commentMap.set(comment.id, comment);
+        added += 1;
+        continue;
+      }
+      if (timeValue(comment.updatedAt) > timeValue(current.updatedAt)) {
+        commentMap.set(comment.id, comment);
+        updated += 1;
+      }
+    }
+
+    if (added > 0 || updated > 0) {
+      state.comments = [...commentMap.values()]
+        .sort((a, b) => timeValue(b.createdAt) - timeValue(a.createdAt))
+        .slice(0, COMMENT_MAX_COUNT);
+    }
+
+    return { added, updated };
+  }
+
   function exportLibrary() {
-    if (state.novels.length === 0 && state.trash.length === 0) {
-      showToast('书架和回收站都空着，先写下第一本小说吧');
+    if (
+      state.novels.length === 0 &&
+      state.trash.length === 0 &&
+      state.comments.length === 0
+    ) {
+      showToast('书架、回收站和评论都空着，先写下第一本小说吧');
       return;
     }
 
@@ -6449,6 +7563,7 @@
       exportedAt: now.toISOString(),
       novels: state.novels,
       trash: state.trash,
+      comments: state.comments,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json;charset=utf-8',
@@ -6465,7 +7580,11 @@
     const total = state.novels.reduce((sum, novel) => sum + countNovelEntries(novel), 0);
     const trashSuffix =
       state.trash.length > 0 ? `、${state.trash.length} 项回收站记录` : '';
-    showToast(`已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}`);
+    const commentSuffix =
+      state.comments.length > 0 ? `、${state.comments.length} 条评论` : '';
+    showToast(
+      `已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}${commentSuffix}`
+    );
   }
 
   function fileDate(date) {
@@ -6599,6 +7718,75 @@
     els.exportBtn.addEventListener('click', exportLibrary);
     els.footerExportBtn.addEventListener('click', exportLibrary);
     els.importFile.addEventListener('change', handleImportFile);
+
+    els.commentFab.addEventListener('click', openCommentComposer);
+    els.commentForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveComment();
+    });
+    els.commentForm.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        saveComment();
+      }
+    });
+    els.commentBodyInput.addEventListener('input', () => {
+      state.commentDraft.dirty = true;
+      updateCommentBodyState();
+    });
+    els.commentTargetSelect.addEventListener('change', () => {
+      state.commentDraft.targetKey = els.commentTargetSelect.value;
+      syncCommentDialogTarget();
+    });
+    els.commentDialogCloseBtn.addEventListener('click', attemptCloseCommentDialog);
+    els.commentCancelBtn.addEventListener('click', attemptCloseCommentDialog);
+    els.commentDeleteBtn.addEventListener('click', () => {
+      if (state.commentDraft.id) askDeleteComment(state.commentDraft.id);
+    });
+    els.commentDialog.addEventListener('cancel', (event) => {
+      if (!state.commentDraft.dirty) return;
+      event.preventDefault();
+      attemptCloseCommentDialog();
+    });
+    els.commentDialog.addEventListener('close', () => {
+      if (els.commentDialog.open) return;
+      state.commentDraft = {
+        mode: null,
+        id: null,
+        candidates: [],
+        targetKey: null,
+        dirty: false,
+      };
+      els.commentForm.reset();
+      els.commentTargetSelect.replaceChildren();
+      els.commentBodyError.hidden = true;
+      updateCommentBodyState();
+    });
+
+    els.commentsSearchInput.addEventListener('input', () => {
+      state.commentDirectory.query = els.commentsSearchInput.value;
+      syncCommentsSearchBox();
+      renderComments();
+    });
+    els.commentsSearchInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && els.commentsSearchInput.value) {
+        event.preventDefault();
+        clearCommentSearch();
+      }
+    });
+    els.commentsSearchClearBtn.addEventListener('click', () =>
+      clearCommentSearch()
+    );
+    els.commentsClearSearchBtn.addEventListener('click', () =>
+      clearCommentSearch()
+    );
+    els.commentsNoResultsClearBtn.addEventListener('click', () =>
+      clearCommentSearch()
+    );
+    els.commentsSortSelect.addEventListener('change', () => {
+      state.commentDirectory.sort = els.commentsSortSelect.value;
+      renderComments();
+    });
 
     els.appearanceBtn.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -7124,6 +8312,7 @@
         els.entryDialog.open ||
         els.relationDialog.open ||
         els.graphDialog.open ||
+        els.commentDialog.open ||
         els.confirmDialog.open ||
         els.mapDialog.open
       ) {
@@ -7155,6 +8344,9 @@
       } else if (event.key === '/' && state.route.view === 'shelf') {
         event.preventDefault();
         els.shelfSearchInput.focus();
+      } else if (event.key === '/' && state.route.view === 'comments') {
+        event.preventDefault();
+        els.commentsSearchInput.focus();
       }
     });
 
@@ -7187,7 +8379,11 @@
         '(prefers-reduced-motion: reduce)'
       ).matches;
 
-      if (nextRoute.view === 'entry' && !reduceMotion) {
+      if (
+        nextRoute.view === 'entry' &&
+        !reduceMotion &&
+        !state.pendingCommentFocus
+      ) {
         if (typeof document.startViewTransition === 'function') {
           try {
             document.startViewTransition(() => renderRoute({ scroll: true }));
@@ -7230,6 +8426,7 @@
       const library = loadLibrary();
       state.novels = library.novels;
       state.trash = library.trash;
+      state.comments = library.comments;
       renderRoute();
       showToast('已同步其他标签页中的改动');
     });
@@ -7330,6 +8527,18 @@
         if (sectionKey && entryId) {
           openMapEditor({ novelId, sectionKey, entryId });
         }
+        break;
+      case 'jump-comment':
+        event.preventDefault();
+        if (actionEl.dataset.commentId) jumpToComment(actionEl.dataset.commentId);
+        break;
+      case 'edit-comment':
+        event.preventDefault();
+        if (actionEl.dataset.commentId) openCommentEditor(actionEl.dataset.commentId);
+        break;
+      case 'delete-comment':
+        event.preventDefault();
+        if (actionEl.dataset.commentId) askDeleteComment(actionEl.dataset.commentId);
         break;
       default:
         break;
