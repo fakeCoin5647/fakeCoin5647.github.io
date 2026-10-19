@@ -11,6 +11,15 @@
   --glass: rgba(255, 255, 255, var(--glass-alpha));
   --glass-border: rgba(255, 255, 255, 0.65);
   --glass-soft: rgba(255, 255, 255, calc(var(--card-alpha) - 0.04));
+  --glass-rim: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.92) 10%,
+    rgba(197, 209, 230, 0.62) 34%,
+    rgba(138, 154, 187, 0.62) 60%,
+    rgba(246, 249, 255, 0.85) 82%,
+    rgba(255, 255, 255, 1) 100%
+  );
   --rule: rgba(38, 42, 51, 0.12);
   --accent-weak: rgba(79, 109, 245, 0.09);
   --text: #262a33;
@@ -4594,4 +4603,139 @@ body {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+/* ---------- Apple 液态玻璃描边 ---------- */
+
+.page {
+  border-color: rgba(255, 255, 255, 0.58);
+  background-image: linear-gradient(
+    140deg,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0) 40%,
+    rgba(255, 255, 255, 0.1)
+  );
+  box-shadow:
+    0 24px 64px rgba(18, 28, 65, 0.32),
+    0 2px 10px rgba(18, 28, 65, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.panel,
+.trash-card,
+.shelf-toolbar,
+.comments-toolbar,
+.novel-hero {
+  position: relative;
+}
+
+.novel-card,
+.entry-card,
+.section-card,
+.panel,
+.novel-hero,
+.comment-card,
+.trash-card,
+.shelf-toolbar,
+.comments-toolbar,
+.appearance-panel,
+.empty-state {
+  box-shadow:
+    0 1px 1px rgba(19, 29, 62, 0.03),
+    0 12px 28px -26px rgba(19, 29, 62, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -1px 0 rgba(19, 29, 62, 0.08),
+    inset 0 14px 24px -22px rgba(255, 255, 255, 0.95);
+}
+
+.novel-card,
+.entry-card,
+.section-card,
+.panel,
+.novel-hero,
+.comment-card,
+.trash-card,
+.shelf-toolbar,
+.comments-toolbar,
+.appearance-panel {
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.26),
+    rgba(255, 255, 255, 0) 34%
+  );
+}
+
+.novel-card::after,
+.entry-card::after,
+.section-card::after,
+.panel::after,
+.comment-card:not(.is-unavailable)::after,
+.trash-card::after,
+.shelf-toolbar::after,
+.comments-toolbar::after,
+.appearance-panel::after,
+.novel-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 1.4px;
+  border-radius: inherit;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.novel-card.is-pinned::before,
+.entry-card.is-pinned::before {
+  z-index: 3;
+}
+
+.novel-card:hover,
+.entry-card:hover,
+.section-card:hover,
+.comment-card:hover {
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.34),
+    rgba(255, 255, 255, 0) 36%
+  );
+  box-shadow:
+    0 0 0 1px rgba(79, 109, 245, 0.24),
+    0 16px 34px -26px rgba(30, 40, 90, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -1px 0 rgba(19, 29, 62, 0.08),
+    inset 0 14px 24px -22px rgba(255, 255, 255, 1);
+}
+
+.dialog {
+  border-color: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 30px 90px -20px rgba(15, 25, 60, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.comment-fab {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.94),
+    rgba(242, 246, 255, 0.82)
+  );
+  box-shadow:
+    0 18px 40px -16px rgba(18, 28, 65, 0.55),
+    0 2px 6px rgba(18, 28, 65, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(19, 29, 62, 0.06);
+}
+
+.comment-fab:hover {
+  box-shadow:
+    0 22px 46px -16px rgba(18, 28, 65, 0.6),
+    0 2px 6px rgba(18, 28, 65, 0.1),
+    inset 0 1px 0 #fff;
 }
