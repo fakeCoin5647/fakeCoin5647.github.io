@@ -13,7 +13,7 @@
 
       <nav class="side-nav" aria-label="站点导航">
         <a class="nav-item" href="#/" id="sidebarShelfLink">
-          <span class="nav-emoji" aria-hidden="true">🏠</span>
+          <svg class="icon nav-svg" aria-hidden="true"><use href="#i-home"></use></svg>
           <span>我的书架</span>
         </a>
 
@@ -24,14 +24,14 @@
         </a>
 
         <div class="nav-group">
-          <p class="nav-label"><span aria-hidden="true">📚</span> 我的小说</p>
+          <p class="nav-label"><svg class="icon nav-label-icon" aria-hidden="true"><use href="#i-books"></use></svg> 我的小说</p>
           <div class="subnav side-novel-list" id="sidebarNovelList"></div>
           <p class="side-empty" id="sidebarNovelsEmpty">书架还空着</p>
         </div>
 
         <div class="nav-group" id="sidebarSectionsGroup" hidden>
           <a class="side-book" id="sidebarBookLink" href="#/">
-            <span class="side-book-emoji" aria-hidden="true">📖</span>
+            <svg class="icon side-book-icon" aria-hidden="true"><use href="#i-book"></use></svg>
             <span class="side-book-name" id="sidebarBookName"></span>
           </a>
           <div class="subnav side-sections" id="workspaceNav" aria-label="小说内容导航"></div>
