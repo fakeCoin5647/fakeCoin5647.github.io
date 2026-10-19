@@ -250,6 +250,7 @@
 
     novelCardTemplate: $('#novelCardTemplate'),
     entryCardTemplate: $('#entryCardTemplate'),
+    outlineEditorTemplate: $('#outlineEditorTemplate'),
 
     novelDialog: $('#novelDialog'),
     novelForm: $('#novelForm'),
@@ -339,6 +340,7 @@
     shelf: { query: '', status: 'all', sort: 'updated' },
     novelDraft: { id: null, dirty: false },
     entryDraft: { novelId: null, sectionKey: null, id: null, dirty: false },
+    outlineDraft: { novelId: null, id: null, dirty: false, tags: [], hash: '' },
     draftTags: [],
     confirmAction: null,
     pendingHighlight: null,
@@ -748,7 +750,20 @@
     const sectionKey = parts[2];
     if (!parts[3]) return { view: 'section', novel, sectionKey, entry: null };
 
+    if (sectionKey === 'outline' && parts[3] === 'new') {
+      return parts.length === 4
+        ? { view: 'outline-editor', novel, sectionKey, entry: null }
+        : { view: 'missing' };
+    }
+
     const entry = novel.entries[sectionKey].find((item) => item.id === parts[3]);
+
+    if (sectionKey === 'outline' && parts[4] === 'edit') {
+      if (parts.length !== 5) return { view: 'missing' };
+      if (!entry) return { view: 'section', novel, sectionKey, entry: null, missingEntry: true };
+      return { view: 'outline-editor', novel, sectionKey, entry };
+    }
+
     if (!entry) return { view: 'section', novel, sectionKey, entry: null, missingEntry: true };
 
     return { view: 'entry', novel, sectionKey, entry };
@@ -757,6 +772,17 @@
   function renderRoute({ scroll = false } = {}) {
     const route = parseRoute();
     state.route = route;
+
+    if (route.view !== 'outline-editor') {
+      state.outlineDraft = {
+        novelId: null,
+        id: null,
+        dirty: false,
+        tags: [],
+        hash: '',
+      };
+    }
+
     const compactEntry = scroll
       && route.view === 'entry'
       && window.matchMedia('(max-width: 880px)').matches;
@@ -811,6 +837,8 @@
       document.title = `${SECTIONS[route.sectionKey].label} · ${route.novel.title} · 故事簿`;
     } else if (route.view === 'entry') {
       document.title = `${route.entry.title} · ${route.novel.title} · 故事簿`;
+    } else if (route.view === 'outline-editor') {
+      document.title = `${route.entry ? '编辑大纲' : '新增大纲'} · ${route.novel.title} · 故事簿`;
     }
   }
 
@@ -824,6 +852,12 @@
 
   function entryHash(novelId, sectionKey, entryId) {
     return `${sectionHash(novelId, sectionKey)}/${encodeURIComponent(entryId)}`;
+  }
+
+  function outlineEditorHash(novelId, entryId = null) {
+    return entryId
+      ? `${entryHash(novelId, 'outline', entryId)}/edit`
+      : `${sectionHash(novelId, 'outline')}/new`;
   }
 
   function findNovel(id) {
@@ -1123,7 +1157,10 @@
     const { novel } = route;
     const status = NOVEL_STATUS[novel.status] || NOVEL_STATUS.planning;
 
-    els.novelView.classList.toggle('is-entry-view', route.view === 'entry');
+    els.novelView.classList.toggle(
+      'is-entry-view',
+      route.view === 'entry' || route.view === 'outline-editor'
+    );
     els.breadcrumbNovelTitle.textContent = novel.title;
 
     els.novelCoverSlot.replaceChildren(createCover(novel, 'hero'));
@@ -1160,6 +1197,8 @@
       renderSection(novel, route.sectionKey);
     } else if (route.view === 'entry') {
       renderEntryDetail(novel, route.sectionKey, route.entry);
+    } else if (route.view === 'outline-editor') {
+      renderOutlineEditor(novel, route.entry);
     }
 
     renderSidebar(route);
@@ -1169,7 +1208,9 @@
     const onShelf = Boolean(route && route.view === 'shelf');
     const onTrash = Boolean(route && route.view === 'trash');
     const currentNovel =
-      route && ['novel', 'section', 'entry'].includes(route.view) ? route.novel : null;
+      route && ['novel', 'section', 'entry', 'outline-editor'].includes(route.view)
+        ? route.novel
+        : null;
 
     els.sidebarShelfLink.classList.toggle('is-active', onShelf);
     if (onShelf) {
@@ -1885,6 +1926,11 @@
     const config = SECTIONS[sectionKey];
     if (!config) return;
 
+    if (sectionKey === 'outline') {
+      window.location.hash = outlineEditorHash(novelId, entryId);
+      return;
+    }
+
     const entry = entryId
       ? novel.entries[sectionKey].find((item) => item.id === entryId)
       : null;
@@ -2043,61 +2089,52 @@
     });
   }
 
-  function saveEntry() {
-    const title = els.entryTitleInput.value.trim();
-    if (!title) {
-      showEntryTitleError();
-      return;
-    }
-
-    const { novelId, sectionKey, id } = state.entryDraft;
+  function commitEntry({
+    novelId,
+    sectionKey,
+    id,
+    title,
+    subtitle = '',
+    summary = '',
+    notes = '',
+    tags = [],
+  }) {
     const novel = findNovel(novelId);
-    if (!novel) {
-      els.entryDialog.close();
-      showToast('这本小说已经不在了', 'error');
-      refreshCurrentView();
-      return;
-    }
+    if (!novel) return { ok: false, reason: 'novel' };
 
-    if (els.entryTagInput.value.trim()) addDraftTag(els.entryTagInput.value);
-
-    const tags = normalizeTags(state.draftTags);
     const now = new Date().toISOString();
     const isNew = !id;
-    const previous = state.novels;
-    let savedId = id;
-
+    const savedId = id || makeId();
+    const fields = {
+      title: title.trim().slice(0, 60),
+      subtitle: subtitle.trim().slice(0, 60),
+      summary: summary.trim().slice(0, 160),
+      notes: notes.trim(),
+      tags: normalizeTags(tags),
+    };
     let nextEntries;
+
     if (isNew) {
-      savedId = makeId();
-      const entry = {
-        id: savedId,
-        title: title.slice(0, 60),
-        subtitle: els.entrySubtitleInput.value.trim().slice(0, 60),
-        summary: els.entrySummaryInput.value.trim().slice(0, 160),
-        notes: els.entryNotesInput.value.trim(),
-        tags,
-        pinned: false,
-        createdAt: now,
-        updatedAt: now,
-      };
-      nextEntries = [entry, ...novel.entries[sectionKey]];
+      nextEntries = [
+        {
+          id: savedId,
+          ...fields,
+          pinned: false,
+          createdAt: now,
+          updatedAt: now,
+        },
+        ...novel.entries[sectionKey],
+      ];
     } else {
+      if (!novel.entries[sectionKey].some((entry) => entry.id === savedId)) {
+        return { ok: false, reason: 'entry' };
+      }
       nextEntries = novel.entries[sectionKey].map((entry) =>
-        entry.id === savedId
-          ? {
-              ...entry,
-              title: title.slice(0, 60),
-              subtitle: els.entrySubtitleInput.value.trim().slice(0, 60),
-              summary: els.entrySummaryInput.value.trim().slice(0, 160),
-              notes: els.entryNotesInput.value.trim(),
-              tags,
-              updatedAt: now,
-            }
-          : entry
+        entry.id === savedId ? { ...entry, ...fields, updatedAt: now } : entry
       );
     }
 
+    const previous = state.novels;
     state.novels = state.novels.map((item) =>
       item.id === novelId
         ? {
@@ -2110,6 +2147,49 @@
 
     if (!persist()) {
       state.novels = previous;
+      return { ok: false, reason: 'persist' };
+    }
+
+    return { ok: true, id: savedId, isNew };
+  }
+
+  function saveEntry() {
+    const title = els.entryTitleInput.value.trim();
+    if (!title) {
+      showEntryTitleError();
+      return;
+    }
+
+    const { novelId, sectionKey, id } = state.entryDraft;
+    if (!findNovel(novelId)) {
+      els.entryDialog.close();
+      showToast('这本小说已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    if (els.entryTagInput.value.trim()) addDraftTag(els.entryTagInput.value);
+
+    const result = commitEntry({
+      novelId,
+      sectionKey,
+      id,
+      title,
+      subtitle: els.entrySubtitleInput.value,
+      summary: els.entrySummaryInput.value,
+      notes: els.entryNotesInput.value,
+      tags: state.draftTags,
+    });
+
+    if (!result.ok) {
+      if (result.reason === 'novel' || result.reason === 'entry') {
+        els.entryDialog.close();
+        showToast(
+          result.reason === 'novel' ? '这本小说已经不在了' : '这个条目已经不在了',
+          'error'
+        );
+        refreshCurrentView();
+      }
       return;
     }
 
@@ -2123,20 +2203,321 @@
       route.novel.id === novelId &&
       route.sectionKey === sectionKey;
 
-    if (isNew) {
+    if (result.isNew) {
       if (wasOnTargetSection) {
         refreshCurrentView();
-        highlightEntryCard(savedId, { scroll: true });
+        highlightEntryCard(result.id, { scroll: true });
       } else {
-        state.pendingHighlight = { novelId, sectionKey, entryId: savedId };
+        state.pendingHighlight = {
+          novelId,
+          sectionKey,
+          entryId: result.id,
+        };
         window.location.hash = sectionHash(novelId, sectionKey);
       }
       showToast(`${config.singular}已收录`);
     } else {
       refreshCurrentView();
-      if (wasOnTargetSection) highlightEntryCard(savedId, { scroll: true });
+      if (wasOnTargetSection) highlightEntryCard(result.id, { scroll: true });
       showToast('修改已保存');
     }
+  }
+
+  /* ---------- Outline page editor ---------- */
+
+  function renderOutlineEditor(novel, entry) {
+    const config = SECTIONS.outline;
+    const node = els.outlineEditorTemplate.content.firstElementChild.cloneNode(true);
+    const find = (selector) => $(selector, node);
+    const isNew = !entry;
+
+    state.outlineDraft = {
+      novelId: novel.id,
+      id: entry ? entry.id : null,
+      dirty: false,
+      tags: entry ? normalizeTags(entry.tags) : [],
+      hash: window.location.hash,
+    };
+
+    const backLink = find('[data-outline-back]');
+    backLink.href = sectionHash(novel.id, 'outline');
+    find('[data-outline-back-label]').textContent = config.backLabel;
+
+    find('[data-outline-eyebrow]').textContent = isNew
+      ? 'OUTLINE · NEW'
+      : 'OUTLINE · EDIT';
+    find('[data-outline-heading]').textContent = isNew
+      ? `新增${config.singular}`
+      : `编辑${config.singular}`;
+    find('[data-outline-desc]').textContent = isNew
+      ? '整页书写，分卷、章节与分场都可以一次铺开。保存后会回到大纲列表。'
+      : `正在编辑「${entry.title}」，保存后会回到这条大纲。`;
+
+    const form = find('#outlineEditorForm');
+    const titleField = find('#outlineEditorTitleField');
+    const titleInput = find('#outlineEditorTitleInput');
+    const titleError = find('#outlineEditorTitleError');
+    const scopeInput = find('#outlineEditorScopeInput');
+    const summaryInput = find('#outlineEditorSummaryInput');
+    const notesInput = find('#outlineEditorNotesInput');
+    const notesCount = find('#outlineEditorNotesCount');
+    const tagEditor = find('#outlineEditorTagEditor');
+    const tagInput = find('#outlineEditorTagInput');
+    const tagSuggestions = find('#outlineEditorTagSuggestions');
+    const stateLabel = find('[data-outline-state]');
+    const saveLabels = node.querySelectorAll('[data-outline-save-label]');
+
+    titleInput.placeholder = config.titlePlaceholder;
+    titleInput.value = entry ? entry.title : '';
+    scopeInput.placeholder = config.subtitlePlaceholder;
+    scopeInput.value = entry ? entry.subtitle : '';
+    summaryInput.placeholder = config.summaryPlaceholder;
+    summaryInput.value = entry ? entry.summary : '';
+    notesInput.placeholder = config.notesPlaceholder;
+    notesInput.value = entry ? entry.notes : '';
+    titleError.textContent = config.emptyError;
+    notesCount.textContent = `${notesInput.value.length} 字`;
+
+    saveLabels.forEach((label) => {
+      label.textContent = isNew ? '保存大纲' : '保存修改';
+    });
+    stateLabel.textContent = isNew ? '尚未保存' : '已是最新';
+
+    let composing = false;
+
+    function markDirty() {
+      if (state.outlineDraft.dirty) return;
+      state.outlineDraft.dirty = true;
+      stateLabel.textContent = '有未保存修改';
+      stateLabel.classList.add('is-dirty');
+    }
+
+    function clearTitleError() {
+      titleField.classList.remove('has-error');
+      titleError.hidden = true;
+    }
+
+    function showTitleError() {
+      titleField.classList.add('has-error');
+      titleError.hidden = false;
+      titleInput.focus();
+    }
+
+    function renderTags() {
+      tagEditor.querySelectorAll('.editor-tag').forEach((chip) => chip.remove());
+
+      const fragment = document.createDocumentFragment();
+      for (const tag of state.outlineDraft.tags) {
+        const chip = el('span', 'editor-tag');
+        const removeBtn = el('button', '', '×');
+        removeBtn.type = 'button';
+        removeBtn.setAttribute('aria-label', `移除标签 ${tag}`);
+        removeBtn.addEventListener('click', () => {
+          state.outlineDraft.tags = state.outlineDraft.tags.filter(
+            (item) => item !== tag
+          );
+          markDirty();
+          renderTags();
+          updateTagSuggestions();
+          tagInput.focus();
+        });
+        chip.append(el('span', '', tag), removeBtn);
+        fragment.appendChild(chip);
+      }
+
+      tagEditor.insertBefore(fragment, tagInput);
+    }
+
+    function updateTagSuggestions() {
+      const used = new Set(
+        state.outlineDraft.tags.map((tag) => tag.toLowerCase())
+      );
+      const allTags = new Set();
+
+      for (const key of SECTION_KEYS) {
+        for (const item of novel.entries[key]) {
+          for (const tag of item.tags) allTags.add(tag);
+        }
+      }
+
+      const fragment = document.createDocumentFragment();
+      [...allTags]
+        .filter((tag) => !used.has(tag.toLowerCase()))
+        .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+        .forEach((tag) => {
+          const option = document.createElement('option');
+          option.value = tag;
+          fragment.appendChild(option);
+        });
+
+      tagSuggestions.replaceChildren(fragment);
+    }
+
+    function addTag(rawValue) {
+      const tag = rawValue.trim().replace(/^#+/, '').replace(/\s+/g, ' ');
+
+      if (!tag) return false;
+      if (tag.length > MAX_TAG_LENGTH) {
+        showToast(`标签最多 ${MAX_TAG_LENGTH} 个字`);
+        return false;
+      }
+      if (
+        state.outlineDraft.tags.some(
+          (item) => item.toLowerCase() === tag.toLowerCase()
+        )
+      ) {
+        tagInput.value = '';
+        return false;
+      }
+      if (state.outlineDraft.tags.length >= MAX_TAGS) {
+        showToast(`最多添加 ${MAX_TAGS} 个标签`);
+        return false;
+      }
+
+      state.outlineDraft.tags.push(tag);
+      markDirty();
+      renderTags();
+      updateTagSuggestions();
+      tagInput.value = '';
+      return true;
+    }
+
+    function leaveEditor() {
+      state.outlineDraft.dirty = false;
+      window.location.hash = entry
+        ? entryHash(novel.id, 'outline', entry.id)
+        : sectionHash(novel.id, 'outline');
+    }
+
+    function cancel() {
+      if (!state.outlineDraft.dirty) {
+        leaveEditor();
+        return;
+      }
+
+      openConfirm({
+        title: '放弃这次修改？',
+        message: '离开编辑页后，尚未保存的大纲内容会丢失。',
+        okLabel: '放弃修改',
+        onConfirm: leaveEditor,
+      });
+    }
+
+    function save() {
+      const title = titleInput.value.trim();
+      if (!title) {
+        showTitleError();
+        return;
+      }
+
+      if (tagInput.value.trim()) addTag(tagInput.value);
+
+      const result = commitEntry({
+        novelId: novel.id,
+        sectionKey: 'outline',
+        id: state.outlineDraft.id,
+        title,
+        subtitle: scopeInput.value,
+        summary: summaryInput.value,
+        notes: notesInput.value,
+        tags: state.outlineDraft.tags,
+      });
+
+      if (!result.ok) {
+        if (result.reason === 'novel' || result.reason === 'entry') {
+          showToast('这条大纲已经不在了', 'error');
+          state.outlineDraft.dirty = false;
+          window.location.hash = sectionHash(novel.id, 'outline');
+        }
+        return;
+      }
+
+      state.outlineDraft.dirty = false;
+      state.outlineDraft.id = result.id;
+      window.location.hash = entryHash(novel.id, 'outline', result.id);
+      showToast(result.isNew ? `${config.singular}已收录` : '修改已保存');
+    }
+
+    form.addEventListener('input', markDirty);
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      save();
+    });
+    form.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        save();
+      }
+    });
+
+    titleInput.addEventListener('input', clearTitleError);
+    notesInput.addEventListener('input', () => {
+      notesCount.textContent = `${notesInput.value.length} 字`;
+    });
+
+    node.querySelectorAll('[data-outline-cancel]').forEach((button) => {
+      button.addEventListener('click', cancel);
+    });
+
+    tagEditor.addEventListener('click', (event) => {
+      if (event.target === tagEditor) tagInput.focus();
+    });
+
+    tagInput.addEventListener('compositionstart', () => {
+      composing = true;
+    });
+
+    tagInput.addEventListener('compositionend', () => {
+      composing = false;
+    });
+
+    tagInput.addEventListener('input', () => {
+      if (composing) return;
+      const value = tagInput.value;
+      if (!/[,，]/.test(value)) return;
+
+      const parts = value.split(/[,，]/);
+      const rest = parts.pop() ?? '';
+      for (const part of parts) {
+        if (part.trim()) addTag(part);
+      }
+      tagInput.value = rest;
+    });
+
+    tagInput.addEventListener('keydown', (event) => {
+      if (event.isComposing || composing) return;
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (tagInput.value.trim()) addTag(tagInput.value);
+        return;
+      }
+
+      if (
+        event.key === 'Backspace' &&
+        !tagInput.value &&
+        state.outlineDraft.tags.length > 0
+      ) {
+        state.outlineDraft.tags.pop();
+        markDirty();
+        renderTags();
+        updateTagSuggestions();
+      }
+    });
+
+    renderTags();
+    updateTagSuggestions();
+    els.workspaceContent.replaceChildren(node);
+
+    requestAnimationFrame(() => {
+      titleInput.focus({ preventScroll: true });
+      if (!isNew) {
+        titleInput.setSelectionRange(
+          titleInput.value.length,
+          titleInput.value.length
+        );
+      }
+    });
   }
 
   /* ---------- Map workshop ---------- */
@@ -4043,6 +4424,45 @@
 
     document.addEventListener('click', handleActionClick);
 
+    document.addEventListener(
+      'click',
+      (event) => {
+        if (
+          !state.outlineDraft.dirty ||
+          !state.route ||
+          state.route.view !== 'outline-editor' ||
+          event.defaultPrevented ||
+          event.button !== 0 ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const link = target.closest('a[href]');
+        if (!link) return;
+
+        const href = link.getAttribute('href');
+        if (!href || !href.startsWith('#/')) return;
+
+        event.preventDefault();
+        openConfirm({
+          title: '放弃这次修改？',
+          message: '离开编辑页后，尚未保存的大纲内容会丢失。',
+          okLabel: '放弃修改',
+          onConfirm: () => {
+            state.outlineDraft.dirty = false;
+            window.location.hash = href;
+          },
+        });
+      },
+      true
+    );
+
     els.novelForm.addEventListener('input', () => {
       state.novelDraft.dirty = true;
     });
@@ -4358,12 +4778,16 @@
         if (state.route.view === 'shelf') {
           event.preventDefault();
           openNovelEditor();
-        } else if (state.route.sectionKey) {
+        } else if (state.route.sectionKey && state.route.view !== 'outline-editor') {
           event.preventDefault();
-          openEntryEditor({
-            novelId: state.route.novel.id,
-            sectionKey: state.route.sectionKey,
-          });
+          if (state.route.sectionKey === 'outline') {
+            window.location.hash = outlineEditorHash(state.route.novel.id);
+          } else {
+            openEntryEditor({
+              novelId: state.route.novel.id,
+              sectionKey: state.route.sectionKey,
+            });
+          }
         }
       } else if (event.key === '/' && state.route.view === 'shelf') {
         event.preventDefault();
@@ -4372,7 +4796,36 @@
     });
 
     window.addEventListener('hashchange', () => {
+      if (
+        state.outlineDraft.dirty &&
+        state.route &&
+        state.route.view === 'outline-editor'
+      ) {
+        const intendedHash = window.location.hash;
+        const currentHash = state.outlineDraft.hash;
+
+        if (intendedHash !== currentHash) {
+          window.history.replaceState(null, '', currentHash);
+          openConfirm({
+            title: '放弃这次修改？',
+            message: '离开编辑页后，尚未保存的大纲内容会丢失。',
+            okLabel: '放弃修改',
+            onConfirm: () => {
+              state.outlineDraft.dirty = false;
+              window.location.hash = intendedHash;
+            },
+          });
+          return;
+        }
+      }
+
       renderRoute({ scroll: true });
+    });
+
+    window.addEventListener('beforeunload', (event) => {
+      if (!state.outlineDraft.dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
     });
 
     window.addEventListener('storage', (event) => {
@@ -4382,6 +4835,14 @@
         return;
       }
       if (event.key !== STORAGE_KEY) return;
+      if (
+        state.route &&
+        state.route.view === 'outline-editor' &&
+        state.outlineDraft.dirty
+      ) {
+        showToast('其他标签页刚刚修改了故事簿，请先保存这条大纲', 'error');
+        return;
+      }
       const library = loadLibrary();
       state.novels = library.novels;
       state.trash = library.trash;
@@ -4414,11 +4875,19 @@
         break;
       case 'new-entry':
         event.preventDefault();
-        if (sectionKey) openEntryEditor({ novelId, sectionKey });
+        if (!sectionKey) break;
+        if (sectionKey === 'outline') {
+          window.location.hash = outlineEditorHash(novelId);
+        } else {
+          openEntryEditor({ novelId, sectionKey });
+        }
         break;
       case 'edit-entry':
         event.preventDefault();
-        if (sectionKey && entryId) {
+        if (!sectionKey || !entryId) break;
+        if (sectionKey === 'outline') {
+          window.location.hash = outlineEditorHash(novelId, entryId);
+        } else {
           openEntryEditor({ novelId, sectionKey, entryId });
         }
         break;

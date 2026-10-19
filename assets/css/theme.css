@@ -1399,6 +1399,178 @@ body {
   color: var(--accent);
 }
 
+/* ---------- 大纲整页编辑 ---------- */
+
+.outline-editor-page {
+  min-width: 0;
+}
+
+.outline-editor-back {
+  margin-bottom: 0.9rem;
+}
+
+.outline-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.outline-editor-heading {
+  min-width: 0;
+}
+
+.outline-editor-title {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: clamp(1.45rem, 2.6vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.outline-editor-desc {
+  max-width: 54em;
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.outline-editor-head-actions {
+  display: flex;
+  flex: none;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.outline-editor-form {
+  padding: 1.5rem 1.8rem 1.1rem;
+}
+
+.outline-editor-form .field > input,
+.outline-editor-form .field > textarea {
+  background: #fff;
+}
+
+.outline-editor-form .outline-title-field {
+  margin-bottom: 0.9rem;
+}
+
+.outline-editor-form .field > input.outline-title-input {
+  padding: 0.78rem 0.95rem;
+  font-family: var(--sans);
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.outline-editor-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 0 1rem;
+}
+
+.outline-editor-form .outline-notes-field > textarea {
+  min-height: clamp(320px, 50vh, 720px);
+  padding: 0.95rem 1.05rem;
+  font-family: var(--reading);
+  font-size: 1rem;
+  line-height: 1.95;
+}
+
+.outline-editor-form .field-foot .counter {
+  flex: none;
+  white-space: nowrap;
+}
+
+#outlineEditorTagInput {
+  flex: 1;
+  width: auto;
+  min-width: 120px;
+  padding: 3px 2px;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+#outlineEditorTagInput::placeholder {
+  color: var(--faint);
+}
+
+#outlineEditorTagInput:hover,
+#outlineEditorTagInput:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.outline-editor-footer {
+  position: sticky;
+  bottom: -1px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.5rem -1.8rem -1.1rem;
+  padding: 0.85rem 1.8rem;
+  border-top: 1px solid var(--rule);
+  border-radius: 0 0 14px 14px;
+  background: rgba(255, 255, 255, calc(var(--card-alpha) + 0.42));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.outline-editor-footer-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+}
+
+.outline-editor-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.outline-editor-state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.outline-editor-state.is-dirty {
+  color: var(--amber);
+}
+
+.outline-editor-state.is-dirty::before {
+  background: var(--amber);
+}
+
+.outline-editor-footer-actions {
+  display: flex;
+  flex: none;
+  gap: 0.5rem;
+}
+
+.outline-editor-footer .dialog-hint {
+  margin: 0;
+}
+
 .empty-state {
   border-color: var(--line-strong);
   border-radius: 14px;
@@ -2407,6 +2579,15 @@ body {
   .entry-detail {
     padding: 1.4rem 1.5rem 1.2rem;
   }
+
+  .outline-editor-form {
+    padding: 1.35rem 1.5rem 1rem;
+  }
+
+  .outline-editor-footer {
+    margin: 0.5rem -1.5rem -1rem;
+    padding: 0.8rem 1.5rem;
+  }
 }
 
 @media (max-width: 680px) {
@@ -2650,6 +2831,46 @@ body {
 
   .entry-detail {
     padding: 1.1rem 1rem 1rem;
+  }
+
+  .outline-editor-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.8rem;
+  }
+
+  .outline-editor-head-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .outline-editor-meta {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .outline-editor-form {
+    padding: 1.15rem 1rem 0.75rem;
+  }
+
+  .outline-editor-form .outline-notes-field > textarea {
+    min-height: 46vh;
+  }
+
+  .outline-editor-footer {
+    flex-wrap: wrap;
+    margin: 0.5rem -1rem -0.75rem;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .outline-editor-footer-hint,
+  .outline-editor-footer-actions {
+    flex: 1 1 100%;
+  }
+
+  .outline-editor-footer-actions .btn {
+    flex: 1;
+    justify-content: center;
   }
 
   .entry-notes {

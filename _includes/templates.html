@@ -27,6 +27,81 @@
     </article>
   </template>
 
+  <template id="outlineEditorTemplate">
+    <div class="outline-editor-page">
+      <a class="back-link outline-editor-back" data-outline-back href="#/">
+        <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+        <span data-outline-back-label>返回大纲列表</span>
+      </a>
+
+      <header class="outline-editor-head">
+        <div class="outline-editor-heading">
+          <p class="eyebrow" data-outline-eyebrow>OUTLINE · NEW</p>
+          <h2 class="outline-editor-title" data-outline-heading>新增大纲</h2>
+          <p class="outline-editor-desc" data-outline-desc>整页书写，分卷、章节与分场都可以一次铺开。</p>
+        </div>
+        <div class="outline-editor-head-actions">
+          <button type="button" class="btn ghost" data-outline-cancel>取消</button>
+          <button type="submit" form="outlineEditorForm" class="btn primary">
+            <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+            <span data-outline-save-label>保存大纲</span>
+          </button>
+        </div>
+      </header>
+
+      <form id="outlineEditorForm" class="outline-editor-form panel" novalidate>
+        <div class="field outline-title-field" id="outlineEditorTitleField">
+          <label for="outlineEditorTitleInput">标题 <span class="field-mark">必填</span></label>
+          <input type="text" id="outlineEditorTitleInput" name="title" class="outline-title-input" maxlength="60" autocomplete="off">
+          <p class="field-error" id="outlineEditorTitleError" hidden>请先给这条大纲一个标题。</p>
+        </div>
+
+        <div class="outline-editor-meta">
+          <div class="field">
+            <label for="outlineEditorScopeInput">层级 / 范围 <span class="field-optional">选填</span></label>
+            <input type="text" id="outlineEditorScopeInput" name="subtitle" maxlength="60" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="outlineEditorSummaryInput">一段话梗概 <span class="field-optional">选填</span></label>
+            <input type="text" id="outlineEditorSummaryInput" name="summary" maxlength="160" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field outline-notes-field">
+          <label for="outlineEditorNotesInput">大纲正文 <span class="field-optional">选填</span></label>
+          <textarea id="outlineEditorNotesInput" name="notes" rows="20"></textarea>
+          <div class="field-foot">
+            <span class="field-hint">分场、转折、伏笔、人物变化都可以写在这里，换行会保留</span>
+            <span class="field-hint counter" id="outlineEditorNotesCount">0 字</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="outlineEditorTagInput">标签 <span class="field-optional">选填</span></label>
+          <div class="tag-editor" id="outlineEditorTagEditor">
+            <input type="text" id="outlineEditorTagInput" list="outlineEditorTagSuggestions" maxlength="16" placeholder="输入后按回车" autocomplete="off" aria-describedby="outlineEditorTagHint">
+          </div>
+          <datalist id="outlineEditorTagSuggestions"></datalist>
+          <p class="field-hint" id="outlineEditorTagHint">最多 8 个，回车或逗号确认</p>
+        </div>
+
+        <footer class="outline-editor-footer">
+          <span class="outline-editor-footer-hint">
+            <span class="outline-editor-state" data-outline-state aria-live="polite">尚未保存</span>
+            <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
+          </span>
+          <div class="outline-editor-footer-actions">
+            <button type="button" class="btn ghost" data-outline-cancel>取消</button>
+            <button type="submit" class="btn primary">
+              <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+              <span data-outline-save-label>保存大纲</span>
+            </button>
+          </div>
+        </footer>
+      </form>
+    </div>
+  </template>
+
   <template id="entryCardTemplate">
     <article class="entry-card">
       <a class="entry-card-main" href="#/">
