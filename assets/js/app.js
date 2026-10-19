@@ -314,6 +314,9 @@
   const $ = (selector, scope = document) => scope.querySelector(selector);
 
   const els = {
+    page: $('.page'),
+    sidebar: $('.sidebar'),
+    content: $('.content'),
     shelfView: $('#shelfView'),
     trashView: $('#trashView'),
     novelView: $('#novelView'),
@@ -580,6 +583,8 @@
 
   let isComposingTag = false;
   let sidebarSectionsSettleTimer = 0;
+  let pendingSidebarReveal = false;
+  let pageFrameAnimation = null;
 
   init();
 
@@ -1390,9 +1395,90 @@
     return null;
   }
 
-  function renderRoute({ scroll = false } = {}) {
+  function clearPageFrameAnimation() {
+    const animation = pageFrameAnimation;
+    pageFrameAnimation = null;
+    if (els.page) els.page.style.height = '';
+    document.body.style.paddingBottom = '';
+    if (animation) animation.cancel();
+  }
+
+  function measurePageFrameTargetHeight() {
+    const height = els.page.getBoundingClientRect().height;
+    if (!pendingSidebarReveal) return height;
+
+    const reveal = els.sidebarSectionsGroup.querySelector('.side-current-reveal');
+    const inner = reveal && reveal.querySelector('.side-current-inner');
+    if (!reveal || !inner) return height;
+
+    const remaining = Math.max(
+      0,
+      inner.scrollHeight - reveal.getBoundingClientRect().height
+    );
+    if (remaining < 1) return height;
+
+    const sidebarAlign = els.sidebar.style.alignSelf;
+    const contentAlign = els.content.style.alignSelf;
+    els.sidebar.style.alignSelf = 'start';
+    els.content.style.alignSelf = 'start';
+    const sidebarHeight = els.sidebar.getBoundingClientRect().height;
+    const contentHeight = els.content.getBoundingClientRect().height;
+    els.sidebar.style.alignSelf = sidebarAlign;
+    els.content.style.alignSelf = contentAlign;
+
+    const style = window.getComputedStyle(els.page);
+    const borders =
+      (parseFloat(style.borderTopWidth) || 0) +
+      (parseFloat(style.borderBottomWidth) || 0);
+    const desktop = window.matchMedia('(min-width: 881px)').matches;
+    const innerHeight = desktop
+      ? Math.max(contentHeight, sidebarHeight + remaining)
+      : contentHeight + sidebarHeight + remaining;
+    return innerHeight + borders;
+  }
+
+  function startPageFrameAnimation(fromHeight, toHeight, compensateScroll) {
+    if (!fromHeight || !toHeight) return;
+    const distance = Math.abs(toHeight - fromHeight);
+    if (distance < 2) return;
+
+    if (compensateScroll && toHeight > fromHeight) {
+      document.body.style.paddingBottom = `${toHeight - fromHeight}px`;
+    }
+
+    els.page.style.height = `${fromHeight}px`;
+    void els.page.offsetHeight;
+
+    const duration = Math.min(520, Math.round(300 + distance * 0.08));
+    const animation = els.page.animate(
+      [{ height: `${fromHeight}px` }, { height: `${toHeight}px` }],
+      {
+        duration,
+        easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+        fill: 'forwards',
+      }
+    );
+    pageFrameAnimation = animation;
+    animation.onfinish = () => {
+      if (pageFrameAnimation === animation) clearPageFrameAnimation();
+    };
+  }
+
+  function renderRoute({ scroll = false, animateFrame = false } = {}) {
     const previousRoute = state.route;
     const route = parseRoute();
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    const canAnimateFrame =
+      animateFrame &&
+      Boolean(previousRoute) &&
+      !reduceMotion &&
+      !state.pendingCommentFocus;
+    const previousFrameHeight = canAnimateFrame
+      ? els.page.getBoundingClientRect().height
+      : 0;
+    clearPageFrameAnimation();
     state.route = route;
 
     if (route.view !== 'outline-editor') {
@@ -1468,6 +1554,11 @@
       renderNovelWorkspace(route);
     }
 
+    const frameTargetHeight = canAnimateFrame
+      ? measurePageFrameTargetHeight()
+      : 0;
+    pendingSidebarReveal = false;
+
     if (scroll && !compactEntry) {
       window.scrollTo({ top: targetScroll, behavior: 'auto' });
     }
@@ -1480,6 +1571,14 @@
     syncCommentFab(route);
     applyPendingCommentFocus();
     updateDocumentTitle(route);
+
+    if (canAnimateFrame) {
+      startPageFrameAnimation(
+        previousFrameHeight,
+        frameTargetHeight,
+        scroll && window.scrollY > 0
+      );
+    }
   }
 
   function refreshCurrentView() {
@@ -1865,6 +1964,7 @@
     if (!visible) {
       group.hidden = true;
       group.classList.remove('is-open', 'is-settled');
+      pendingSidebarReveal = false;
       return;
     }
 
@@ -1874,6 +1974,7 @@
     group.classList.remove('is-open', 'is-settled');
     void group.offsetWidth;
     group.classList.add('is-open');
+    pendingSidebarReveal = true;
     sidebarSectionsSettleTimer = window.setTimeout(() => {
       group.classList.add('is-settled');
     }, 320);
@@ -8690,7 +8791,7 @@
         return;
       }
 
-      renderRoute({ scroll: true });
+      renderRoute({ scroll: true, animateFrame: true });
     });
 
     window.addEventListener('beforeunload', (event) => {
