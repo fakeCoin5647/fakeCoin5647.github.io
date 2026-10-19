@@ -169,16 +169,37 @@
       <div class="dialog-body">
         <div class="relation-route">
           <div class="field">
-            <label for="relationFromSelect">角色 A</label>
+            <label for="relationFromSelect"><span id="relationFromLabelText">角色 A</span></label>
             <select id="relationFromSelect" class="relation-select"></select>
           </div>
-          <span class="relation-route-mark" aria-hidden="true">↔</span>
+          <span class="relation-route-mark" id="relationRouteMark" aria-hidden="true">↔</span>
           <div class="field">
-            <label for="relationToSelect">角色 B</label>
+            <label for="relationToSelect"><span id="relationToLabelText">角色 B</span></label>
             <select id="relationToSelect" class="relation-select"></select>
           </div>
         </div>
         <p class="field-error relation-form-error" id="relationFormError" hidden></p>
+
+        <div class="field relation-direction-field">
+          <span class="field-label">关系方向</span>
+          <div class="relation-directions" id="relationDirections" role="radiogroup" aria-label="关系方向">
+            <label class="relation-direction is-active" id="relationDirectionBothLabel">
+              <input type="radio" id="relationDirectionBoth" name="relationDirection" value="both" checked>
+              <span class="relation-direction-text">
+                <span class="relation-direction-title"><span class="relation-direction-mark" aria-hidden="true">↔</span>双向</span>
+                <span class="relation-direction-desc">彼此相连</span>
+              </span>
+            </label>
+            <label class="relation-direction" id="relationDirectionOneWayLabel">
+              <input type="radio" id="relationDirectionOneWay" name="relationDirection" value="oneway">
+              <span class="relation-direction-text">
+                <span class="relation-direction-title"><span class="relation-direction-mark" aria-hidden="true">→</span>单向</span>
+                <span class="relation-direction-desc">从起点指向终点</span>
+              </span>
+            </label>
+          </div>
+          <p class="relation-direction-note" id="relationDirectionNote">双向关系：一条线同时连接两位角色。</p>
+        </div>
 
         <div class="field" id="relationLabelField">
           <label for="relationLabelInput">关系描述 <span class="field-mark">必填</span></label>
@@ -204,7 +225,7 @@
           </div>
         </div>
 
-        <p class="relation-hint" id="relationFormHint">关系是双向的：一条线同时连接两位角色。删除角色时，关系线会暂时收起，恢复角色后会重新出现。</p>
+        <p class="relation-hint" id="relationFormHint">双向关系没有箭头。删除角色时，关系线会暂时收起，恢复角色后会重新出现。</p>
       </div>
 
       <footer class="dialog-actions">
@@ -212,6 +233,36 @@
         <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
         <button type="button" class="btn ghost" id="relationCancelBtn">取消</button>
         <button type="submit" class="btn primary" id="relationSaveBtn">保存关系</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="graphDialog" class="dialog graph-dialog" aria-labelledby="graphDialogTitle">
+    <form id="graphForm" novalidate>
+      <header class="dialog-head">
+        <div>
+          <p class="dialog-eyebrow" id="graphDialogEyebrow">LINEAGE · NEW</p>
+          <h2 id="graphDialogTitle">新建谱系</h2>
+        </div>
+        <button type="button" class="icon-btn dialog-close" id="graphDialogCloseBtn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="field" id="graphTitleField">
+          <label for="graphTitleInput">谱系名称 <span class="field-mark">必填</span></label>
+          <input type="text" id="graphTitleInput" name="graphTitle" maxlength="20" placeholder="比如：家族谱系、门派关系" autocomplete="off">
+          <p class="field-error" id="graphTitleError" hidden>请写下一个谱系名称。</p>
+        </div>
+        <p class="relation-hint">每个谱系是一张独立的关系图，用来分别整理家族、门派、势力等脉络。切换谱系不会影响其他图，其中的关系也会保留。</p>
+      </div>
+
+      <footer class="dialog-actions">
+        <button type="button" class="btn ghost relation-delete" id="graphDeleteBtn" hidden>删除谱系</button>
+        <span class="dialog-hint">Enter 保存</span>
+        <button type="button" class="btn ghost" id="graphCancelBtn">取消</button>
+        <button type="submit" class="btn primary" id="graphSaveBtn">创建谱系</button>
       </footer>
     </form>
   </dialog>
