@@ -1,0 +1,49 @@
+    <aside class="sidebar">
+      <a class="brand" href="#/" aria-label="故事簿首页">
+        <span class="avatar" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <path d="M32 10c1.7 11.3 4.7 15.2 16 17-11.3 1.8-14.3 5.7-16 17-1.7-11.3-4.7-15.2-16-17 11.3-1.8 14.3-5.7 16-17Z" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="name">故事簿</span>
+          <span class="tagline">STORY NOTES</span>
+        </span>
+      </a>
+
+      <nav class="side-nav" aria-label="站点导航">
+        <a class="nav-item" href="#/" id="sidebarShelfLink">
+          <span class="nav-emoji" aria-hidden="true">🏠</span>
+          <span>我的书架</span>
+        </a>
+
+        <div class="nav-group">
+          <p class="nav-label"><span aria-hidden="true">📚</span> 我的小说</p>
+          <div class="subnav side-novel-list" id="sidebarNovelList"></div>
+          <p class="side-empty" id="sidebarNovelsEmpty">书架还空着</p>
+        </div>
+
+        <div class="nav-group" id="sidebarSectionsGroup" hidden>
+          <a class="side-book" id="sidebarBookLink" href="#/">
+            <span class="side-book-emoji" aria-hidden="true">📖</span>
+            <span class="side-book-name" id="sidebarBookName"></span>
+          </a>
+          <div class="subnav side-sections" id="workspaceNav" aria-label="小说内容导航"></div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="side-actions">
+          <button type="button" class="side-action" id="importBtn" aria-label="导入备份">
+            <svg class="icon" aria-hidden="true"><use href="#i-import"></use></svg>
+            <span>导入</span>
+          </button>
+          <button type="button" class="side-action" id="exportBtn" aria-label="导出备份">
+            <svg class="icon" aria-hidden="true"><use href="#i-export"></use></svg>
+            <span>导出</span>
+          </button>
+          <input type="file" id="importFile" accept=".json,application/json" hidden>
+        </div>
+        <p class="side-note"><span class="caption-dot" aria-hidden="true"></span>内容只保存在本机</p>
+      </div>
+    </aside>

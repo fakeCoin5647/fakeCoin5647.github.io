@@ -9,13 +9,12 @@
   <a class="skip-link" href="#mainContent">跳到主要内容</a>
 
   <div class="page">
-    {% include site-header.html %}
+    {% include sidebar.html %}
 
-    <main id="mainContent">
+    <main class="content" id="mainContent">
 {{ content }}
+      {% include site-footer.html %}
     </main>
-
-    {% include site-footer.html %}
   </div>
 
   {% include templates.html %}

@@ -1,11 +1,12 @@
 # 故事簿 · STORY NOTES
 
-一座放在浏览器里的私人小说书架：点开一本书，整理它的角色、背景、设定、地图与资料。纸感排版，无需登录，零依赖；站点外壳使用 Jekyll 构建，可直接部署到 GitHub Pages。
+一座放在浏览器里的私人小说书架：点开一本书，整理它的角色、背景、设定、地图与资料。夜图书馆壁纸配磨砂玻璃卡片，左侧栏直达书架、小说与各内容分区；无需登录，零依赖；站点外壳使用 Jekyll 构建，可直接部署到 GitHub Pages。
 
 > 小说与设定数据只保存在每位访问者自己的浏览器里，Jekyll 只负责生成静态页面外壳。
 
 ## 功能
 
+- **玻璃拟态外壳**：全屏夜图书馆壁纸 + 磨砂玻璃主卡片，左侧固定导航汇总书架、小说与分区；窄屏自动折叠为顶部导航
 - **书架首页**：用书封卡片陈列所有小说，支持搜索、按创作状态筛选、按更新 / 创建时间或书名排序
 - **小说工作区**：每本小说都有独立概览，包含故事简介、五个内容分区与最近更新
 - **五个内容分区**：角色、背景、设定、地图、资料
@@ -13,7 +14,7 @@
 - 小说与词条都支持置顶；生成式书封提供五种色调
 - 数据保存在浏览器本地，支持 JSON 导出与导入备份，多标签页自动同步
 - 键盘操作：书架页 `N` 新建小说，小说分区页 `N` 新建词条，`/` 聚焦搜索，`Ctrl / ⌘ + Enter` 保存
-- 响应式布局，支持 `prefers-reduced-motion`
+- 响应式布局：桌面为左侧栏 + 内容区，平板与手机自动转为顶部导航、分区胶囊换行；支持 `prefers-reduced-motion`
 
 ## 页面结构
 
@@ -37,22 +38,24 @@
 ├── _config.yml            # 站点标题、描述与构建排除项
 ├── index.html             # 页面内容（含 front matter，交给 default 布局）
 ├── _layouts/
-│   └── default.html       # HTML 骨架：引入头部、页头、页脚与对话框
+│   └── default.html       # HTML 骨架：左侧栏 + 内容区 + 页脚
 ├── _includes/
 │   ├── head.html          # <head> 内容：标题、图标、样式
 │   ├── icon-sprite.html   # SVG 图标集合
-│   ├── site-header.html   # 顶部导航
+│   ├── sidebar.html       # 左侧栏：书架、小说列表、分区、导入导出
 │   ├── site-footer.html   # 页脚
 │   ├── templates.html     # 前端使用的 <template>
 │   └── dialogs.html       # 新建 / 编辑 / 导入等 <dialog>
 ├── assets/
-│   ├── css/styles.css     # 全部样式
+│   ├── css/styles.css     # 组件与基础布局
+│   ├── css/theme.css      # 玻璃拟态主题、壁纸与响应式覆盖
+│   ├── img/story-library.jpg  # 夜图书馆背景壁纸
 │   └── js/app.js          # 全部交互与本地数据逻辑
 ├── favicon.svg
 └── README.md
 ```
 
-`index.html` 只保留书架与小说工作区的页面结构，由 `default.html` 布局包裹；页头、页脚、模板与对话框拆进 `_includes/`。这样以后新增页面或公共区块时不必重复复制 HTML。样式与脚本仍是纯静态文件，不使用任何前端依赖。
+`index.html` 只保留书架与小说工作区的页面结构，由 `default.html` 布局包裹；左侧栏、页脚、模板与对话框拆进 `_includes/`。`styles.css` 负责结构与组件的默认样式，`theme.css` 在其后加载，负责配色、玻璃外壳、壁纸和响应式覆盖。样式与脚本仍是纯静态文件，不使用任何前端依赖。
 
 ## 本地预览
 
@@ -124,6 +127,8 @@ GitHub Pages 会检测到 `_config.yml` 并自动用 Jekyll 构建，不需要 A
    - `_layouts/`（内含 `default.html`）
    - `_includes/`（内含 6 个 HTML 片段）
    - `assets/css/styles.css`
+   - `assets/css/theme.css`
+   - `assets/img/story-library.jpg`
    - `assets/js/app.js`
    - `favicon.svg`
    - `README.md`（可选）
@@ -160,8 +165,9 @@ git push -u origin main
 
 ## 自定义
 
-- 配色、书封色调与字体：修改 `assets/css/styles.css` 顶部 `:root` 及 `.tone-*` 变量。
+- 主题配色、玻璃透明度、字体与响应式断点：修改 `assets/css/theme.css` 顶部 `:root` 与媒体查询；组件基础样式在 `assets/css/styles.css`，书封色调在 `.tone-*` 变量。
+- 背景壁纸：替换 `assets/img/story-library.jpg`（建议使用 16:9 或更宽的图片）；路径在 `theme.css` 的 `--wallpaper` 变量中。
 - 站点标题、描述与构建排除项：修改 `_config.yml`；页面 `<title>` 与 meta 描述在 `_includes/head.html`。
-- 页面主体文案：修改 `index.html`；页头与页脚文案在 `_includes/site-header.html`、`_includes/site-footer.html`。
+- 页面主体文案：修改 `index.html`；侧边栏与页脚文案在 `_includes/sidebar.html`、`_includes/site-footer.html`。
 - 公共区块与对话框：修改 `_includes/templates.html`、`_includes/dialogs.html`。
 - 分区名称、字段提示、空状态文案与交互：修改 `assets/js/app.js` 中的 `SECTIONS`；若调整存储结构，请同步更新存储键或在读取时做兼容处理。

@@ -161,6 +161,13 @@
     workspaceNav: $('#workspaceNav'),
     workspaceContent: $('#workspaceContent'),
 
+    sidebarShelfLink: $('#sidebarShelfLink'),
+    sidebarNovelList: $('#sidebarNovelList'),
+    sidebarNovelsEmpty: $('#sidebarNovelsEmpty'),
+    sidebarSectionsGroup: $('#sidebarSectionsGroup'),
+    sidebarBookLink: $('#sidebarBookLink'),
+    sidebarBookName: $('#sidebarBookName'),
+
     novelCardTemplate: $('#novelCardTemplate'),
     entryCardTemplate: $('#entryCardTemplate'),
 
@@ -436,6 +443,7 @@
       renderShelf();
     } else if (route.view === 'missing') {
       showView('missing');
+      renderSidebar(route);
     } else {
       showView('novel');
       renderNovelWorkspace(route);
@@ -516,6 +524,8 @@
     } else {
       els.shelfResultCount.textContent = `共 ${visible.length} 本小说`;
     }
+
+    renderSidebar(state.route);
   }
 
   function renderShelfStats() {
@@ -719,6 +729,51 @@
       renderSection(novel, route.sectionKey);
     } else if (route.view === 'entry') {
       renderEntryDetail(novel, route.sectionKey, route.entry);
+    }
+
+    renderSidebar(route);
+  }
+
+  function renderSidebar(route = state.route) {
+    const onShelf = Boolean(route && route.view === 'shelf');
+    const currentNovel =
+      route && ['novel', 'section', 'entry'].includes(route.view) ? route.novel : null;
+
+    els.sidebarShelfLink.classList.toggle('is-active', onShelf);
+    if (onShelf) {
+      els.sidebarShelfLink.setAttribute('aria-current', 'page');
+    } else {
+      els.sidebarShelfLink.removeAttribute('aria-current');
+    }
+
+    const novels = [...state.novels].sort(
+      (a, b) => pinWeight(b) - pinWeight(a) || timeValue(b.updatedAt) - timeValue(a.updatedAt)
+    );
+    const fragment = document.createDocumentFragment();
+
+    for (const novel of novels) {
+      const active = Boolean(currentNovel && currentNovel.id === novel.id);
+      const link = el('a', 'side-novel-link');
+      link.href = novelHash(novel.id);
+      link.title = novel.title;
+      link.classList.toggle('is-active', active);
+      if (active) link.setAttribute('aria-current', 'page');
+
+      const dot = el('span', `side-novel-dot tone-${novel.tone}`);
+      dot.setAttribute('aria-hidden', 'true');
+      link.append(dot, el('span', 'side-novel-name', novel.title));
+      fragment.appendChild(link);
+    }
+
+    els.sidebarNovelList.replaceChildren(fragment);
+    els.sidebarNovelList.hidden = novels.length === 0;
+    els.sidebarNovelsEmpty.hidden = novels.length > 0;
+
+    els.sidebarSectionsGroup.hidden = !currentNovel;
+    if (currentNovel) {
+      els.sidebarBookLink.href = novelHash(currentNovel.id);
+      els.sidebarBookLink.title = currentNovel.title;
+      els.sidebarBookName.textContent = currentNovel.title;
     }
   }
 
