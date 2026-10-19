@@ -41,7 +41,7 @@ layout: default
             </div>
           </div>
 
-          <div class="list-meta">
+          <div class="list-meta" data-comment-anchor="page">
             <p id="shelfResultCount" aria-live="polite">书架还空着</p>
             <button type="button" class="link-btn" id="shelfClearFiltersBtn" hidden>清除筛选</button>
           </div>
@@ -95,7 +95,7 @@ layout: default
           <span class="crumb-current">回收站</span>
         </nav>
 
-        <header class="page-head trash-head">
+        <header class="page-head trash-head" data-comment-anchor="page">
           <div class="page-head-copy">
             <p class="eyebrow">RECYCLE BIN</p>
             <h1>回收站</h1>
@@ -143,7 +143,7 @@ layout: default
           <span class="crumb-current" id="breadcrumbNovelTitle"></span>
         </nav>
 
-        <header class="novel-hero">
+        <header class="novel-hero" data-comment-anchor="page">
           <div class="novel-hero-cover" id="novelCoverSlot"></div>
           <div class="novel-hero-body">
             <div class="novel-kicker">
@@ -171,6 +171,76 @@ layout: default
         <div class="workspace">
           <section class="workspace-content" id="workspaceContent" aria-label="小说内容"></section>
         </div>
+      </section>
+
+      <section class="view comments-view" id="commentsView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            我的书架
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current">评论与标注</span>
+        </nav>
+
+        <header class="page-head comments-head">
+          <div class="page-head-copy">
+            <p class="eyebrow">MARGIN NOTES</p>
+            <h1>评论与标注</h1>
+            <p class="page-desc">把对某一页、某个词条或某段内容的批注收在这里。每一条评论都记得自己来自哪里，可以随时跳回原处。</p>
+          </div>
+        </header>
+
+        <section class="shelf-section comments-section" aria-labelledby="commentsHeading">
+          <h2 class="sr-only" id="commentsHeading">评论目录</h2>
+
+          <div class="comments-toolbar" id="commentsToolbar">
+            <div class="search-box">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+              <input type="search" id="commentsSearchInput" placeholder="搜索评论内容或位置…" aria-label="搜索评论" autocomplete="off" spellcheck="false">
+              <button type="button" class="search-clear" id="commentsSearchClearBtn" aria-label="清空搜索" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+              </button>
+              <kbd class="search-kbd" aria-hidden="true">/</kbd>
+            </div>
+            <label class="sort-control">
+              <span>排序</span>
+              <select id="commentsSortSelect">
+                <option value="newest">最近评论</option>
+                <option value="oldest">最早评论</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="list-meta comments-meta">
+            <p id="commentsCount" aria-live="polite">还没有评论</p>
+            <button type="button" class="link-btn" id="commentsClearSearchBtn" hidden>清除搜索</button>
+          </div>
+
+          <div class="comment-directory" id="commentsList"></div>
+
+          <div class="empty-state" id="commentsEmpty" hidden>
+            <div class="comments-empty-icon" aria-hidden="true">
+              <svg class="icon"><use href="#i-comment"></use></svg>
+            </div>
+            <h3>还没有留下评论</h3>
+            <p>在任意页面右下角点「＋ 评论」，就能把想法标在这一页，或页面里的某个词条、某段内容上。</p>
+            <a class="btn ghost" href="#/">去书架看看</a>
+          </div>
+
+          <div class="empty-state empty-filtered" id="commentsNoResults" hidden>
+            <svg class="empty-art small" viewBox="0 0 120 100" aria-hidden="true">
+              <circle cx="54" cy="44" r="24" fill="none" stroke="#b9c2d6" stroke-width="2.5"/>
+              <path d="m72 62 16 16" stroke="#b9c2d6" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M44 44h20M54 34v20" stroke="#4f6df5" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+            </svg>
+            <h3>没有找到相关评论</h3>
+            <p>换个关键词试试，或者清除搜索。</p>
+            <div class="empty-actions">
+              <button class="btn ghost" id="commentsNoResultsClearBtn" type="button">清除搜索</button>
+            </div>
+          </div>
+        </section>
       </section>
 
       <section class="view missing-view" id="missingView" hidden>
