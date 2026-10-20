@@ -2,7 +2,77 @@
   "app": "Coin's Creative Cabin",
   "version": 1,
   "kind": "public-library",
-  "generatedAt": null,
-  "signature": "",
-  "novels": []
+  "generatedAt": "2026-10-20T00:05:50.321Z",
+  "signature": "9c560f5b-7552-4a81-ac8c-3b8f39b30b46@2026-10-20T00:04:01.985Z#;a24862c6-5af7-4c3b-a441-6cd22a19751e@2026-10-19T19:17:01.785Z,a149a090-5f77-465f-bd7a-561837b752a3@2026-10-19T19:16:45.523Z;;;d56cb2d7-7d93-4401-891d-6afd1055f863@2026-10-19T18:50:51.342Z;",
+  "novels": [
+    {
+      "id": "9c560f5b-7552-4a81-ac8c-3b8f39b30b46",
+      "title": "未名",
+      "genre": "玄幻",
+      "summary": "图腾的故事",
+      "description": "",
+      "status": "planning",
+      "tone": 0,
+      "cover": "",
+      "pinned": false,
+      "createdAt": "2026-10-19T16:49:51.066Z",
+      "updatedAt": "2026-10-20T00:04:01.985Z",
+      "entries": {
+        "outline": [],
+        "characters": [
+          {
+            "id": "a24862c6-5af7-4c3b-a441-6cd22a19751e",
+            "title": "无名",
+            "subtitle": "",
+            "summary": "",
+            "notes": "",
+            "tags": [],
+            "createdAt": "2026-10-19T19:17:01.785Z",
+            "updatedAt": "2026-10-19T19:17:01.785Z"
+          },
+          {
+            "id": "a149a090-5f77-465f-bd7a-561837b752a3",
+            "title": "林晚",
+            "subtitle": "",
+            "summary": "",
+            "notes": "",
+            "tags": [],
+            "createdAt": "2026-10-19T19:16:45.523Z",
+            "updatedAt": "2026-10-19T19:16:45.523Z"
+          }
+        ],
+        "world": [],
+        "settings": [],
+        "maps": [
+          {
+            "id": "d56cb2d7-7d93-4401-891d-6afd1055f863",
+            "title": "出生点",
+            "subtitle": "",
+            "summary": "",
+            "notes": "",
+            "tags": [],
+            "createdAt": "2026-10-19T18:50:51.342Z",
+            "updatedAt": "2026-10-19T18:50:51.342Z"
+          }
+        ],
+        "notes": []
+      },
+      "relations": [
+        {
+          "id": "ecc50c7b-5e79-4b99-bf91-b682d664f550",
+          "source": "a149a090-5f77-465f-bd7a-561837b752a3",
+          "target": "a24862c6-5af7-4c3b-a441-6cd22a19751e",
+          "label": "朋友",
+          "directed": true,
+          "graphId": "primary"
+        }
+      ],
+      "relationGraphs": [
+        {
+          "id": "primary",
+          "title": "一班"
+        }
+      ]
+    }
+  ]
 }
