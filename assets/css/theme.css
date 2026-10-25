@@ -11,7 +11,10 @@
   --glass-blur: 20px;
   --rim-strength: 1;
   --reading-scale: 1;
-  --glass: rgba(255, 255, 255, var(--glass-alpha));
+  /* 外壳只做承载层：轻雾即可（iOS 主屏幕的页面≈壁纸），
+     雾度集中在玻璃件自身的 backdrop blur 上；
+     仍跟随玻璃滑块，但只取其 24%，避免把壁纸垫成白底 */
+  --glass: rgba(255, 255, 255, calc(var(--glass-alpha) * 0.24));
   --glass-border: rgba(255, 255, 255, 0.65);
   --glass-soft: rgba(255, 255, 255, calc(var(--card-alpha) - 0.04));
   /* 官方厚度感描边：顶边宽亮带 → 侧面渐弱 → 底边收暗（180° 而非对角） */
@@ -834,7 +837,9 @@ html.is-sheer {
 }
 
 html.is-sheer .page {
-  background: rgba(255, 255, 255, calc(var(--glass-alpha) + 0.08));
+  /* 通透档位下外壳也只补到 0.26：壁纸必须可辨，
+     文字可读性交给玻璃件自身雾度与文字阴影 */
+  background: rgba(255, 255, 255, calc(var(--glass-alpha) * 0.3 + 0.06));
 }
 
 html.is-sheer .sidebar {
@@ -848,14 +853,18 @@ html.is-sheer .btn.ghost {
   color: var(--ink);
 }
 
-/* 通透状态下，次要文字垫一层极细的白色抬升，避免被壁纸彩纹干扰 */
+/* 通透状态下，次要文字垫一层极细的白色抬升，避免被壁纸彩纹干扰
+   （外壳降雾后，页脚与面包屑直接坐在壁纸上，同需保护） */
 html.is-sheer .page-desc,
 html.is-sheer .section-note,
 html.is-sheer .side-note,
 html.is-sheer .empty-state p,
 html.is-sheer .trash-summary,
 html.is-sheer .novel-card-summary,
-html.is-sheer .entry-card-excerpt {
+html.is-sheer .entry-card-excerpt,
+html.is-sheer .site-footer,
+html.is-sheer .back-link,
+html.is-sheer .workspace-breadcrumb {
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.45);
 }
 
@@ -6428,6 +6437,15 @@ html.is-sheer .entry-card-excerpt {
 }
 
 /* Civ6 导出指南 */
+
+.civ6-credit {
+  margin: 0;
+  font-size: 12px;
+}
+
+.civ6-credit a {
+  color: var(--accent, #4f6df5);
+}
 .civ6-guide {
   display: grid;
   gap: 12px;
@@ -6725,5 +6743,36 @@ button:hover,
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- 移动端适配补强（390/360 实测；响应式覆盖归 theme.css） ---------- */
+
+@media (max-width: 420px) {
+  .panel-head {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .panel-head-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px 10px;
+  }
+}
+
+@media (max-width: 680px) {
+  .filter-pill {
+    padding: 10px 14px;
+  }
+
+  .continue-banner-dismiss {
+    width: 40px;
+    height: 40px;
+    margin: -8px -6px -8px -10px;
+  }
+
+  .fate-roster-row {
+    padding: 10px 12px;
   }
 }
