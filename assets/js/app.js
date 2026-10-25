@@ -263,17 +263,24 @@
   const MAP_WORLD_SQRT3 = Math.sqrt(3);
 
   const MAP_TERRAINS = {
-    grass: { label: '草原', fill: '#a9c88e', stroke: '#93b27b' },
-    plains: { label: '平原', fill: '#d3ca86', stroke: '#bcb371' },
-    forest: { label: '森林', fill: '#7da47c', stroke: '#6b936c' },
-    hills: { label: '丘陵', fill: '#c5aa77', stroke: '#ae9463' },
-    mountain: { label: '山脉', fill: '#9ba1b0', stroke: '#858c9d' },
-    water: { label: '水域', fill: '#8fb8d5', stroke: '#78a5c6' },
-    desert: { label: '沙漠', fill: '#e1c993', stroke: '#cbb27c' },
-    snow: { label: '雪原', fill: '#e9eef6', stroke: '#cdd8e8' },
-    swamp: { label: '沼泽', fill: '#8fa383', stroke: '#79906e' },
-    volcano: { label: '火山', fill: '#6d6468', stroke: '#585054' },
+    grass: { label: '草原', fill: '#a2c584', stroke: '#88ab6c', fills: ['#a8cc88', '#9cbe7a', '#b0d190'] },
+    plains: { label: '平原', fill: '#d6c37c', stroke: '#b9a65f', fills: ['#ddca88', '#cfbb71', '#e3d292'] },
+    forest: { label: '森林', fill: '#71a070', stroke: '#5b8a5a', fills: ['#6da26c', '#78ad77', '#649663'] },
+    hills: { label: '丘陵', fill: '#cba75f', stroke: '#ad8a48', fills: ['#d2ae68', '#c39e54', '#dab772'] },
+    mountain: { label: '山脉', fill: '#9298a8', stroke: '#767c8c', fills: ['#98a0b2', '#8b91a1', '#a3aab9'] },
+    water: { label: '水域', fill: '#8db8d6', stroke: '#75a3c4', fills: ['#93bedb', '#87b0cf', '#9cc6e2'] },
+    desert: { label: '沙漠', fill: '#e6c67f', stroke: '#c9a95e', fills: ['#ecd08c', '#dfbc72', '#f2d998'] },
+    snow: { label: '雪原', fill: '#ecf1f7', stroke: '#ccd7e7', fills: ['#f1f5fa', '#e7edf5', '#f7f9fc'] },
+    swamp: { label: '沼泽', fill: '#89a37a', stroke: '#6f8a62', fills: ['#8fab7d', '#7f9a70', '#98b488'] },
+    volcano: { label: '火山', fill: '#6c6367', stroke: '#544d51', fills: ['#72696d', '#645c60', '#7b7175'] },
   };
+
+  function pickMapTerrainFill(terrainKey, col, row) {
+    const terrain = MAP_TERRAINS[terrainKey];
+    if (!terrain || !terrain.fills) return terrain ? terrain.fill : '#a2c584';
+    const hash = Math.abs((col * 7 + row * 13 + ((col * row) % 5) * 3) % 97);
+    return terrain.fills[hash % terrain.fills.length];
+  }
 
   const MAP_PATH_KINDS = {
     river: { label: '河流', color: '#4d86c7', width: 3.6, dash: '' },
@@ -5933,13 +5940,18 @@
       `<defs>
         <filter id="mapCityShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="rgba(20,28,52,.42)"/></filter>
         <linearGradient id="mapShade" x1="0" y1="0" x2="0.55" y2="1">
-          <stop offset="0" stop-color="#ffffff" stop-opacity=".34"/>
-          <stop offset=".42" stop-color="#ffffff" stop-opacity="0"/>
-          <stop offset="1" stop-color="#1c2440" stop-opacity=".2"/>
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".45"/>
+          <stop offset=".4" stop-color="#ffffff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#1c2440" stop-opacity=".32"/>
+        </linearGradient>
+        <linearGradient id="mapShadeSoft" x1="0" y1="0" x2="0.55" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".2"/>
+          <stop offset=".45" stop-color="#ffffff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#1c2440" stop-opacity=".14"/>
         </linearGradient>
         <linearGradient id="mapWaterGrad" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0" stop-color="#a8cbe4"/>
-          <stop offset="1" stop-color="#7fa9cb"/>
+          <stop offset="0" stop-color="#a9cde6"/>
+          <stop offset="1" stop-color="#79a6c9"/>
         </linearGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
@@ -5980,9 +5992,9 @@
     }
 
     if (segments.length === 0) return '';
-    return `<path class="map-coastline" d="${segments.join(
-      ''
-    )}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.6" stroke-linecap="round"/>`;
+    const d = segments.join('');
+    return `<path class="map-coastline" d="${d}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="5" stroke-linecap="round"/>` +
+      `<path class="map-coastline" d="${d}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>`;
   }
 
   function catmullRomToBezierPath(points) {
@@ -6070,15 +6082,24 @@
   function buildMapHexInner(col, row, terrainKey) {
     const center = hexCenter(col, row);
     const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
-    const fill = terrainKey === 'water' ? 'url(#mapWaterGrad)' : terrain.fill;
-    const shaded = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
+    const fill =
+      terrainKey === 'water' ? 'url(#mapWaterGrad)' : pickMapTerrainFill(terrainKey, col, row);
+    const strongShade = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
+    const softShade = ['grass', 'plains', 'desert'].includes(terrainKey);
+    const shadeLayer = strongShade
+      ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
+      : softShade
+        ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShadeSoft)"/>`
+        : '';
     return `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${fill}" stroke="${
       terrain.stroke
-    }" stroke-opacity=".55" stroke-width=".7"/>${
-      shaded
-        ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
-        : ''
-    }${buildMapDecor(terrainKey, center.x, center.y, col, row)}`;
+    }" stroke-opacity=".5" stroke-width=".7"/>${shadeLayer}${buildMapDecor(
+      terrainKey,
+      center.x,
+      center.y,
+      col,
+      row
+    )}`;
   }
 
   function buildMapDecor(terrainKey, x, y, col, row) {
@@ -6086,48 +6107,80 @@
       x
     )} ${roundMapCoordinate(y)})" aria-hidden="true">`;
     const close = '</g>';
+    const hash = Math.abs((col * 7 + row * 13) % 97);
 
     if (terrainKey === 'grass') {
-      if ((col * 5 + row * 11) % 3 !== 0) return '';
-      return `${open}<path d="M-10 7c1-4 2.6-4 3.4 0M-4 10c1-5 2.6-5 3.4 0M5 5c1-4 2.4-4 3.2 0" fill="none" stroke="rgba(63,92,54,.32)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+      if (hash % 3 === 2) {
+        return `${open}<circle cx="${hash % 2 ? 10 : -11}" cy="${
+          (hash % 3) - 3
+        }" r="1.6" fill="rgba(255,252,220,.85)"/><circle cx="${
+          (hash % 2 ? 13 : -8)
+        }" cy="${(hash % 2) + 5}" r="1.2" fill="rgba(255,244,200,.7)"/>${close}`;
+      }
+      return `${open}<path d="M-12 7c1-4.4 2.8-4.4 3.7 0M-4 10c1-5 2.7-5 3.6 0M5 5c1-4 2.5-4 3.4 0M-8 -3c1-3.6 2.4-3.6 3.2 0" fill="none" stroke="rgba(52,82,44,.4)" stroke-width="1.7" stroke-linecap="round"/>${close}`;
     }
 
     if (terrainKey === 'plains') {
-      return `${open}<path d="M-13 0h7M-2 4h9M-8 9h6" fill="none" stroke="rgba(112,94,43,.38)" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="-4" r="1.3" fill="rgba(112,94,43,.32)"/>${close}`;
+      return `${open}<path d="M-13 0h7M-2 4h9M-8 9h6" fill="none" stroke="rgba(112,94,43,.42)" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="-4" r="1.3" fill="rgba(112,94,43,.32)"/>${
+        hash % 4 === 0
+          ? '<path d="M-4 -8c.8-3.4 2.2-3.4 3 0" fill="none" stroke="rgba(112,94,43,.34)" stroke-width="1.4" stroke-linecap="round"/>'
+          : ''
+      }${close}`;
     }
 
     if (terrainKey === 'forest') {
-      return `${open}<g transform="translate(-8 4)"><path d="M0 -11 L-5 2 H5 Z" fill="#547d57"/><path d="M0 -4 L-7 10 H7 Z" fill="#628e64"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g><g transform="translate(6 -3) scale(.62)"><path d="M0 -11 L-5 2 H5 Z" fill="#547d57"/><path d="M0 -4 L-7 10 H7 Z" fill="#628e64"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g><g transform="translate(9 8) scale(.5)"><path d="M0 -11 L-5 2 H5 Z" fill="#4b7350"/><path d="M0 -4 L-7 10 H7 Z" fill="#5b8760"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g>${close}`;
+      const tree = (tx, ty, s, dark) =>
+        `<g transform="translate(${tx} ${ty}) scale(${s})"><ellipse cx="0" cy="11" rx="7" ry="2.4" fill="rgba(28,44,30,.22)"/><path d="M0 -11 L-5 2 H5 Z" fill="${dark ? '#4c7450' : '#527c56'}"/><path d="M0 -4 L-7 10 H7 Z" fill="${dark ? '#587f5c' : '#618f65'}"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g>`;
+      return `${open}${tree(-7, 3, 0.9, hash % 2 === 0)}${tree(7, -4, 0.68, hash % 3 !== 0)}${tree(
+        3,
+        8,
+        0.52,
+        true
+      )}${hash % 3 === 0 ? tree(-11, -7, 0.45, false) : ''}${close}`;
     }
 
     if (terrainKey === 'hills') {
-      return `${open}<path d="M-15 8c4-13 12-13 16 0M-1 8c4-11 11-11 15 0" fill="none" stroke="rgba(101,78,41,.4)" stroke-width="2.4" stroke-linecap="round"/><path d="M-8 12h6M2 13h7" fill="none" stroke="rgba(101,78,41,.28)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+      return `${open}<path d="M-15 8c4-13 12-13 16 0M-1 8c4-11 11-11 15 0" fill="none" stroke="rgba(101,78,41,.44)" stroke-width="2.4" stroke-linecap="round"/><path d="M-11 1c2.6-5 7.4-5.6 10-.6" fill="none" stroke="rgba(255,248,214,.5)" stroke-width="1.6" stroke-linecap="round"/><path d="M-8 12h6M2 13h7" fill="none" stroke="rgba(101,78,41,.3)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
     }
 
     if (terrainKey === 'mountain') {
-      return `${open}<path d="M-17 12 L-3 -13 L11 12 Z" fill="#7b8293"/><path d="M-3 -13 L0 -6 L-8 -6 Z" fill="#eef2f8"/><path d="M2 12 L11 -2 L20 12 Z" fill="#959baa" opacity=".92"/><path d="M11 -2 L13 2 L9 2 Z" fill="#eef2f8" opacity=".9"/>${close}`;
+      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(28,38,58,.18)"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="#7b8293"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="url(#mapShade)" opacity=".55"/><path d="M-3 -13 L0.5 -5.5 L-7.5 -5.5 Z" fill="#f2f6fb"/><path d="M2 12 L11 -2 L20 12 Z" fill="#959baa" opacity=".92"/><path d="M11 -2 L13 2 L9 2 Z" fill="#eef2f8" opacity=".9"/>${close}`;
     }
 
     if (terrainKey === 'water') {
-      return `${open}<path d="M-15 0c3.5-4 7-4 10.5 0s7 4 10.5 0M-12 9c3.5-4 7-4 10.5 0s7 4 10.5 0" fill="none" stroke="rgba(255,255,255,.62)" stroke-width="2.2" stroke-linecap="round"/>${close}`;
+      const wave = (wy, op) =>
+        `<path d="M-15 ${wy}c3.5-4 7-4 10.5 0s7 4 10.5 0" fill="none" stroke="rgba(255,255,255,${op})" stroke-width="2" stroke-linecap="round"/>`;
+      return `${open}${wave(-5, 0.6)}${hash % 2 === 0 ? wave(7, 0.42) : wave(-12, 0.3)}${
+        hash % 5 === 0
+          ? '<circle cx="9" cy="-9" r="2" fill="rgba(255,255,255,.5)"/><circle cx="-10" cy="10" r="1.4" fill="rgba(255,255,255,.4)"/>'
+          : ''
+      }${close}`;
     }
 
     if (terrainKey === 'desert') {
-      return `${open}<circle cx="9" cy="-8" r="3.2" fill="rgba(255,241,192,.9)"/><path d="M-16 6c4-8 10-8 14 0M-1 11c4-7 10-7 14 0" fill="none" stroke="rgba(153,112,49,.4)" stroke-width="2" stroke-linecap="round"/>${close}`;
+      const cactus =
+        hash % 4 === 0
+          ? '<g transform="translate(-9 4)"><path d="M0 6V-4M0 -1c-2.6 0-2.6-3.4-2.6-3.4M0 2c2.6 0 2.6-3.4 2.6-3.4" fill="none" stroke="rgba(74,116,74,.75)" stroke-width="1.8" stroke-linecap="round"/></g>'
+          : '';
+      return `${open}<circle cx="9" cy="-8" r="3.2" fill="rgba(255,241,192,.9)"/><path d="M-16 6c4-8 10-8 14 0M-1 11c4-7 10-7 14 0" fill="none" stroke="rgba(153,112,49,.44)" stroke-width="2" stroke-linecap="round"/>${cactus}${close}`;
     }
 
     if (terrainKey === 'snow') {
       const flake = (x, y, s) =>
-        `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 -5V5M-4.3 -2.5L4.3 2.5M-4.3 2.5L4.3 -2.5" stroke="rgba(148,170,200,.75)" stroke-width="1.4" stroke-linecap="round"/></g>`;
-      return `${open}${flake(-7, -2, 1)}${flake(8, 5, 0.72)}${flake(4, -8, 0.55)}${close}`;
+        `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 -5V5M-4.3 -2.5L4.3 2.5M-4.3 2.5L4.3 -2.5" stroke="rgba(148,170,200,.7)" stroke-width="1.4" stroke-linecap="round"/></g>`;
+      const drift =
+        hash % 3 === 0
+          ? '<path d="M-13 8c3-2.4 8-2.4 11 0" fill="none" stroke="rgba(178,196,220,.5)" stroke-width="1.8" stroke-linecap="round"/>'
+          : '';
+      return `${open}${drift}${flake(-7, -2, 1)}${flake(8, 5, 0.72)}${flake(4, -8, 0.55)}${close}`;
     }
 
     if (terrainKey === 'swamp') {
-      return `${open}<path d="M-14 6c3-3 7-3 10 0s7 3 10 0" fill="none" stroke="rgba(46,74,66,.42)" stroke-width="2.1" stroke-linecap="round"/><path d="M-6 -2v-8M-6 -8l-3.4-3M-6 -8l3.4-3" fill="none" stroke="rgba(64,96,80,.5)" stroke-width="1.7" stroke-linecap="round"/><path d="M7 1v-6M7 -3l-2.6-2.4M7 -3l2.6-2.4" fill="none" stroke="rgba(64,96,80,.44)" stroke-width="1.5" stroke-linecap="round"/>${close}`;
+      return `${open}<path d="M-14 6c3-3 7-3 10 0s7 3 10 0" fill="none" stroke="rgba(46,74,66,.45)" stroke-width="2.1" stroke-linecap="round"/><ellipse cx="6" cy="8" rx="5.5" ry="2" fill="rgba(58,88,74,.3)"/><path d="M-6 -2v-8M-6 -8l-3.4-3M-6 -8l3.4-3" fill="none" stroke="rgba(64,96,80,.5)" stroke-width="1.7" stroke-linecap="round"/><path d="M7 1v-6M7 -3l-2.6-2.4M7 -3l2.6-2.4" fill="none" stroke="rgba(64,96,80,.44)" stroke-width="1.5" stroke-linecap="round"/>${close}`;
     }
 
     if (terrainKey === 'volcano') {
-      return `${open}<path d="M-16 13 L-5 -9 L7 13 Z" fill="#544b4f"/><path d="M-5 -9 L-2.2 -3 L-8.4 -3 Z" fill="#f0b054"/><path d="M7 13 L14 1 L21 13 Z" fill="#61575b" opacity=".9"/><path d="M-3 -5c2 2.4 4.4 2.4 6.4 0" fill="none" stroke="rgba(255,166,76,.8)" stroke-width="1.8" stroke-linecap="round"/><path d="M2 -12c.5 1.7 1.4 2.3 3 2.7-1.6.4-2.5 1-3 2.7-.5-1.7-1.4-2.3-3-2.7 1.6-.4 2.5-1 3-2.7Z" fill="rgba(240,140,70,.85)"/>${close}`;
+      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(24,18,20,.3)"/><path d="M-16 13 L-5 -9 L7 13 Z" fill="#544b4f"/><path d="M-16 13 L-5 -9 L7 13 Z" fill="url(#mapShade)" opacity=".5"/><path d="M-5 -9 L-2.2 -3 L-8.4 -3 Z" fill="#f0b054"/><path d="M7 13 L14 1 L21 13 Z" fill="#61575b" opacity=".9"/><path d="M-3 -5c2 2.4 4.4 2.4 6.4 0" fill="none" stroke="rgba(255,166,76,.8)" stroke-width="1.8" stroke-linecap="round"/><path d="M2 -12c.5 1.7 1.4 2.3 3 2.7-1.6.4-2.5 1-3 2.7-.5-1.7-1.4-2.3-3-2.7 1.6-.4 2.5-1 3-2.7Z" fill="rgba(240,140,70,.85)"/>${close}`;
     }
 
     return '';

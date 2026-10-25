@@ -2598,6 +2598,7 @@ html.is-sheer .sidebar {
   overflow: hidden;
   background:
     radial-gradient(circle at 22% 12%, rgba(255, 255, 255, 0.9), transparent 55%),
+    radial-gradient(ellipse at center, transparent 52%, rgba(24, 34, 64, 0.14) 100%),
     linear-gradient(160deg, #eef2f9, #e3e9f2);
 }
 
