@@ -865,8 +865,10 @@ html.is-sheer .btn.ghost {
   color: var(--ink);
 }
 
-/* 通透状态下，次要文字垫一层极细的白色抬升，避免被壁纸彩纹干扰
-   （外壳降雾后，页脚与面包屑直接坐在壁纸上，同需保护） */
+/* 文字清晰度原则（修「白晕糊字」）：
+   白色文字阴影会把字形边缘晕开，尤其是浅灰字在深壁纸上——一律不用。
+   · 玻璃件内的文字：雾底已足够，无需任何阴影；
+   · 直接坐在壁纸上的文字（页脚/面包屑）：加深颜色或垫轻玻璃。 */
 html.is-sheer .page-desc,
 html.is-sheer .section-note,
 html.is-sheer .side-note,
@@ -874,18 +876,60 @@ html.is-sheer .empty-state p,
 html.is-sheer .trash-summary,
 html.is-sheer .novel-card-summary,
 html.is-sheer .entry-card-excerpt,
-html.is-sheer .site-footer,
-html.is-sheer .back-link,
-html.is-sheer .workspace-breadcrumb,
 html.is-sheer .brand-text,
 html.is-sheer .side-nav .nav-link,
 html.is-sheer .section-head,
 html.is-sheer .shelf-meta,
 html.is-sheer .panel-title,
 html.is-sheer .entry-notes {
-  text-shadow:
-    0 1px 2px rgba(255, 255, 255, 0.92),
-    0 0 10px rgba(255, 255, 255, 0.55);
+  text-shadow: none;
+}
+
+/* 确定使用浅灰色的次要文字，加深一档保证壁纸上可读
+   （不动激活态导航与标题的颜色，避免覆盖） */
+html.is-sheer .page-desc,
+html.is-sheer .section-note,
+html.is-sheer .side-note,
+html.is-sheer .empty-state p,
+html.is-sheer .trash-summary,
+html.is-sheer .novel-card-summary,
+html.is-sheer .entry-card-excerpt,
+html.is-sheer .shelf-meta {
+  color: var(--ink-soft);
+}
+
+html.is-sheer .muted,
+html.is-sheer .back-link,
+html.is-sheer .workspace-breadcrumb,
+html.is-sheer .site-footer,
+html.is-sheer .site-footer a {
+  text-shadow: none;
+}
+
+html.is-sheer .back-link,
+html.is-sheer .workspace-breadcrumb {
+  color: var(--ink-soft);
+}
+
+/* 页脚：直接坐在壁纸上，给一块 iOS 式轻玻璃底条（不垫白影） */
+.site-footer {
+  margin-top: 2.8rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid rgba(255, 255, 255, calc(0.5 * var(--rim-strength)));
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.32);
+  color: var(--ink-soft);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.5 * var(--rim-strength))),
+    0 10px 26px -18px rgba(18, 28, 65, 0.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+}
+
+html.is-sheer .site-footer {
+  background: rgba(255, 255, 255, 0.4);
+  /* 基础样式在文件后部用 --faint 覆盖容器色，这里拉回深色 */
+  color: var(--ink-soft);
 }
 
 .side-note {
