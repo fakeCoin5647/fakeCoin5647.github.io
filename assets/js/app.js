@@ -249,6 +249,12 @@
 
   const SECTION_KEYS = Object.keys(SECTIONS);
 
+  const PUBLISH_VIS_OPTIONS = [
+    { value: 'inherit', label: '跟随', ariaLabel: '跟随小说的公开设置' },
+    { value: 'public', label: '公开', ariaLabel: '单独设为公开' },
+    { value: 'private', label: '私密', ariaLabel: '单独设为私密' },
+  ];
+
   const MAP_DEFAULT_COLS = 22;
   const MAP_DEFAULT_ROWS = 14;
   const MAP_HEX_SIZE = 40;
@@ -562,6 +568,12 @@
     mapDeleteCityBtn: $('#mapDeleteCityBtn'),
     mapInspectorEmpty: $('#mapInspectorEmpty'),
 
+    searchDialog: $('#searchDialog'),
+    searchInput: $('#searchInput'),
+    searchResults: $('#searchResults'),
+    searchDialogCloseBtn: $('#searchDialogCloseBtn'),
+    sidebarSearchBtn: $('#sidebarSearchBtn'),
+
     toastStack: $('#toastStack'),
     year: $('#year'),
   };
@@ -596,6 +608,9 @@
     graphDraft: { novelId: null, id: null },
     activeGraphByNovel: Object.create(null),
     graphViews: Object.create(null),
+    publishExpanded: Object.create(null),
+    publishFocus: null,
+    search: { items: [], activeIndex: -1, mode: 'recent' },
   };
 
   let isComposingTag = false;
@@ -1814,8 +1829,10 @@
       summaryEl.classList.add('is-empty');
     }
 
+    const novelWords = countNovelWords(novel);
     $('.novel-card-meta', node).textContent =
-      `${novel.entries.characters.length} 位角色 · ${totalEntries} 条词条`;
+      `${novel.entries.characters.length} 位角色 · ${totalEntries} 条词条` +
+      (novelWords > 0 ? ` · ${formatWordCount(novelWords)}` : '');
 
     const dateEl = $('.novel-card-date', node);
     const dateInfo = formatCardDate(novel);
@@ -1846,6 +1863,43 @@
 
   function countNovelEntries(novel) {
     return SECTION_KEYS.reduce((sum, key) => sum + novel.entries[key].length, 0);
+  }
+
+  function countTextWords(text) {
+    if (typeof text !== 'string') return 0;
+    return text.replace(/\s+/g, '').length;
+  }
+
+  function countEntryWords(entry) {
+    return countTextWords(entry && entry.notes);
+  }
+
+  function countSectionWords(novel, sectionKey) {
+    return novel.entries[sectionKey].reduce(
+      (sum, entry) => sum + countEntryWords(entry),
+      0
+    );
+  }
+
+  function countNovelWords(novel) {
+    return SECTION_KEYS.reduce(
+      (sum, key) => sum + countSectionWords(novel, key),
+      0
+    );
+  }
+
+  function formatWordCount(count) {
+    if (!count) return '0 字';
+    if (count < 10000) return `${count} 字`;
+    return `${(count / 10000).toFixed(1).replace(/\.0$/, '')} 万字`;
+  }
+
+  function createWordCountChip(count) {
+    const chip = el('span', 'word-count-chip');
+    chip.appendChild(icon('i-notes'));
+    chip.appendChild(el('span', '', formatWordCount(count)));
+    chip.title = '按正文字符数统计（不含空格与换行）';
+    return chip;
   }
 
   function syncShelfSearchBox() {
@@ -2225,7 +2279,14 @@
     const editSynopsisBtn = el('button', 'link-btn', '编辑资料');
     editSynopsisBtn.type = 'button';
     editSynopsisBtn.dataset.action = 'edit-novel';
-    synopsisHead.append(synopsisHeadText, editSynopsisBtn);
+    const synopsisActions = el('div', 'panel-head-actions');
+    const exportMarkdownBtn = el('button', 'link-btn', '导出 Markdown');
+    exportMarkdownBtn.type = 'button';
+    exportMarkdownBtn.dataset.action = 'export-novel-markdown';
+    exportMarkdownBtn.dataset.novelId = novel.id;
+    exportMarkdownBtn.title = '把这本小说的档案导出为 Markdown 文件';
+    synopsisActions.append(exportMarkdownBtn, editSynopsisBtn);
+    synopsisHead.append(synopsisHeadText, synopsisActions);
 
     const synopsisBody = el(
       'p',
@@ -2309,6 +2370,12 @@
       el('strong', '', novel.entries[sectionKey].length),
       document.createTextNode(' 条')
     );
+    const sectionWords = countSectionWords(novel, sectionKey);
+    if (sectionWords > 0) {
+      countLine.appendChild(
+        document.createTextNode(` · ${formatWordCount(sectionWords)}`)
+      );
+    }
     link.appendChild(countLine);
 
     link.appendChild(el('p', 'section-card-desc', config.description));
@@ -2502,7 +2569,10 @@
     }
 
     const dateEl = $('.entry-card-date', node);
-    dateEl.textContent = `更新于 ${relativeDate(new Date(entry.updatedAt))}`;
+    const entryWords = countEntryWords(entry);
+    dateEl.textContent =
+      `更新于 ${relativeDate(new Date(entry.updatedAt))}` +
+      (entryWords > 0 ? ` · ${formatWordCount(entryWords)}` : '');
     dateEl.dateTime = entry.updatedAt;
 
     const actions = $('.entry-actions', node);
@@ -2563,6 +2633,9 @@
       ? '这条内容会进入公开快照'
       : '这条内容只在本机可见';
     kicker.appendChild(detailVisibilityChip);
+    if (countEntryWords(entry) > 0) {
+      kicker.appendChild(createWordCountChip(countEntryWords(entry)));
+    }
     for (const tag of entry.tags) {
       kicker.appendChild(el('span', 'entry-tag', tag));
     }
@@ -8179,7 +8252,7 @@
         const entries = SECTION_KEYS.map((key) =>
           novel.entries[key]
             .filter((entry) => isEntryPublic(novel, entry))
-            .map((entry) => `${entry.id}@${entry.updatedAt}`)
+            .map((entry) => `${entry.id}@${entry.updatedAt}:${entry.visibility}`)
             .join(',')
         ).join(';');
         return `${novel.id}@${novel.updatedAt}#${entries}`;
@@ -8344,6 +8417,17 @@
     });
     renderPublishNovelList();
     updatePublishSnapshotStatus();
+    restorePublishFocus();
+  }
+
+  function restorePublishFocus() {
+    if (!state.publishFocus) return;
+    const { entryId, value } = state.publishFocus;
+    state.publishFocus = null;
+    const input = els.publishNovelList.querySelector(
+      `[data-publish-entry-vis][data-entry-id="${cssEscape(entryId)}"][value="${value}"]`
+    );
+    if (input) input.focus({ preventScroll: true });
   }
 
   function renderPublishSummary({
@@ -8413,6 +8497,16 @@
     els.publishEmpty.hidden = novels.length > 0;
   }
 
+  function getEntryVisibilityBreakdown(novel) {
+    const counts = { inherit: 0, public: 0, private: 0 };
+    for (const key of SECTION_KEYS) {
+      for (const entry of novel.entries[key]) {
+        counts[normalizeEntryVisibility(entry.visibility)] += 1;
+      }
+    }
+    return counts;
+  }
+
   function createPublishNovelRow(novel) {
     const isPublic = isNovelPublic(novel);
     const total = countNovelEntries(novel);
@@ -8438,7 +8532,7 @@
       isPublic ? `${visible} / ${total} 条会公开` : `${total} 条仍在本机`,
       `更新于 ${relativeDate(new Date(novel.updatedAt))}`,
     ].join(' · ');
-    main.append(titleRow, meta);
+    main.append(titleRow, meta, createPublishEntriesToggle(novel));
 
     const switchLabel = el('label', 'visibility-switch publish-switch');
     const input = document.createElement('input');
@@ -8456,8 +8550,178 @@
     );
     switchLabel.append(input, track, copy);
 
-    row.append(coverSlot, main, switchLabel);
+    row.append(coverSlot, main, switchLabel, createPublishEntriesPanel(novel));
     return row;
+  }
+
+  function createPublishEntriesToggle(novel) {
+    const counts = getEntryVisibilityBreakdown(novel);
+    const overrides = counts.public + counts.private;
+    const total = counts.inherit + overrides;
+    const expanded = Boolean(state.publishExpanded[novel.id]);
+
+    const toggle = el('button', `publish-entries-toggle${expanded ? ' is-open' : ''}`);
+    toggle.type = 'button';
+    toggle.dataset.action = 'toggle-publish-entries';
+    toggle.dataset.novelId = novel.id;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.setAttribute(
+      'aria-controls',
+      `publishEntries-${cssEscape(novel.id)}`
+    );
+
+    const label = el('span', 'publish-entries-toggle-label', '条目公开范围');
+    const summary = el(
+      'span',
+      'publish-entries-toggle-summary',
+      `${total} 条` + (overrides > 0 ? ` · ${overrides} 项单独设置` : '')
+    );
+    const chevronWrap = el('span', 'publish-entries-toggle-chevron');
+    chevronWrap.setAttribute('aria-hidden', 'true');
+    chevronWrap.appendChild(icon('i-chevron'));
+
+    toggle.append(label, summary, chevronWrap);
+    return toggle;
+  }
+
+  function createPublishEntriesPanel(novel) {
+    const expanded = Boolean(state.publishExpanded[novel.id]);
+    const panel = el('div', 'publish-entries-panel');
+    panel.id = `publishEntries-${novel.id}`;
+    panel.hidden = !expanded;
+
+    if (!isNovelPublic(novel)) {
+      const note = el('p', 'publish-entries-note');
+      note.appendChild(icon('i-lock'));
+      note.appendChild(
+        document.createTextNode(
+          '这本小说还未解锁：可以先给条目定好公开范围，解锁后按这里的设置生效。'
+        )
+      );
+      panel.appendChild(note);
+    }
+
+    let listed = 0;
+    for (const key of SECTION_KEYS) {
+      const entries = novel.entries[key];
+      if (entries.length === 0) continue;
+      listed += entries.length;
+
+      const config = SECTIONS[key];
+      const group = el('div', 'publish-entries-group');
+      const head = el('p', 'publish-entries-group-head');
+      head.appendChild(icon(config.icon));
+      head.appendChild(document.createTextNode(config.label));
+      head.appendChild(
+        el('span', 'publish-entries-group-count', `${entries.length} 条`)
+      );
+
+      const list = el('div', 'publish-entries-list');
+      for (const entry of sortEntries(entries)) {
+        list.appendChild(createPublishEntryRow(novel, key, entry));
+      }
+      group.append(head, list);
+      panel.appendChild(group);
+    }
+
+    if (listed === 0) {
+      panel.appendChild(
+        el('p', 'publish-entries-note', '这本小说还没有条目，先去各分区新增内容。')
+      );
+    }
+    return panel;
+  }
+
+  function createPublishEntryRow(novel, sectionKey, entry) {
+    const rowNode = el('div', 'publish-entry-row');
+    const link = el('a', 'publish-entry-link', entry.title);
+    link.href = entryHash(novel.id, sectionKey, entry.id);
+    link.title = `打开「${entry.title}」`;
+
+    const current = normalizeEntryVisibility(entry.visibility);
+    const seg = el('div', 'publish-vis-seg');
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', `「${entry.title}」的公开范围`);
+
+    for (const option of PUBLISH_VIS_OPTIONS) {
+      const optionLabel = el('label', 'publish-vis-option');
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = `pubvis-${entry.id}`;
+      input.value = option.value;
+      input.checked = current === option.value;
+      input.dataset.publishEntryVis = '1';
+      input.dataset.novelId = novel.id;
+      input.dataset.sectionKey = sectionKey;
+      input.dataset.entryId = entry.id;
+      input.setAttribute('aria-label', option.ariaLabel);
+      optionLabel.append(input, el('span', '', option.label));
+      seg.appendChild(optionLabel);
+    }
+
+    rowNode.append(link, seg);
+    return rowNode;
+  }
+
+  function togglePublishEntries(novelId) {
+    if (!novelId) return;
+    const expanded = !state.publishExpanded[novelId];
+    state.publishExpanded[novelId] = expanded;
+
+    const row = els.publishNovelList.querySelector(
+      `[data-novel-id="${cssEscape(novelId)}"]`
+    );
+    if (!row) return;
+    const panel = $('.publish-entries-panel', row);
+    const toggle = $('.publish-entries-toggle', row);
+    if (panel) panel.hidden = !expanded;
+    if (toggle) {
+      toggle.classList.toggle('is-open', expanded);
+      toggle.setAttribute('aria-expanded', String(expanded));
+    }
+  }
+
+  function setEntryVisibilityOverride(novelId, sectionKey, entryId, value) {
+    const novel = findNovel(novelId);
+    if (!novel || !novel.entries[sectionKey]) return;
+    const entry = novel.entries[sectionKey].find((item) => item.id === entryId);
+    if (!entry) return;
+
+    const normalized = normalizeEntryVisibility(value);
+    if (entry.visibility === normalized) return;
+
+    const previous = state.novels;
+    state.novels = state.novels.map((item) => {
+      if (item.id !== novelId) return item;
+      const entries = { ...item.entries };
+      entries[sectionKey] = entries[sectionKey].map((candidate) =>
+        candidate.id === entryId
+          ? { ...candidate, visibility: normalized }
+          : candidate
+      );
+      return { ...item, entries };
+    });
+
+    if (!persist()) {
+      state.novels = previous;
+      renderPublish();
+      return;
+    }
+
+    state.publishFocus = { entryId, value: normalized };
+    renderPublish();
+
+    if (normalized === 'private') {
+      showToast(`「${entry.title}」已设为私密，重新生成快照后不会公开`);
+    } else if (normalized === 'public') {
+      showToast(
+        isNovelPublic(novel)
+          ? `「${entry.title}」已设为公开，重新生成快照后生效`
+          : `「${entry.title}」已标记公开，等小说解锁后会一起生效`
+      );
+    } else {
+      showToast(`「${entry.title}」已恢复为跟随小说`);
+    }
   }
 
   function setNovelVisibility(novelId, isPublic) {
@@ -8559,6 +8823,391 @@
       : `本机预览快照生成于 ${generated}，包含 ${stats.novels} 本小说、${stats.entries} 条内容。下载的 public-library.json 部署后才会对所有人可见。`;
   }
 
+  /* ---------- Global search ---------- */
+
+  function openGlobalSearch() {
+    if (els.searchDialog.open) return;
+    els.searchDialog.showModal();
+    els.searchInput.value = '';
+    runGlobalSearch();
+    els.searchInput.focus();
+  }
+
+  function closeGlobalSearch() {
+    if (!els.searchDialog.open) return;
+    els.searchDialog.close();
+    state.search.items = [];
+    state.search.activeIndex = -1;
+  }
+
+  function runGlobalSearch() {
+    const query = els.searchInput.value;
+    const result = buildGlobalSearchResults(query);
+    state.search.mode = result.mode;
+    state.search.items = result.items;
+    state.search.activeIndex = result.items.length > 0 ? 0 : -1;
+    renderSearchResults();
+  }
+
+  function scoreGlobalMatch(fields, query) {
+    let best = null;
+    for (const field of fields) {
+      if (!field.text) continue;
+      const index = field.text.toLowerCase().indexOf(query);
+      if (index < 0) continue;
+      if (!best || field.weight > best.weight) {
+        best = { text: field.text, weight: field.weight, index };
+      }
+    }
+    return best;
+  }
+
+  function buildSearchExcerpt(match, query) {
+    const start = Math.max(0, match.index - 22);
+    const end = Math.min(match.text.length, match.index + query.length + 42);
+    return {
+      before:
+        (start > 0 ? '…' : '') + match.text.slice(start, match.index),
+      match: match.text.slice(match.index, match.index + query.length),
+      after:
+        match.text.slice(match.index + query.length, end) +
+        (end < match.text.length ? '…' : ''),
+    };
+  }
+
+  function plainExcerpt(text, limit = 90) {
+    if (!text) return null;
+    return { before: '', match: '', after: text.slice(0, limit) };
+  }
+
+  function collectAllEntries() {
+    const all = [];
+    for (const novel of state.novels) {
+      for (const key of SECTION_KEYS) {
+        for (const entry of novel.entries[key]) {
+          all.push({ novel, sectionKey: key, entry });
+        }
+      }
+    }
+    return all;
+  }
+
+  function buildGlobalSearchResults(rawQuery) {
+    const query = rawQuery.trim().toLowerCase();
+
+    if (!query) {
+      const items = collectAllEntries()
+        .sort(
+          (a, b) => timeValue(b.entry.updatedAt) - timeValue(a.entry.updatedAt)
+        )
+        .slice(0, 8)
+        .map(({ novel, sectionKey, entry }) => ({
+          badge: `${novel.title} · ${SECTIONS[sectionKey].label}`,
+          title: entry.title,
+          titleHighlight: null,
+          excerpt: plainExcerpt(entry.summary),
+          hash: entryHash(novel.id, sectionKey, entry.id),
+        }));
+      return { mode: 'recent', items };
+    }
+
+    const matches = [];
+
+    for (const novel of state.novels) {
+      const novelMatch = scoreGlobalMatch(
+        [
+          { text: novel.title, weight: 3 },
+          { text: novel.genre, weight: 2 },
+          { text: novel.summary, weight: 2 },
+          { text: novel.description, weight: 1 },
+        ],
+        query
+      );
+      if (novelMatch) {
+        const titleHighlight =
+          novelMatch.text === novel.title ? novelMatch.index : null;
+        matches.push({
+          score: novelMatch.weight + 1,
+          time: timeValue(novel.updatedAt),
+          badge: '小说',
+          title: novel.title,
+          titleHighlight,
+          excerpt:
+            titleHighlight !== null
+              ? plainExcerpt(novel.summary || novel.description)
+              : buildSearchExcerpt(novelMatch, query),
+          hash: novelHash(novel.id),
+        });
+      }
+
+      for (const key of SECTION_KEYS) {
+        for (const entry of novel.entries[key]) {
+          const match = scoreGlobalMatch(
+            [
+              { text: entry.title, weight: 3 },
+              { text: entry.subtitle, weight: 2 },
+              { text: entry.summary, weight: 2 },
+              ...entry.tags.map((tag) => ({ text: tag, weight: 2 })),
+              { text: entry.notes, weight: 1 },
+            ],
+            query
+          );
+          if (!match) continue;
+
+          const titleHighlight = match.text === entry.title ? match.index : null;
+          matches.push({
+            score: match.weight,
+            time: timeValue(entry.updatedAt),
+            badge: `${novel.title} · ${SECTIONS[key].label}`,
+            title: entry.title,
+            titleHighlight,
+            excerpt:
+              titleHighlight !== null
+                ? plainExcerpt(entry.summary || entry.notes)
+                : buildSearchExcerpt(match, query),
+            hash: entryHash(novel.id, key, entry.id),
+          });
+        }
+      }
+    }
+
+    matches.sort((a, b) => b.score - a.score || b.time - a.time);
+    return { mode: 'search', items: matches.slice(0, 30) };
+  }
+
+  function renderSearchResults() {
+    const fragment = document.createDocumentFragment();
+
+    if (state.search.items.length === 0) {
+      const query = els.searchInput.value.trim();
+      const empty = el('div', 'search-empty');
+      empty.appendChild(
+        el('p', 'search-empty-title', query ? '没有找到匹配的内容' : '书架还空着')
+      );
+      empty.appendChild(
+        el(
+          'p',
+          'search-empty-hint',
+          query
+            ? '换个更短的关键词试试：搜索覆盖标题、简介、标签与正文。'
+            : '先在书架新建一本小说，再回来搜索。'
+        )
+      );
+      fragment.appendChild(empty);
+      els.searchResults.replaceChildren(fragment);
+      return;
+    }
+
+    if (state.search.mode === 'recent') {
+      fragment.appendChild(el('p', 'search-group-label', '最近更新'));
+    }
+
+    state.search.items.forEach((item, index) => {
+      const active = index === state.search.activeIndex;
+      const button = el('button', `search-result${active ? ' is-active' : ''}`);
+      button.type = 'button';
+      button.dataset.searchIndex = index;
+      button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+
+      const top = el('span', 'search-result-top');
+      top.appendChild(el('span', 'search-result-badge', item.badge));
+      button.appendChild(top);
+
+      const title = el('span', 'search-result-title');
+      if (item.titleHighlight === null) {
+        title.textContent = item.title;
+      } else {
+        appendSearchHighlight(title, {
+          before: item.title.slice(0, item.titleHighlight),
+          match: item.title.slice(
+            item.titleHighlight,
+            item.titleHighlight + els.searchInput.value.trim().length
+          ),
+          after: item.title.slice(item.titleHighlight + els.searchInput.value.trim().length),
+        });
+      }
+      button.appendChild(title);
+
+      if (item.excerpt) {
+        const excerpt = el('span', 'search-result-excerpt');
+        appendSearchHighlight(excerpt, item.excerpt);
+        button.appendChild(excerpt);
+      }
+
+      fragment.appendChild(button);
+    });
+
+    els.searchResults.replaceChildren(fragment);
+  }
+
+  function appendSearchHighlight(node, excerpt) {
+    if (excerpt.before) node.appendChild(el('span', '', excerpt.before));
+    if (excerpt.match) {
+      const mark = document.createElement('mark');
+      mark.textContent = excerpt.match;
+      node.appendChild(mark);
+    }
+    if (excerpt.after) node.appendChild(el('span', '', excerpt.after));
+  }
+
+  function moveSearchActive(delta) {
+    const { items, activeIndex } = state.search;
+    if (items.length === 0) return;
+    setActiveSearchIndex((activeIndex + delta + items.length) % items.length);
+  }
+
+  function setActiveSearchIndex(index) {
+    state.search.activeIndex = index;
+    const buttons = els.searchResults.querySelectorAll('[data-search-index]');
+    buttons.forEach((button, position) => {
+      const active = position === index;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      if (active) button.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  function activateSearchResult(index) {
+    const item = state.search.items[index];
+    if (!item) return;
+    closeGlobalSearch();
+    window.location.hash = item.hash;
+  }
+
+  /* ---------- Novel Markdown export ---------- */
+
+  function sanitizeFilename(name) {
+    const cleaned = String(name)
+      .replace(/[\\/:*?"<>|]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return cleaned || 'novel';
+  }
+
+  function exportNovelMarkdown(novelId) {
+    const novel = findNovel(novelId);
+    if (!novel) {
+      showToast('这本小说已经不在了', 'error');
+      refreshCurrentView();
+      return;
+    }
+
+    const markdown = buildNovelMarkdown(novel);
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `《${sanitizeFilename(novel.title)}》档案.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`已导出《${novel.title}》的 Markdown 档案`);
+  }
+
+  function buildNovelMarkdown(novel) {
+    const status = NOVEL_STATUS[novel.status] || NOVEL_STATUS.planning;
+    const charactersById = new Map(
+      novel.entries.characters.map((entry) => [entry.id, entry])
+    );
+    const lines = [];
+
+    lines.push(`# 《${novel.title}》`);
+    lines.push('');
+    lines.push(
+      [
+        `类型：${novel.genre || '未标注'}`,
+        `状态：${status.label}`,
+        `条目：${countNovelEntries(novel)} 条`,
+        `正文字数：${formatWordCount(countNovelWords(novel))}`,
+      ].join(' · ')
+    );
+    lines.push('');
+
+    if (novel.summary) {
+      lines.push(`> ${novel.summary.replace(/\n+/g, ' ')}`);
+      lines.push('');
+    }
+
+    if (novel.description) {
+      lines.push('## 故事简介');
+      lines.push('');
+      lines.push(novel.description);
+      lines.push('');
+    }
+
+    for (const key of SECTION_KEYS) {
+      const entries = novel.entries[key];
+      if (entries.length === 0) continue;
+
+      lines.push(`## ${SECTIONS[key].label}`);
+      lines.push('');
+      for (const entry of sortEntries(entries)) {
+        lines.push(`### ${entry.title}`);
+        if (entry.subtitle) {
+          lines.push(`*${entry.subtitle}*`);
+        }
+        lines.push('');
+        if (entry.summary) {
+          lines.push(entry.summary);
+          lines.push('');
+        }
+        if (entry.notes) {
+          lines.push(entry.notes);
+          lines.push('');
+        }
+        if (key === 'maps' && entry.map && entry.map.cities.length > 0) {
+          lines.push('**城市**');
+          lines.push('');
+          for (const city of entry.map.cities) {
+            lines.push(
+              `- ${city.name}（第 ${city.col + 1} 列，第 ${city.row + 1} 行 · 领地 ${city.radius} 格）`
+            );
+          }
+          lines.push('');
+        }
+        if (entry.tags.length > 0) {
+          lines.push(`标签：${entry.tags.join('、')}`);
+          lines.push('');
+        }
+      }
+    }
+
+    const graphs = novel.relationGraphs.filter((graph) =>
+      novel.relations.some((relation) => relation.graphId === graph.id)
+    );
+    if (graphs.length > 0) {
+      lines.push('## 人物关系');
+      lines.push('');
+      for (const graph of graphs) {
+        const graphRelations = novel.relations.filter(
+          (relation) => relation.graphId === graph.id
+        );
+        if (graphs.length > 1) {
+          lines.push(`### ${graph.title}`);
+          lines.push('');
+        }
+        for (const relation of graphRelations) {
+          const from = charactersById.get(relation.source);
+          const to = charactersById.get(relation.target);
+          if (!from || !to) continue;
+          const arrow = relation.directed ? '→' : '↔';
+          const label = relation.label ? `：${relation.label}` : '';
+          lines.push(`- ${from.title} ${arrow} ${to.title}${label}`);
+        }
+        lines.push('');
+      }
+    }
+
+    lines.push(
+      `---`,
+      '',
+      `导出自 ${SITE_NAME} · ${formatSnapshotTime(new Date().toISOString())}`
+    );
+    return lines.join('\n');
+  }
+
   /* ---------- Feedback ---------- */
 
   function showToast(message, variant = 'success') {
@@ -8638,7 +9287,12 @@
     const updated = new Date(novel.updatedAt);
     const createdText = `创建于 ${created.getFullYear()} 年 ${created.getMonth() + 1} 月 ${created.getDate()} 日`;
     const updatedText = `最近更新 ${relativeDate(updated)}`;
-    return `${createdText} · ${updatedText}`;
+    const words = countNovelWords(novel);
+    return [
+      createdText,
+      updatedText,
+      ...(words > 0 ? [`全书 ${formatWordCount(words)}`] : []),
+    ].join(' · ');
   }
 
   function relativeDate(date) {
@@ -8687,10 +9341,48 @@
     els.publishPreviewBtn.addEventListener('click', openPublicPreview);
     els.publishExportBtn.addEventListener('click', exportPublicLibrary);
     els.publishEmptyNewBtn.addEventListener('click', () => openNovelEditor());
+
+    els.sidebarSearchBtn.addEventListener('click', openGlobalSearch);
+    els.searchDialogCloseBtn.addEventListener('click', closeGlobalSearch);
+    els.searchInput.addEventListener('input', runGlobalSearch);
+    els.searchInput.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveSearchActive(1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveSearchActive(-1);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        activateSearchResult(state.search.activeIndex);
+      }
+    });
+    els.searchResults.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-search-index]');
+      if (button) activateSearchResult(Number(button.dataset.searchIndex));
+    });
+    els.searchDialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeGlobalSearch();
+    });
+    els.searchDialog.addEventListener('click', (event) => {
+      if (event.target === els.searchDialog) closeGlobalSearch();
+    });
     els.publishNovelList.addEventListener('change', (event) => {
-      const input = event.target.closest('[data-publish-novel]');
-      if (!input) return;
-      setNovelVisibility(input.dataset.publishNovel, input.checked);
+      const novelInput = event.target.closest('[data-publish-novel]');
+      if (novelInput) {
+        setNovelVisibility(novelInput.dataset.publishNovel, novelInput.checked);
+        return;
+      }
+      const visInput = event.target.closest('[data-publish-entry-vis]');
+      if (visInput) {
+        setEntryVisibilityOverride(
+          visInput.dataset.novelId,
+          visInput.dataset.sectionKey,
+          visInput.dataset.entryId,
+          visInput.value
+        );
+      }
     });
 
     els.commentFab.addEventListener('click', openCommentComposer);
@@ -9308,6 +10000,34 @@
     }
 
     document.addEventListener('keydown', (event) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.shiftKey ||
+        event.altKey ||
+        event.key.toLowerCase() !== 'k'
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (els.searchDialog.open) {
+        closeGlobalSearch();
+        return;
+      }
+      if (
+        els.novelDialog.open ||
+        els.entryDialog.open ||
+        els.relationDialog.open ||
+        els.graphDialog.open ||
+        els.commentDialog.open ||
+        els.confirmDialog.open ||
+        els.mapDialog.open
+      ) {
+        return;
+      }
+      openGlobalSearch();
+    });
+
+    document.addEventListener('keydown', (event) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
       if (
         els.novelDialog.open ||
@@ -9523,6 +10243,14 @@
       case 'clear-trash':
         event.preventDefault();
         askClearTrash();
+        break;
+      case 'toggle-publish-entries':
+        event.preventDefault();
+        togglePublishEntries(actionEl.dataset.novelId);
+        break;
+      case 'export-novel-markdown':
+        event.preventDefault();
+        if (novelId) exportNovelMarkdown(novelId);
         break;
       case 'edit-map':
         event.preventDefault();

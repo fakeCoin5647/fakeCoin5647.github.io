@@ -519,4 +519,24 @@
     </div>
   </dialog>
 
+  <dialog id="searchDialog" class="dialog search-dialog" aria-label="快速搜索">
+    <header class="dialog-head search-dialog-head">
+      <div class="search-input-wrap">
+        <svg class="icon search-input-icon" aria-hidden="true"><use href="#i-search"></use></svg>
+        <input type="text" id="searchInput" placeholder="搜索小说、角色、地点、设定与正文……" autocomplete="off" spellcheck="false" aria-label="搜索全部内容">
+      </div>
+      <button type="button" class="icon-btn dialog-close" id="searchDialogCloseBtn" aria-label="关闭搜索">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+      </button>
+    </header>
+
+    <div class="search-results" id="searchResults" role="listbox" aria-label="搜索结果"></div>
+
+    <footer class="search-dialog-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> 选择</span>
+      <span><kbd>Enter</kbd> 打开</span>
+      <span><kbd>Esc</kbd> 关闭</span>
+    </footer>
+  </dialog>
+
   <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
