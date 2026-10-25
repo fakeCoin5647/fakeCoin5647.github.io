@@ -238,13 +238,17 @@ jekyll serve
 
 小说可选的 `cover` 只接受站内上传后压缩得到的 `data:image/jpeg`、`data:image/png` 或 `data:image/webp` 数据地址，外部图片链接会被忽略；上传图片会裁成 2:3，输出为 480×720 的 JPEG。
 
-每个词条包含 `id / title / subtitle / summary / notes / tags / visibility / pinned / createdAt / updatedAt`；`visibility` 为 `inherit`（跟随小说，默认）、`public` 或 `private`。角色词条还会记录每张谱系里的节点位置 `graphPositions`（按谱系 ID 保存）。地图词条额外包含 `map` 字段，记录画布尺寸、地形与城市：
+每个词条包含 `id / title / subtitle / summary / notes / tags / aliases / status / visibility / pinned / createdAt / updatedAt`；`visibility` 为 `inherit`（跟随小说，默认）、`public` 或 `private`。`aliases` 是别名 / 称谓列表（最多 5 个、单个 12 字），供搜索与反向链接识别「晚姐」这类名字；`status` 是大纲条目的状态标记（`planning` 构思中、`drafting` 写作中、`done` 已完成，缺失或空字符串 = 未标记），目前只有大纲分区使用。角色词条还会记录每张谱系里的节点位置 `graphPositions`（按谱系 ID 保存）。地图词条额外包含 `map` 字段，记录画布尺寸、地形、地标、路径与城市：
 
 ```json
 {
   "cols": 22,
   "rows": 14,
   "tiles": { "3,4": "water", "4,5": "forest" },
+  "features": { "6,7": "ruins" },
+  "paths": [
+    { "id": "路径 ID", "kind": "river", "points": [{ "col": 2, "row": 3 }] }
+  ],
   "cities": [
     {
       "id": "城市 ID",
@@ -258,7 +262,7 @@ jekyll serve
 }
 ```
 
-`tiles` 只保存非草原地形，键名是 `列,行`；城市坐标从 0 开始，半径 1–3，单张地图最多 40 座城市。分区配置集中在 `app.js` 顶部的 `SECTIONS` 常量里，之后要新增分区、改字段名或接入时间线等能力，都可以从这个结构继续扩展。
+`tiles` 只保存非草原地形，键名是 `列,行`；`features` 是地标（遗迹、神殿、要塞等 8 种），同样按格保存；`paths` 是河流与道路（每条最多 400 个点，每图最多 60 条）；城市坐标从 0 开始，半径 1–3，单张地图最多 40 座城市。评论条目包含可选的 `status`（`open` 待处理，默认 / `resolved` 已解决），切换状态会同时更新 `updatedAt` 以保证多设备合并正确。分区配置集中在 `app.js` 顶部的 `SECTIONS` 常量里，之后要新增分区、改字段名或接入时间线等能力，都可以从这个结构继续扩展。
 
 `public-library.json` 是独立的公开快照，格式为 `{ app, version, kind: "public-library", generatedAt, signature, novels }`。其中每本小说只保留公开字段与已公开条目，不含 `visibility`、`comments`、`trash`、`graphPositions` 等本机字段；`public.js` 读取时还会按白名单再次校验，非法或超长的字段会被丢弃。
 

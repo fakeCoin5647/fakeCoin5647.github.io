@@ -83,6 +83,12 @@
     const hash = Math.abs((col * 7 + row * 13 + ((col * row) % 5) * 3) % 97);
     return terrain.fills[hash % terrain.fills.length];
   }
+  const MAP_RAISED_TERRAINS = {
+    hills: { side: '#b18f4a', lift: 2.6, scale: 0.82 },
+    mountain: { side: '#6f7585', lift: 3.4, scale: 0.87 },
+    volcano: { side: '#453e42', lift: 3.4, scale: 0.87 },
+  };
+
   const MAP_PATH_KINDS = {
     river: { color: '#4d86c7', width: 3.6, dash: '' },
     road: { color: '#8a6a48', width: 2.4, dash: '7 5' },
@@ -111,7 +117,7 @@
     fort: { label: '堡垒' },
   };
 
-  let mapShallowCells = null;
+  let mapWaterDepth = null;
   const MAP_CITY_COLORS = [
     '#4f6df5',
     '#b05a3c',
@@ -629,6 +635,28 @@
     ];
   }
 
+  function hexCornersScaled(cx, cy, scale) {
+    const corners = hexCornersAt(cx, cy);
+    return corners.map((point) => ({
+      x: cx + (point.x - cx) * scale,
+      y: cy + (point.y - cy) * scale,
+    }));
+  }
+
+  function hexPathScaled(cx, cy, scale) {
+    const corners = hexCornersScaled(cx, cy, scale);
+    return (
+      corners
+        .map(
+          (point, index) =>
+            `${index === 0 ? 'M' : 'L'}${roundMapCoordinate(point.x)} ${roundMapCoordinate(
+              point.y
+            )}`
+        )
+        .join('') + 'Z'
+    );
+  }
+
   function hexPathAt(cx, cy) {
     const corners = hexCornersAt(cx, cy);
     return (
@@ -771,27 +799,41 @@
     });
   }
 
-  function collectMapShallowWater(map) {
-    const shallow = new Set();
+  function collectMapWaterDepth(map) {
+    // 多源 BFS：离岸 1 格浅水、2 格中海，其余深水
+    const depth = new Map();
+    const ringOne = [];
+
     for (let row = 0; row < map.rows; row += 1) {
       for (let col = 0; col < map.cols; col += 1) {
-        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        const terrain = map.tiles[`${col},${row}`] || 'grass';
+        if (terrain === 'water' || terrain === 'lake') continue;
         for (const direction of MAP_DIRECTIONS) {
           const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
           if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
-          const neighbor = map.tiles[`${nextCol},${nextRow}`] || 'grass';
-          if (neighbor !== 'water' && neighbor !== 'lake') {
-            shallow.add(`${col},${row}`);
-            break;
-          }
+          const key = `${nextCol},${nextRow}`;
+          if ((map.tiles[key] || 'grass') !== 'water' || depth.has(key)) continue;
+          depth.set(key, 1);
+          ringOne.push([nextCol, nextRow]);
         }
       }
     }
-    return shallow;
+
+    for (const [col, row] of ringOne) {
+      for (const direction of MAP_DIRECTIONS) {
+        const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+        if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+        const key = `${nextCol},${nextRow}`;
+        if ((map.tiles[key] || 'grass') !== 'water' || depth.has(key)) continue;
+        depth.set(key, 2);
+      }
+    }
+
+    return depth;
   }
 
   function buildMapMarkup(map) {
-    mapShallowCells = collectMapShallowWater(map);
+    mapWaterDepth = collectMapWaterDepth(map);
     const terrainParts = [];
     const coastParts = [];
     const pathParts = [];
@@ -805,23 +847,32 @@
         const terrainKey = map.tiles[`${col},${row}`] || 'grass';
         const center = hexCenter(col, row);
         const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
+        const raised = MAP_RAISED_TERRAINS[terrainKey];
         let fill;
         if (terrainKey === 'lake') fill = 'url(#mapLakeGrad)';
-        else if (terrainKey === 'water')
+        else if (terrainKey === 'water') {
+          const depth = mapWaterDepth ? mapWaterDepth.get(`${col},${row}`) || 0 : 0;
           fill =
-            mapShallowCells && mapShallowCells.has(`${col},${row}`)
+            depth === 1
               ? 'url(#mapShallowGrad)'
-              : 'url(#mapWaterGrad)';
+              : depth === 2
+                ? 'url(#mapWaterMidGrad)'
+                : 'url(#mapWaterGrad)';
+        } else if (raised) fill = raised.side;
         else fill = pickMapTerrainFill(terrainKey, col, row);
-        const strongShade = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(
-          terrainKey
-        );
-        const softShade = ['grass', 'plains', 'desert'].includes(terrainKey);
-        const shadeLayer = strongShade
-          ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
-          : softShade
-            ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShadeSoft)"/>`
-            : '';
+
+        let shadeLayer;
+        if (raised) {
+          shadeLayer = buildRaisedHexTop(terrainKey, col, row, center, raised);
+        } else {
+          const strongShade = ['mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
+          const softShade = ['grass', 'plains', 'desert'].includes(terrainKey);
+          shadeLayer = strongShade
+            ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
+            : softShade
+              ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShadeSoft)"/>`
+              : '';
+        }
         terrainParts.push(
           `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${fill}" stroke="${
             terrain.stroke
@@ -960,6 +1011,14 @@
       );
     }
 
+    const sunBounds = `<g class="map-layer map-sun-layer" aria-hidden="true" style="mix-blend-mode:soft-light"><rect x="${roundMapCoordinate(
+      -(MAP_WORLD_SQRT3 / 2) * MAP_HEX_SIZE
+    )}" y="${roundMapCoordinate(-MAP_HEX_SIZE)}" width="${roundMapCoordinate(
+      MAP_WORLD_SQRT3 * MAP_HEX_SIZE * (map.cols + 0.5)
+    )}" height="${roundMapCoordinate(
+      MAP_HEX_SIZE * (1.5 * (map.rows - 1) + 2)
+    )}" fill="url(#mapSunGrad)"/></g>`;
+
     return [
       `<defs>
         <linearGradient id="mapShade" x1="0" y1="0" x2="0.55" y2="1">
@@ -973,8 +1032,17 @@
           <stop offset="1" stop-color="#1c2440" stop-opacity=".14"/>
         </linearGradient>
         <linearGradient id="mapWaterGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#8fb8d4"/>
+          <stop offset="1" stop-color="#6b95b8"/>
+        </linearGradient>
+        <linearGradient id="mapWaterMidGrad" x1="0" y1="0" x2="0.3" y2="1">
           <stop offset="0" stop-color="#a9cde6"/>
-          <stop offset="1" stop-color="#79a6c9"/>
+          <stop offset="1" stop-color="#84afce"/>
+        </linearGradient>
+        <linearGradient id="mapSunGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/>
+          <stop offset=".45" stop-color="#ffffff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#0f1a38" stop-opacity=".4"/>
         </linearGradient>
         <linearGradient id="mapShallowGrad" x1="0" y1="0" x2="0.3" y2="1">
           <stop offset="0" stop-color="#c9e4f2"/>
@@ -986,6 +1054,7 @@
         </linearGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
+      sunBounds,
       `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
       `<g class="map-layer map-path-layer">${pathParts.join('')}</g>`,
       `<g class="map-layer map-territory-layer" aria-hidden="true">${territoryParts.join(
@@ -994,6 +1063,27 @@
       `<g class="map-layer map-feature-layer">${featureParts.join('')}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
     ].join('');
+  }
+
+  function buildRaisedHexTop(terrainKey, col, row, center, config) {
+    const topX = center.x - 1.2;
+    const topY = center.y - config.lift;
+    const corners = hexCornersScaled(topX, topY, config.scale);
+    const point = (p) => `${roundMapCoordinate(p.x)} ${roundMapCoordinate(p.y)}`;
+    return (
+      `<path d="${hexPathScaled(topX, topY, config.scale)}" fill="${pickMapTerrainFill(
+        terrainKey,
+        col,
+        row
+      )}"/>` +
+      `<path d="${hexPathScaled(topX, topY, config.scale)}" fill="url(#mapShade)" opacity=".85"/>` +
+      `<path d="M${point(corners[5])} L${point(corners[0])} L${point(
+        corners[1]
+      )}" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1.7" stroke-linecap="round"/>` +
+      `<path d="M${point(corners[2])} L${point(corners[3])} L${point(
+        corners[4]
+      )}" fill="none" stroke="rgba(15,20,38,.3)" stroke-width="1.5" stroke-linecap="round"/>`
+    );
   }
 
   function buildMapDecor(terrainKey, x, y, col, row) {
@@ -1034,11 +1124,18 @@
     }
 
     if (terrainKey === 'hills') {
-      return `${open}<path d="M-15 8c4-13 12-13 16 0M-1 8c4-11 11-11 15 0" fill="none" stroke="rgba(101,78,41,.44)" stroke-width="2.4" stroke-linecap="round"/><path d="M-11 1c2.6-5 7.4-5.6 10-.6" fill="none" stroke="rgba(255,248,214,.5)" stroke-width="1.6" stroke-linecap="round"/><path d="M-8 12h6M2 13h7" fill="none" stroke="rgba(101,78,41,.3)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+      const mound = (mx, my, scale) =>
+        `<g transform="translate(${mx} ${my}) scale(${scale})"><ellipse cx="2" cy="8.6" rx="12.5" ry="2.5" fill="rgba(80,58,20,.24)"/><path d="M-12 8 C-12 -2 -5 -6.5 0 -6.5 C5 -6.5 12 -2 12 8 Z" fill="#d2ae68"/><path d="M-12 8 C-12 -2 -5 -6.5 0 -6.5 C-3.4 -2.4 -4.4 2.6 -4.4 8 Z" fill="rgba(255,246,214,.5)"/><path d="M-12 8 C-12 -2 -5 -6.5 0 -6.5 C5 -6.5 12 -2 12 8 Z" fill="none" stroke="rgba(120,92,40,.4)" stroke-width="1.2"/></g>`;
+      return `${open}${mound(-8, 3, 0.92)}${mound(9, 8, 0.62)}${hash % 3 !== 0 ? mound(2, -9, 0.5) : ''}${close}`;
     }
 
     if (terrainKey === 'mountain') {
-      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(28,38,58,.18)"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="#7b8293"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="url(#mapShade)" opacity=".55"/><path d="M-3 -13 L0.5 -5.5 L-7.5 -5.5 Z" fill="#f2f6fb"/><path d="M2 12 L11 -2 L20 12 Z" fill="#959baa" opacity=".92"/><path d="M11 -2 L13 2 L9 2 Z" fill="#eef2f8" opacity=".9"/>${close}`;
+      const peak = (px, py, scale, main) => {
+        const lit = main ? '#b9c0ce' : '#a3a9b8';
+        const shade = main ? '#767c8c' : '#82889a';
+        return `<g transform="translate(${px} ${py}) scale(${scale})"><ellipse cx="2" cy="13.5" rx="16" ry="2.6" fill="rgba(28,38,58,.26)"/><path d="M-15 13 L0 -13 L4 13 Z" fill="${lit}"/><path d="M0 -13 L4 13 L19 13 Z" fill="${shade}"/><path d="M0 -13 L5 -3 L2.4 -5.2 L0 -3.4 L-2.4 -5.2 L-5 -3 Z" fill="#f4f8fc"/><path d="M-9.4 6 L-5.6 1.4 L-2.2 6 Z" fill="#e8edf4" opacity=".75"/></g>`;
+      };
+      return `${open}${peak(-4, -1, 1, true)}${peak(10.5, 6, 0.55, false)}${close}`;
     }
 
     if (terrainKey === 'lake') {
@@ -1049,13 +1146,18 @@
     }
 
     if (terrainKey === 'water') {
-      const wave = (wy, op) =>
-        `<path d="M-15 ${wy}c3.5-4 7-4 10.5 0s7 4 10.5 0" fill="none" stroke="rgba(255,255,255,${op})" stroke-width="2" stroke-linecap="round"/>`;
-      return `${open}${wave(-5, 0.6)}${hash % 2 === 0 ? wave(7, 0.42) : wave(-12, 0.3)}${
-        hash % 5 === 0
-          ? '<circle cx="9" cy="-9" r="2" fill="rgba(255,255,255,.5)"/><circle cx="-10" cy="10" r="1.4" fill="rgba(255,255,255,.4)"/>'
-          : ''
-      }${close}`;
+      const depth = mapWaterDepth ? mapWaterDepth.get(`${col},${row}`) || 0 : 0;
+      const foam = (wy, op, w) =>
+        `<path d="M-12 ${wy}c3-3.4 6-3.4 9 0s6 3.4 9 0" fill="none" stroke="rgba(255,255,255,${op})" stroke-width="${w}" stroke-linecap="round"/>`;
+      const sparkle = (sx, sy, r, op) =>
+        `<circle cx="${sx}" cy="${sy}" r="${r}" fill="rgba(255,255,255,${op})"/>`;
+      if (depth === 1) {
+        return `${open}${foam(-4, 0.68, 1.9)}${hash % 2 === 0 ? foam(8, 0.46, 1.6) : ''}${close}`;
+      }
+      if (depth === 2) {
+        return `${open}${foam(-3, 0.34, 1.6)}${sparkle(9, -8, 1.6, 0.34)}${close}`;
+      }
+      return `${open}${sparkle(8, -6, 1.5, 0.26)}${hash % 2 === 0 ? sparkle(-9, 7, 1.2, 0.2) : ''}${close}`;
     }
 
     if (terrainKey === 'desert') {
@@ -1063,7 +1165,9 @@
         hash % 4 === 0
           ? '<g transform="translate(-9 4)"><path d="M0 6V-4M0 -1c-2.6 0-2.6-3.4-2.6-3.4M0 2c2.6 0 2.6-3.4 2.6-3.4" fill="none" stroke="rgba(74,116,74,.75)" stroke-width="1.8" stroke-linecap="round"/></g>'
           : '';
-      return `${open}<circle cx="9" cy="-8" r="3.2" fill="rgba(255,241,192,.9)"/><path d="M-16 6c4-8 10-8 14 0M-1 11c4-7 10-7 14 0" fill="none" stroke="rgba(153,112,49,.44)" stroke-width="2" stroke-linecap="round"/>${cactus}${close}`;
+      const dune = (dx, dy, scale, flip) =>
+        `<g transform="translate(${dx} ${dy}) scale(${scale})"><path d="M-13 0 C-8 -6.5 4 -6.5 13 0 C6 -2.6 -4 -2.6 -13 0 Z" fill="${flip ? 'rgba(214,166,96,.6)' : 'rgba(255,240,196,.75)'}"/></g>`;
+      return `${open}${dune(-2, 3, 1, false)}${dune(5, 10, 0.68, true)}${hash % 3 === 0 ? dune(-9, -5, 0.55, true) : ''}${cactus}${close}`;
     }
 
     if (terrainKey === 'snow') {
@@ -1081,7 +1185,7 @@
     }
 
     if (terrainKey === 'volcano') {
-      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(24,18,20,.3)"/><path d="M-16 13 L-5 -9 L7 13 Z" fill="#544b4f"/><path d="M-16 13 L-5 -9 L7 13 Z" fill="url(#mapShade)" opacity=".5"/><path d="M-5 -9 L-2.2 -3 L-8.4 -3 Z" fill="#f0b054"/><path d="M7 13 L14 1 L21 13 Z" fill="#61575b" opacity=".9"/><path d="M-3 -5c2 2.4 4.4 2.4 6.4 0" fill="none" stroke="rgba(255,166,76,.8)" stroke-width="1.8" stroke-linecap="round"/><path d="M2 -12c.5 1.7 1.4 2.3 3 2.7-1.6.4-2.5 1-3 2.7-.5-1.7-1.4-2.3-3-2.7 1.6-.4 2.5-1 3-2.7Z" fill="rgba(240,140,70,.85)"/>${close}`;
+      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.8" fill="rgba(24,18,20,.32)"/><path d="M-16 13 L-2.5 -9 L8 13 Z" fill="#5d5458"/><path d="M-2.5 -9 L2 -9 L8 13 L2 13 Z" fill="#453e42"/><path d="M-2.5 -9 L2 -9 L0.8 -11.8 L-1.2 -11.5 Z" fill="#2c262a"/><path d="M-3.6 -6.6c2 2 4.2 2 6.2 0" fill="none" stroke="rgba(255,166,76,.85)" stroke-width="1.8" stroke-linecap="round"/><circle cx="-1" cy="-14" r="2.6" fill="rgba(130,120,126,.5)"/><circle cx="3.6" cy="-17" r="1.9" fill="rgba(150,140,146,.38)"/><path d="M2 -12c.5 1.7 1.4 2.3 3 2.7-1.6.4-2.5 1-3 2.7-.5-1.7-1.4-2.3-3-2.7 1.6-.4 2.5-1 3-2.7Z" fill="rgba(240,140,70,.88)"/>${close}`;
     }
 
     return '';

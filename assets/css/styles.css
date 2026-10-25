@@ -3305,3 +3305,180 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- 一期新增：别名 / 大纲状态 / 反向链接 / 评论状态 / 继续上次 / 数据安全 ---------- */
+
+.entry-alias-chip {
+  border-style: dashed;
+}
+
+.entry-alias-chip::before {
+  content: none;
+}
+
+.entry-status-pill {
+  flex: none;
+}
+
+.outline-status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.section-filter-empty {
+  margin: 18px 2px;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.entry-backlinks {
+  border-top: 1px solid var(--line-soft);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.backlink-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.backlink-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.backlink-row:hover {
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.backlink-row-icon {
+  flex: none;
+  display: inline-flex;
+  align-self: center;
+  color: var(--faint);
+}
+
+.backlink-row-icon .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.backlink-row-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.backlink-row-title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.backlink-row-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.backlink-row-excerpt mark {
+  background: transparent;
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.backlink-more {
+  margin: 8px 2px 0;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* 已解决的评论：内容褪色留在原地，按钮保持全对比度（按钮永远是可点的） */
+.comment-card.is-resolved .comment-card-head,
+.comment-card.is-resolved .comment-body {
+  opacity: 0.55;
+}
+
+.comment-resolved-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.comment-status-btn {
+  min-height: 34px;
+}
+
+.continue-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.continue-banner[hidden] {
+  display: none;
+}
+
+.continue-banner-icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.continue-banner-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+
+.continue-banner-time {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.continue-banner-btn {
+  flex: none;
+}
+
+.continue-banner-dismiss {
+  flex: none;
+  color: var(--faint);
+}
+
+@media (max-width: 640px) {
+  .continue-banner-time {
+    display: none;
+  }
+}
+
+.backup-reminder {
+  color: var(--amber);
+}
+
+.side-capacity.is-close-to-quota {
+  color: var(--amber);
+}

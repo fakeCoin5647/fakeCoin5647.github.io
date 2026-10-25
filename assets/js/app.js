@@ -310,6 +310,13 @@
     return terrain.fills[hash % terrain.fills.length];
   }
 
+  const MAP_RAISED_TERRAINS = {
+    // 伪 3D：side 是暴露在东南侧的「崖壁」色，lift 是台地抬升量，scale 是顶面缩放
+    hills: { side: '#b18f4a', lift: 2.6, scale: 0.82 },
+    mountain: { side: '#6f7585', lift: 3.4, scale: 0.87 },
+    volcano: { side: '#453e42', lift: 3.4, scale: 0.87 },
+  };
+
   const MAP_PATH_KINDS = {
     river: { label: '河流', color: '#4d86c7', width: 3.6, dash: '' },
     road: { label: '道路', color: '#8a6a48', width: 2.4, dash: '7 5' },
@@ -336,7 +343,7 @@
   const MAP_FEATURE_KEYS = ['none', ...Object.keys(MAP_FEATURES)];
   const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
 
-  let mapShallowCells = null;
+  let mapWaterDepth = null;
 
   const MAP_CITY_TYPES = {
     city: { label: '城市' },
@@ -459,6 +466,14 @@
 
     importBtn: $('#importBtn'),
     exportBtn: $('#exportBtn'),
+    sparkBtn: $('#sparkBtn'),
+    sparkDialog: $('#sparkDialog'),
+    sparkDialogCloseBtn: $('#sparkDialogCloseBtn'),
+    sparkRedrawBtn: $('#sparkRedrawBtn'),
+    sparkDoneBtn: $('#sparkDoneBtn'),
+    sparkSentence: $('#sparkSentence'),
+    sparkCards: $('#sparkCards'),
+    moonPhase: $('#moonPhase'),
     backupReminder: $('#backupReminder'),
     sideCapacity: $('#sideCapacity'),
     footerExportBtn: $('#footerExportBtn'),
@@ -726,6 +741,7 @@
     applyAppearance();
     document.body.appendChild(els.appearancePanel);
     els.year.textContent = new Date().getFullYear();
+    syncMoonPhase();
     bindEvents();
     renderRoute();
     syncShelfSearchBox();
@@ -6226,6 +6242,28 @@
     ];
   }
 
+  function hexCornersScaled(cx, cy, scale) {
+    const corners = hexCornersAt(cx, cy);
+    return corners.map((point) => ({
+      x: cx + (point.x - cx) * scale,
+      y: cy + (point.y - cy) * scale,
+    }));
+  }
+
+  function hexPathScaled(cx, cy, scale) {
+    const corners = hexCornersScaled(cx, cy, scale);
+    return (
+      corners
+        .map(
+          (point, index) =>
+            `${index === 0 ? 'M' : 'L'}${roundMapCoordinate(point.x)} ${roundMapCoordinate(
+              point.y
+            )}`
+        )
+        .join('') + 'Z'
+    );
+  }
+
   function hexPathAt(cx, cy) {
     const corners = hexCornersAt(cx, cy);
     return (
@@ -6303,30 +6341,44 @@
     return ownership;
   }
 
-  function collectMapShallowWater(map) {
-    const shallow = new Set();
+  function collectMapWaterDepth(map) {
+    // 多源 BFS：离岸 1 格浅水、2 格中海，其余深水
+    const depth = new Map();
+    const ringOne = [];
+
     for (let row = 0; row < map.rows; row += 1) {
       for (let col = 0; col < map.cols; col += 1) {
-        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        const terrain = map.tiles[`${col},${row}`] || 'grass';
+        if (terrain === 'water' || terrain === 'lake') continue;
         for (const direction of MAP_DIRECTIONS) {
           const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
           if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
-          const neighbor = map.tiles[`${nextCol},${nextRow}`] || 'grass';
-          if (neighbor !== 'water' && neighbor !== 'lake') {
-            shallow.add(`${col},${row}`);
-            break;
-          }
+          const key = `${nextCol},${nextRow}`;
+          if ((map.tiles[key] || 'grass') !== 'water' || depth.has(key)) continue;
+          depth.set(key, 1);
+          ringOne.push([nextCol, nextRow]);
         }
       }
     }
-    return shallow;
+
+    for (const [col, row] of ringOne) {
+      for (const direction of MAP_DIRECTIONS) {
+        const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+        if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+        const key = `${nextCol},${nextRow}`;
+        if ((map.tiles[key] || 'grass') !== 'water' || depth.has(key)) continue;
+        depth.set(key, 2);
+      }
+    }
+
+    return depth;
   }
 
   function buildMapMarkup(
     map,
     { selectedCityId = null, selectedPathId = null, pendingPath = null, suggestions = null } = {}
   ) {
-    mapShallowCells = collectMapShallowWater(map);
+    mapWaterDepth = collectMapWaterDepth(map);
     const terrainParts = [];
     const coastParts = [];
     const pathParts = [];
@@ -6404,6 +6456,14 @@
       cityParts.push(buildMapCityMarker(city, city.id === selectedCityId));
     }
 
+    const sunBounds = (() => {
+      const minX = -(MAP_WORLD_SQRT3 / 2) * MAP_HEX_SIZE;
+      const minY = -MAP_HEX_SIZE;
+      const width = MAP_WORLD_SQRT3 * MAP_HEX_SIZE * (map.cols + 0.5);
+      const height = MAP_HEX_SIZE * (1.5 * (map.rows - 1) + 2);
+      return `<g class="map-layer map-sun-layer" aria-hidden="true" style="mix-blend-mode:soft-light"><rect x="${roundMapCoordinate(minX)}" y="${roundMapCoordinate(minY)}" width="${roundMapCoordinate(width)}" height="${roundMapCoordinate(height)}" fill="url(#mapSunGrad)"/></g>`;
+    })();
+
     return [
       `<defs>
         <filter id="mapCityShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="rgba(20,28,52,.42)"/></filter>
@@ -6418,8 +6478,17 @@
           <stop offset="1" stop-color="#1c2440" stop-opacity=".14"/>
         </linearGradient>
         <linearGradient id="mapWaterGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#8fb8d4"/>
+          <stop offset="1" stop-color="#6b95b8"/>
+        </linearGradient>
+        <linearGradient id="mapWaterMidGrad" x1="0" y1="0" x2="0.3" y2="1">
           <stop offset="0" stop-color="#a9cde6"/>
-          <stop offset="1" stop-color="#79a6c9"/>
+          <stop offset="1" stop-color="#84afce"/>
+        </linearGradient>
+        <linearGradient id="mapSunGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/>
+          <stop offset=".45" stop-color="#ffffff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#0f1a38" stop-opacity=".4"/>
         </linearGradient>
         <linearGradient id="mapShallowGrad" x1="0" y1="0" x2="0.3" y2="1">
           <stop offset="0" stop-color="#c9e4f2"/>
@@ -6431,6 +6500,7 @@
         </linearGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
+      sunBounds,
       `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
       `<g class="map-layer map-path-layer">${pathParts.join('')}</g>`,
       `<g class="map-layer map-territory-layer" aria-hidden="true">${territoryParts.join(
@@ -6634,21 +6704,32 @@
   function buildMapHexInner(col, row, terrainKey) {
     const center = hexCenter(col, row);
     const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
+    const raised = MAP_RAISED_TERRAINS[terrainKey];
     let fill;
     if (terrainKey === 'lake') fill = 'url(#mapLakeGrad)';
-    else if (terrainKey === 'water')
+    else if (terrainKey === 'water') {
+      const depth = mapWaterDepth ? mapWaterDepth.get(`${col},${row}`) || 0 : 0;
       fill =
-        mapShallowCells && mapShallowCells.has(`${col},${row}`)
+        depth === 1
           ? 'url(#mapShallowGrad)'
-          : 'url(#mapWaterGrad)';
+          : depth === 2
+            ? 'url(#mapWaterMidGrad)'
+            : 'url(#mapWaterGrad)';
+    } else if (raised) fill = raised.side;
     else fill = pickMapTerrainFill(terrainKey, col, row);
-    const strongShade = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
-    const softShade = ['grass', 'plains', 'desert'].includes(terrainKey);
-    const shadeLayer = strongShade
-      ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
-      : softShade
-        ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShadeSoft)"/>`
-        : '';
+
+    let shadeLayer;
+    if (raised) {
+      shadeLayer = buildRaisedHexTop(terrainKey, col, row, center, raised);
+    } else {
+      const strongShade = ['mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
+      const softShade = ['grass', 'plains', 'desert'].includes(terrainKey);
+      shadeLayer = strongShade
+        ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
+        : softShade
+          ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShadeSoft)"/>`
+          : '';
+    }
     return `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${fill}" stroke="${
       terrain.stroke
     }" stroke-opacity=".5" stroke-width=".7"/>${shadeLayer}${buildMapDecor(
@@ -6658,6 +6739,28 @@
       col,
       row
     )}`;
+  }
+
+  function buildRaisedHexTop(terrainKey, col, row, center, config) {
+    // 西北受光、东南背光的凸起台面：底色当崖壁，顶面缩放后向上抬升
+    const topX = center.x - 1.2;
+    const topY = center.y - config.lift;
+    const corners = hexCornersScaled(topX, topY, config.scale);
+    const point = (p) => `${roundMapCoordinate(p.x)} ${roundMapCoordinate(p.y)}`;
+    return (
+      `<path d="${hexPathScaled(topX, topY, config.scale)}" fill="${pickMapTerrainFill(
+        terrainKey,
+        col,
+        row
+      )}"/>` +
+      `<path d="${hexPathScaled(topX, topY, config.scale)}" fill="url(#mapShade)" opacity=".85"/>` +
+      `<path d="M${point(corners[5])} L${point(corners[0])} L${point(
+        corners[1]
+      )}" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1.7" stroke-linecap="round"/>` +
+      `<path d="M${point(corners[2])} L${point(corners[3])} L${point(
+        corners[4]
+      )}" fill="none" stroke="rgba(15,20,38,.3)" stroke-width="1.5" stroke-linecap="round"/>`
+    );
   }
 
   function buildMapDecor(terrainKey, x, y, col, row) {
@@ -6698,11 +6801,18 @@
     }
 
     if (terrainKey === 'hills') {
-      return `${open}<path d="M-15 8c4-13 12-13 16 0M-1 8c4-11 11-11 15 0" fill="none" stroke="rgba(101,78,41,.44)" stroke-width="2.4" stroke-linecap="round"/><path d="M-11 1c2.6-5 7.4-5.6 10-.6" fill="none" stroke="rgba(255,248,214,.5)" stroke-width="1.6" stroke-linecap="round"/><path d="M-8 12h6M2 13h7" fill="none" stroke="rgba(101,78,41,.3)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+      const mound = (mx, my, scale) =>
+        `<g transform="translate(${mx} ${my}) scale(${scale})"><ellipse cx="2" cy="8.6" rx="12.5" ry="2.5" fill="rgba(80,58,20,.24)"/><path d="M-12 8 C-12 -2 -5 -6.5 0 -6.5 C5 -6.5 12 -2 12 8 Z" fill="#d2ae68"/><path d="M-12 8 C-12 -2 -5 -6.5 0 -6.5 C-3.4 -2.4 -4.4 2.6 -4.4 8 Z" fill="rgba(255,246,214,.5)"/><path d="M-12 8 C-12 -2 -5 -6.5 0 -6.5 C5 -6.5 12 -2 12 8 Z" fill="none" stroke="rgba(120,92,40,.4)" stroke-width="1.2"/></g>`;
+      return `${open}${mound(-8, 3, 0.92)}${mound(9, 8, 0.62)}${hash % 3 !== 0 ? mound(2, -9, 0.5) : ''}${close}`;
     }
 
     if (terrainKey === 'mountain') {
-      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(28,38,58,.18)"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="#7b8293"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="url(#mapShade)" opacity=".55"/><path d="M-3 -13 L0.5 -5.5 L-7.5 -5.5 Z" fill="#f2f6fb"/><path d="M2 12 L11 -2 L20 12 Z" fill="#959baa" opacity=".92"/><path d="M11 -2 L13 2 L9 2 Z" fill="#eef2f8" opacity=".9"/>${close}`;
+      const peak = (px, py, scale, main) => {
+        const lit = main ? '#b9c0ce' : '#a3a9b8';
+        const shade = main ? '#767c8c' : '#82889a';
+        return `<g transform="translate(${px} ${py}) scale(${scale})"><ellipse cx="2" cy="13.5" rx="16" ry="2.6" fill="rgba(28,38,58,.26)"/><path d="M-15 13 L0 -13 L4 13 Z" fill="${lit}"/><path d="M0 -13 L4 13 L19 13 Z" fill="${shade}"/><path d="M0 -13 L5 -3 L2.4 -5.2 L0 -3.4 L-2.4 -5.2 L-5 -3 Z" fill="#f4f8fc"/><path d="M-9.4 6 L-5.6 1.4 L-2.2 6 Z" fill="#e8edf4" opacity=".75"/></g>`;
+      };
+      return `${open}${peak(-4, -1, 1, true)}${peak(10.5, 6, 0.55, false)}${close}`;
     }
 
     if (terrainKey === 'lake') {
@@ -6713,13 +6823,18 @@
     }
 
     if (terrainKey === 'water') {
-      const wave = (wy, op) =>
-        `<path d="M-15 ${wy}c3.5-4 7-4 10.5 0s7 4 10.5 0" fill="none" stroke="rgba(255,255,255,${op})" stroke-width="2" stroke-linecap="round"/>`;
-      return `${open}${wave(-5, 0.6)}${hash % 2 === 0 ? wave(7, 0.42) : wave(-12, 0.3)}${
-        hash % 5 === 0
-          ? '<circle cx="9" cy="-9" r="2" fill="rgba(255,255,255,.5)"/><circle cx="-10" cy="10" r="1.4" fill="rgba(255,255,255,.4)"/>'
-          : ''
-      }${close}`;
+      const depth = mapWaterDepth ? mapWaterDepth.get(`${col},${row}`) || 0 : 0;
+      const foam = (wy, op, w) =>
+        `<path d="M-12 ${wy}c3-3.4 6-3.4 9 0s6 3.4 9 0" fill="none" stroke="rgba(255,255,255,${op})" stroke-width="${w}" stroke-linecap="round"/>`;
+      const sparkle = (sx, sy, r, op) =>
+        `<circle cx="${sx}" cy="${sy}" r="${r}" fill="rgba(255,255,255,${op})"/>`;
+      if (depth === 1) {
+        return `${open}${foam(-4, 0.68, 1.9)}${hash % 2 === 0 ? foam(8, 0.46, 1.6) : ''}${close}`;
+      }
+      if (depth === 2) {
+        return `${open}${foam(-3, 0.34, 1.6)}${sparkle(9, -8, 1.6, 0.34)}${close}`;
+      }
+      return `${open}${sparkle(8, -6, 1.5, 0.26)}${hash % 2 === 0 ? sparkle(-9, 7, 1.2, 0.2) : ''}${close}`;
     }
 
     if (terrainKey === 'desert') {
@@ -6727,7 +6842,9 @@
         hash % 4 === 0
           ? '<g transform="translate(-9 4)"><path d="M0 6V-4M0 -1c-2.6 0-2.6-3.4-2.6-3.4M0 2c2.6 0 2.6-3.4 2.6-3.4" fill="none" stroke="rgba(74,116,74,.75)" stroke-width="1.8" stroke-linecap="round"/></g>'
           : '';
-      return `${open}<circle cx="9" cy="-8" r="3.2" fill="rgba(255,241,192,.9)"/><path d="M-16 6c4-8 10-8 14 0M-1 11c4-7 10-7 14 0" fill="none" stroke="rgba(153,112,49,.44)" stroke-width="2" stroke-linecap="round"/>${cactus}${close}`;
+      const dune = (dx, dy, scale, flip) =>
+        `<g transform="translate(${dx} ${dy}) scale(${scale})"><path d="M-13 0 C-8 -6.5 4 -6.5 13 0 C6 -2.6 -4 -2.6 -13 0 Z" fill="${flip ? 'rgba(214,166,96,.6)' : 'rgba(255,240,196,.75)'}"/></g>`;
+      return `${open}${dune(-2, 3, 1, false)}${dune(5, 10, 0.68, true)}${hash % 3 === 0 ? dune(-9, -5, 0.55, true) : ''}${cactus}${close}`;
     }
 
     if (terrainKey === 'snow') {
@@ -6745,7 +6862,7 @@
     }
 
     if (terrainKey === 'volcano') {
-      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(24,18,20,.3)"/><path d="M-16 13 L-5 -9 L7 13 Z" fill="#544b4f"/><path d="M-16 13 L-5 -9 L7 13 Z" fill="url(#mapShade)" opacity=".5"/><path d="M-5 -9 L-2.2 -3 L-8.4 -3 Z" fill="#f0b054"/><path d="M7 13 L14 1 L21 13 Z" fill="#61575b" opacity=".9"/><path d="M-3 -5c2 2.4 4.4 2.4 6.4 0" fill="none" stroke="rgba(255,166,76,.8)" stroke-width="1.8" stroke-linecap="round"/><path d="M2 -12c.5 1.7 1.4 2.3 3 2.7-1.6.4-2.5 1-3 2.7-.5-1.7-1.4-2.3-3-2.7 1.6-.4 2.5-1 3-2.7Z" fill="rgba(240,140,70,.85)"/>${close}`;
+      return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.8" fill="rgba(24,18,20,.32)"/><path d="M-16 13 L-2.5 -9 L8 13 Z" fill="#5d5458"/><path d="M-2.5 -9 L2 -9 L8 13 L2 13 Z" fill="#453e42"/><path d="M-2.5 -9 L2 -9 L0.8 -11.8 L-1.2 -11.5 Z" fill="#2c262a"/><path d="M-3.6 -6.6c2 2 4.2 2 6.2 0" fill="none" stroke="rgba(255,166,76,.85)" stroke-width="1.8" stroke-linecap="round"/><circle cx="-1" cy="-14" r="2.6" fill="rgba(130,120,126,.5)"/><circle cx="3.6" cy="-17" r="1.9" fill="rgba(150,140,146,.38)"/><path d="M2 -12c.5 1.7 1.4 2.3 3 2.7-1.6.4-2.5 1-3 2.7-.5-1.7-1.4-2.3-3-2.7 1.6-.4 2.5-1 3-2.7Z" fill="rgba(240,140,70,.88)"/>${close}`;
     }
 
     return '';
@@ -10588,6 +10705,105 @@
     return { added, updated };
   }
 
+  /* ---------- 灵感抽签 ---------- */
+
+  // 从用户自己的书架里抽「角色 × 地点 × 设定」，配一句句式当写作火花。零存储，纯随机。
+  const SPARK_TEMPLATES = [
+    '如果 {who} 在 {where} 撞见 {what}——',
+    '{who} 一直躲着 {what}，直到 {where} 的那一夜。',
+    '把 {who} 写进 {where}，让 {what} 来搅局。',
+    '{where} 的旧规矩碰上 {who}，{what} 就是导火索。',
+  ];
+
+  function collectSparkPool(sectionKeys) {
+    const pool = [];
+    for (const novel of state.novels) {
+      for (const key of sectionKeys) {
+        for (const entry of novel.entries[key]) {
+          pool.push({ novel, sectionKey: key, entry });
+        }
+      }
+    }
+    return pool;
+  }
+
+  function pickSpark(pool) {
+    if (pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function buildSparkCard(slotLabel, pick) {
+    const card = el('a', 'spark-card');
+    card.appendChild(el('p', 'spark-card-slot', slotLabel));
+    if (pick) {
+      card.href = entryHash(pick.novel.id, pick.sectionKey, pick.entry.id);
+      card.appendChild(el('p', 'spark-card-name', pick.entry.title));
+      card.appendChild(
+        el('p', 'spark-card-from', `《${pick.novel.title}》· ${SECTIONS[pick.sectionKey].label}`)
+      );
+    } else {
+      card.classList.add('is-empty');
+      card.appendChild(el('p', 'spark-card-name', '书架里还没有'));
+      card.appendChild(el('p', 'spark-card-from', '先写下一个，灵感才有料可抽'));
+    }
+    return card;
+  }
+
+  function drawSparks() {
+    const who = pickSpark(collectSparkPool(['characters']));
+    const where = pickSpark(collectSparkPool(['world', 'maps']));
+    const what = pickSpark(collectSparkPool(['settings']));
+    const picks = { who, where, what };
+
+    const template = SPARK_TEMPLATES[Math.floor(Math.random() * SPARK_TEMPLATES.length)];
+    const fill = (token) => (picks[token] ? picks[token].entry.title : '……');
+    els.sparkSentence.textContent = template
+      .replace('{who}', fill('who'))
+      .replace('{where}', fill('where'))
+      .replace('{what}', fill('what'));
+
+    const fragment = document.createDocumentFragment();
+    fragment.appendChild(buildSparkCard('一位角色', who));
+    fragment.appendChild(buildSparkCard('一处地方', where));
+    fragment.appendChild(buildSparkCard('一条设定', what));
+    els.sparkCards.replaceChildren(fragment);
+  }
+
+  function openSparkDialog() {
+    if (!els.sparkDialog || els.sparkDialog.open) return;
+    drawSparks();
+    els.sparkDialog.showModal();
+    els.sparkRedrawBtn.focus({ preventScroll: true });
+  }
+
+  function closeSparkDialog() {
+    if (els.sparkDialog && els.sparkDialog.open) els.sparkDialog.close();
+  }
+
+  /* ---------- 月相徽记 ---------- */
+
+  // 夜图书馆的小小仪式感：按真实日期在页脚标注今夜月相（近似算法，仅供氛围）
+  function moonPhaseName(date = new Date()) {
+    const synodic = 29.530588853;
+    const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+    const days = (date.getTime() - knownNewMoon) / 86400000;
+    const phase = ((days % synodic) + synodic) % synodic;
+    if (phase < 1.85) return '新月';
+    if (phase < 7.38) return '娥眉月';
+    if (phase < 9.23) return '上弦月';
+    if (phase < 12.69) return '盈凸月';
+    if (phase < 14.77) return '满月';
+    if (phase < 17.92) return '亏凸月';
+    if (phase < 21.15) return '下弦月';
+    if (phase < 25.0) return '残月';
+    return '新月';
+  }
+
+  function syncMoonPhase() {
+    if (!els.moonPhase) return;
+    els.moonPhase.textContent = `今夜 · ${moonPhaseName()}`;
+  }
+
   /* ---------- Backup reminders & capacity ---------- */
 
   // 上次导出时间存独立键：不进主库、不进备份本身，否则旧备份导入会把计时器拨回去
@@ -11858,6 +12074,17 @@
     els.footerExportBtn.addEventListener('click', exportLibrary);
     els.importFile.addEventListener('change', handleImportFile);
 
+    if (els.sparkBtn) els.sparkBtn.addEventListener('click', openSparkDialog);
+    if (els.sparkRedrawBtn) {
+      els.sparkRedrawBtn.addEventListener('click', () => drawSparks());
+    }
+    if (els.sparkDoneBtn) {
+      els.sparkDoneBtn.addEventListener('click', closeSparkDialog);
+    }
+    if (els.sparkDialogCloseBtn) {
+      els.sparkDialogCloseBtn.addEventListener('click', closeSparkDialog);
+    }
+
     els.publishPreviewBtn.addEventListener('click', openPublicPreview);
     els.publishExportBtn.addEventListener('click', exportPublicLibrary);
     els.publishEmptyNewBtn.addEventListener('click', () => openNovelEditor());
@@ -12716,6 +12943,13 @@
       } else if (event.key === '/' && state.route.view === 'comments') {
         event.preventDefault();
         els.commentsSearchInput.focus();
+      } else if (
+        (event.key === 'i' || event.key === 'I') &&
+        state.route.view === 'shelf' &&
+        !els.sparkDialog.open
+      ) {
+        event.preventDefault();
+        openSparkDialog();
       }
     });
 
