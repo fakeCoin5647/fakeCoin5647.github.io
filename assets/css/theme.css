@@ -837,13 +837,25 @@ html.is-sheer {
 }
 
 html.is-sheer .page {
-  /* 通透档位下外壳也只补到 0.26：壁纸必须可辨，
-     文字可读性交给玻璃件自身雾度与文字阴影 */
-  background: rgba(255, 255, 255, calc(var(--glass-alpha) * 0.3 + 0.06));
+  /* 通透档位下仍要保住可读性：外壳白雾不低于 0.3，雾度不低于 9px */
+  background: rgba(
+    255,
+    255,
+    255,
+    clamp(0.3, calc(var(--glass-alpha) * 0.3 + 0.06), 0.62)
+  );
+  backdrop-filter: blur(clamp(9px, var(--glass-blur), 30px)) saturate(1.25);
+  -webkit-backdrop-filter: blur(clamp(9px, var(--glass-blur), 30px))
+    saturate(1.25);
 }
 
 html.is-sheer .sidebar {
-  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.36 + 0.12));
+  background: rgba(
+    255,
+    255,
+    255,
+    clamp(0.38, calc(var(--card-alpha) * 0.36 + 0.12), 0.7)
+  );
 }
 
 /* 通透状态下次级按钮垫实一点，避免与背景拉不开 */
@@ -864,8 +876,16 @@ html.is-sheer .novel-card-summary,
 html.is-sheer .entry-card-excerpt,
 html.is-sheer .site-footer,
 html.is-sheer .back-link,
-html.is-sheer .workspace-breadcrumb {
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.45);
+html.is-sheer .workspace-breadcrumb,
+html.is-sheer .brand-text,
+html.is-sheer .side-nav .nav-link,
+html.is-sheer .section-head,
+html.is-sheer .shelf-meta,
+html.is-sheer .panel-title,
+html.is-sheer .entry-notes {
+  text-shadow:
+    0 1px 2px rgba(255, 255, 255, 0.92),
+    0 0 10px rgba(255, 255, 255, 0.55);
 }
 
 .side-note {
