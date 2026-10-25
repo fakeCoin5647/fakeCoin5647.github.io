@@ -320,6 +320,23 @@
       const id = cleanText(item.id, 80);
       if (!id || seen.has(id)) continue;
       seen.add(id);
+
+      const cells = Array.isArray(item.cells)
+        ? [
+            ...new Set(
+              item.cells
+                .map((key) => String(key))
+                .filter((key) => /^\d{1,2},\d{1,2}$/.test(key))
+                .map((key) => {
+                  const [cellCol, cellRow] = key.split(',').map(Number);
+                  return cellCol < cols && cellRow < rows ? `${cellCol},${cellRow}` : null;
+                })
+                .filter(Boolean)
+            ),
+          ]
+        : [];
+      const customArea = Boolean(item.customArea) && cells.length > 0;
+
       cities.push({
         id,
         name: cleanText(item.name, 40) || '未命名城市',
@@ -329,6 +346,7 @@
           ? item.color
           : MAP_CITY_COLORS[cities.length % MAP_CITY_COLORS.length],
         radius: clampInt(item.radius, 1, 3, 2),
+        ...(customArea ? { customArea: true, cells } : {}),
       });
     }
 
@@ -597,6 +615,18 @@
   function computeMapOwnership(map) {
     const ownership = new Map();
     for (const city of map.cities) {
+      if (city.customArea && Array.isArray(city.cells) && city.cells.length > 0) {
+        for (const key of city.cells) {
+          const [col, row] = key.split(',').map(Number);
+          if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
+          if (col < 0 || row < 0 || col >= map.cols || row >= map.rows) continue;
+          const current = ownership.get(key);
+          if (!current || current.distance > 0) {
+            ownership.set(key, { city, distance: 0 });
+          }
+        }
+        continue;
+      }
       for (let row = 0; row < map.rows; row += 1) {
         for (let col = 0; col < map.cols; col += 1) {
           const distance = mapHexDistance(col, row, city.col, city.row);

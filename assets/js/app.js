@@ -1258,6 +1258,22 @@
       if (seen.has(id)) continue;
       seen.add(id);
 
+      const cells = Array.isArray(item.cells)
+        ? [
+            ...new Set(
+              item.cells
+                .map((key) => String(key))
+                .filter((key) => /^\d{1,2},\d{1,2}$/.test(key))
+                .map((key) => {
+                  const [cellCol, cellRow] = key.split(',').map(Number);
+                  return cellCol < cols && cellRow < rows ? `${cellCol},${cellRow}` : null;
+                })
+                .filter(Boolean)
+            ),
+          ]
+        : [];
+      const customArea = Boolean(item.customArea) && cells.length > 0;
+
       cities.push({
         id,
         name: cleanText(item.name, 40) || '未命名城市',
@@ -1265,6 +1281,7 @@
         row,
         color: normalizeCityColor(item.color, cities.length),
         radius: clampInt(item.radius, 1, 3, 2),
+        ...(customArea ? { customArea: true, cells } : {}),
       });
     }
 
@@ -5767,6 +5784,19 @@
     const ownership = new Map();
 
     for (const city of map.cities) {
+      if (city.customArea && Array.isArray(city.cells) && city.cells.length > 0) {
+        for (const key of city.cells) {
+          const [col, row] = key.split(',').map(Number);
+          if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
+          if (col < 0 || row < 0 || col >= map.cols || row >= map.rows) continue;
+          const current = ownership.get(key);
+          if (!current || current.distance > 0) {
+            ownership.set(key, { city, distance: 0 });
+          }
+        }
+        continue;
+      }
+
       for (let row = 0; row < map.rows; row += 1) {
         for (let col = 0; col < map.cols; col += 1) {
           const distance = mapHexDistance(col, row, city.col, city.row);
@@ -6182,10 +6212,13 @@
     const editor = state.mapEditor;
     if (!editor) return;
     const stage = els.mapStage;
-    stage.classList.toggle('is-city-mode', editor.tool === 'city');
+    const areaMode = Boolean(getMapAreaCity(editor));
+    stage.classList.toggle('is-city-mode', editor.tool === 'city' && !areaMode);
     stage.classList.toggle(
       'is-paint-mode',
-      editor.tool === 'paint' || editor.tool === 'erase'
+      editor.tool === 'paint' ||
+        editor.tool === 'erase' ||
+        (editor.tool === 'city' && areaMode)
     );
     stage.classList.toggle(
       'is-path-mode',
@@ -6207,6 +6240,15 @@
         count < 2
           ? `继续点击格子延伸这条${config.label}，点击同一点结束`
           : `点击同一个格子结束这条${config.label}（当前 ${count} 个点）`;
+      return;
+    }
+
+    const areaCity = getMapAreaCity(editor);
+    if (areaCity) {
+      els.mapStageTip.hidden = false;
+      els.mapStageTip.textContent = `点击或拖动格子，划入 / 划出「${
+        areaCity.name || '未命名城市'
+      }」的范围 · Shift + 拖动平移`;
       return;
     }
 
@@ -6394,7 +6436,13 @@
         item.append(
           dot,
           el('span', 'map-city-item-name', city.name || '未命名城市'),
-          el('span', 'map-city-item-meta', `${city.radius} 格`)
+          el(
+            'span',
+            'map-city-item-meta',
+            city.customArea
+              ? `${(city.cells || []).length} 格自选`
+              : `${city.radius} 格`
+          )
         );
         list.appendChild(item);
       }
@@ -6562,16 +6610,21 @@
 
   function syncMapRadiusButtons(city) {
     els.mapRadiusRow.querySelectorAll('[data-radius]').forEach((button) => {
-      const active = Number(button.dataset.radius) === city.radius;
+      const active =
+        button.dataset.radius === 'custom'
+          ? Boolean(city.customArea)
+          : !city.customArea && Number(button.dataset.radius) === city.radius;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', String(active));
     });
   }
 
   function syncMapCityControls(city) {
-    els.mapCityCoord.textContent = `第 ${city.row + 1} 行 · 第 ${
-      city.col + 1
-    } 列 · 半径 ${city.radius} 格`;
+    els.mapCityCoord.textContent = city.customArea
+      ? `第 ${city.row + 1} 行 · 第 ${city.col + 1} 列 · 自选 ${
+          (city.cells || []).length
+        } 格`
+      : `第 ${city.row + 1} 行 · 第 ${city.col + 1} 列 · 半径 ${city.radius} 格`;
     syncMapRadiusButtons(city);
 
     els.mapColorRow.querySelectorAll('.map-color-swatch').forEach((button) => {
@@ -6586,7 +6639,11 @@
     if (item) {
       const meta = $('.map-city-item-meta', item);
       const dot = $('.map-city-dot', item);
-      if (meta) meta.textContent = `${city.radius} 格`;
+      if (meta) {
+        meta.textContent = city.customArea
+          ? `${(city.cells || []).length} 格自选`
+          : `${city.radius} 格`;
+      }
       if (dot) dot.style.setProperty('--city-color', city.color);
     }
   }
@@ -6862,9 +6919,29 @@
       const [col, row] = key.split(',').map(Number);
       if (col >= cols || row >= rows) delete editor.draft.tiles[key];
     }
-    editor.draft.cities = editor.draft.cities.filter(
-      (city) => city.col < cols && city.row < rows
-    );
+    editor.draft.cities = editor.draft.cities
+      .map((city) => {
+        const next = {
+          ...city,
+          ...(city.customArea && Array.isArray(city.cells)
+            ? {
+                cells: city.cells.filter((key) => {
+                  const [cellCol, cellRow] = key.split(',').map(Number);
+                  return cellCol < cols && cellRow < rows;
+                }),
+              }
+            : {}),
+        };
+        if (
+          next.customArea &&
+          (!Array.isArray(next.cells) || next.cells.length === 0)
+        ) {
+          delete next.customArea;
+          delete next.cells;
+        }
+        return next;
+      })
+      .filter((city) => city.col < cols && city.row < rows);
     editor.draft.paths = (editor.draft.paths || [])
       .map((path) => ({
         ...path,
@@ -7122,6 +7199,38 @@
     showToast('地图已保存');
   }
 
+  function getMapAreaCity(editor) {
+    if (!editor || editor.tool !== 'city' || !editor.selectedCityId) return null;
+    const city = editor.draft.cities.find(
+      (item) => item.id === editor.selectedCityId
+    );
+    return city && city.customArea ? city : null;
+  }
+
+  function applyMapAreaCell(city, cell, add) {
+    const editor = state.mapEditor;
+    if (!editor || !city || !cell) return;
+    const key = `${cell.col},${cell.row}`;
+    const set = new Set(city.cells || []);
+    if (add) {
+      if (set.has(key)) return;
+      set.add(key);
+    } else {
+      if (!set.has(key)) return;
+      set.delete(key);
+    }
+    city.cells = [...set];
+
+    if (!editor.areaRenderQueued) {
+      editor.areaRenderQueued = true;
+      requestAnimationFrame(() => {
+        editor.areaRenderQueued = false;
+        renderMapCanvas();
+      });
+    }
+    syncMapDirtyUi();
+  }
+
   function handleMapPointerDown(event) {
     const editor = state.mapEditor;
     if (!editor || !els.mapDialog.open) return;
@@ -7147,13 +7256,27 @@
       lastPaintKey: null,
     };
 
+    const areaCity = getMapAreaCity(editor);
     const wantsPan =
       event.button === 1 ||
       event.shiftKey ||
       editor.tool === 'browse' ||
-      editor.tool === 'city';
+      (editor.tool === 'city' && !areaCity);
 
-    if (wantsPan || cityEl) {
+    if (cityEl) {
+      pointer.mode = 'pending';
+    } else if (areaCity) {
+      if (cell) {
+        const key = `${cell.col},${cell.row}`;
+        pointer.mode = 'area';
+        pointer.areaCityId = areaCity.id;
+        pointer.areaAdd = !(areaCity.cells || []).includes(key);
+        pointer.lastPaintKey = key;
+        applyMapAreaCell(areaCity, cell, pointer.areaAdd);
+      } else {
+        pointer.mode = 'idle';
+      }
+    } else if (wantsPan) {
       pointer.mode = 'pending';
     } else if (editor.tool === 'river' || editor.tool === 'road') {
       pointer.mode = 'pending';
@@ -7197,6 +7320,17 @@
       applyMapView();
     } else if (pointer.mode === 'paint') {
       paintMapCellAt(eventToMapCell(event), pointer);
+    } else if (pointer.mode === 'area') {
+      const cell = eventToMapCell(event);
+      if (!cell) return;
+      const key = `${cell.col},${cell.row}`;
+      if (pointer.lastPaintKey === key) return;
+      pointer.lastPaintKey = key;
+      const areaCity = editor.draft.cities.find(
+        (item) => item.id === pointer.areaCityId
+      );
+      if (!areaCity) return;
+      applyMapAreaCell(areaCity, cell, pointer.areaAdd);
     } else if (pointer.mode === 'path-draw') {
       const cell = eventToMapCell(event);
       if (!cell) return;
@@ -7217,6 +7351,13 @@
       const changed = editor.strokeSnapshot !== snapshot;
       editor.strokeSnapshot = null;
       if (changed) pushMapHistory(snapshot);
+    } else if (pointer.mode === 'area') {
+      pushMapHistory();
+      renderMapCanvas();
+      const areaCity = editor.draft.cities.find(
+        (item) => item.id === pointer.areaCityId
+      );
+      if (areaCity) syncMapCityControls(areaCity);
     } else if (pointer.mode === 'pending') {
       if (pointer.cityId) {
         selectMapCity(pointer.cityId);
@@ -9057,6 +9198,7 @@
     });
     renderPublishNovelList();
     updatePublishSnapshotStatus();
+    renderSidebar(state.route);
     restorePublishFocus();
   }
 
@@ -10607,8 +10749,43 @@
         (item) => item.id === editor.selectedCityId
       );
       if (!city) return;
+
+      if (button.dataset.radius === 'custom') {
+        if (city.customArea) {
+          city.customArea = false;
+          delete city.cells;
+          pushMapHistory();
+        } else {
+          city.customArea = true;
+          if (!Array.isArray(city.cells) || city.cells.length === 0) {
+            const seeded = [];
+            for (let row = 0; row < editor.draft.rows; row += 1) {
+              for (let col = 0; col < editor.draft.cols; col += 1) {
+                if (mapHexDistance(col, row, city.col, city.row) <= city.radius) {
+                  seeded.push(`${col},${row}`);
+                }
+              }
+            }
+            city.cells = seeded;
+          }
+          editor.tool = 'city';
+          renderMapToolState();
+          showToast(
+            '直接点击或拖动画布上的格子，把它划入或划出这座城的范围'
+          );
+        }
+        renderMapCanvas();
+        syncMapCityControls(city);
+        syncMapStageTip();
+        return;
+      }
+
+      if (city.customArea) {
+        city.customArea = false;
+        delete city.cells;
+      }
       const radius = clampInt(button.dataset.radius, 1, 3, 2);
-      if (city.radius === radius) return;
+      if (!city.customArea && city.radius === radius) return;
       city.radius = radius;
       pushMapHistory();
       renderMapCanvas();
