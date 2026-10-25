@@ -499,6 +499,10 @@
               <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
               导出 PNG
             </button>
+            <button type="button" class="map-action-btn" id="mapCiv6Btn">
+              <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+              导出 Civ6 地图
+            </button>
             <button type="button" class="map-clear-btn" id="mapClearBtn">
               <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
               清空地图
@@ -624,6 +628,226 @@
     <div class="search-results" id="searchResults" role="listbox" aria-label="搜索结果"></div>
   </dialog>
 
+  <dialog id="drillDialog" class="dialog drill-dialog" aria-labelledby="drillDialogTitle">
+    <form id="drillForm" novalidate>
+      <header class="dialog-head">
+        <div>
+          <p class="dialog-eyebrow" id="drillDialogEyebrow">PRACTICE · NEW</p>
+          <h2 id="drillDialogTitle">新增练习</h2>
+        </div>
+        <button type="button" class="icon-btn dialog-close" id="drillDialogCloseBtn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="field">
+          <span class="field-label">练习类型</span>
+          <div class="view-switch drill-kind-switch" role="group" aria-label="练习类型">
+            <button type="button" class="view-switch-btn" data-kind="imitation">仿写</button>
+            <button type="button" class="view-switch-btn" data-kind="senses">五感</button>
+            <button type="button" class="view-switch-btn" data-kind="scene">场景</button>
+            <button type="button" class="view-switch-btn" data-kind="dialogue">对话</button>
+            <button type="button" class="view-switch-btn" data-kind="emotion">情绪</button>
+            <button type="button" class="view-switch-btn" data-kind="free">自由</button>
+          </div>
+        </div>
+
+        <div class="form-split">
+          <div class="field">
+            <label for="drillNovelSelect">关联小说 <span class="field-optional">选填</span></label>
+            <select id="drillNovelSelect">
+              <option value="">不关联</option>
+            </select>
+          </div>
+          <div class="field" id="drillLinkField">
+            <label for="drillLinkInput">关联词条 <span class="field-optional">选填</span></label>
+            <div class="tag-editor" id="drillLinkEditor">
+              <input type="text" id="drillLinkInput" list="drillLinkSuggestions" maxlength="60" placeholder="先选小说，再输入词条名" autocomplete="off" aria-describedby="drillLinkHint">
+            </div>
+            <datalist id="drillLinkSuggestions"></datalist>
+            <p class="field-hint" id="drillLinkHint">这本小说里的角色、地点或某章大纲；回车确认，最多 4 条</p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="drillTitleInput">题目 <span class="field-mark">必填</span></label>
+          <input type="text" id="drillTitleInput" name="title" maxlength="120" autocomplete="off" placeholder="比如：写她走进码头时注意到的三个细节">
+          <p class="field-error" id="drillTitleError" hidden>先给这次练习一个题目。</p>
+        </div>
+
+        <div class="field" id="drillSourceField">
+          <label for="drillSourceInput">范文（模仿的对象） <span class="field-optional">选填</span></label>
+          <textarea id="drillSourceInput" name="source" rows="4" placeholder="粘贴一段你佩服的原文；仿写时对照着写进步最快"></textarea>
+          <div class="form-split">
+            <div class="field">
+              <label for="drillSourceNoteInput">出处 / 作者 <span class="field-optional">选填</span></label>
+              <input type="text" id="drillSourceNoteInput" name="sourceNote" maxlength="60" autocomplete="off" placeholder="比如：汪曾祺《受戒》">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="drillMineInput">我的练笔 <span class="field-mark">必填</span></label>
+          <textarea id="drillMineInput" name="mine" rows="9" placeholder="放开写，写完再改；这段只有你自己看得到"></textarea>
+          <div class="field-foot">
+            <span class="field-hint">换行会保留</span>
+            <span class="field-hint counter" id="drillMineCount">0 字</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="drillReviewInput">复盘 / AI 点评 <span class="field-optional">选填</span></label>
+          <textarea id="drillReviewInput" name="review" rows="4" placeholder="写两句自己的复盘；或把 AI 的点评粘贴回来，和原文对照着看"></textarea>
+        </div>
+      </div>
+
+      <footer class="dialog-actions">
+        <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
+        <button type="button" class="btn ghost" id="drillCancelBtn">取消</button>
+        <button type="submit" class="btn primary" id="drillSaveBtn">保存练习</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="forgeDialog" class="dialog forge-dialog" aria-labelledby="forgeDialogTitle">
+    <header class="dialog-head">
+      <div>
+        <p class="dialog-eyebrow" id="forgeDialogEyebrow">WORLD FORGE</p>
+        <h2 id="forgeDialogTitle">演算设定</h2>
+      </div>
+      <button type="button" class="icon-btn dialog-close" id="forgeDialogCloseBtn" aria-label="关闭">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+      </button>
+    </header>
+
+    <div class="dialog-body">
+      <div class="view-switch forge-tab-switch" role="group" aria-label="演算领域">
+        <button type="button" class="view-switch-btn" data-forge-tab="calendar">历法</button>
+        <button type="button" class="view-switch-btn" data-forge-tab="climate">气候</button>
+        <button type="button" class="view-switch-btn" data-forge-tab="folk">民俗</button>
+      </div>
+
+      <div class="forge-params" id="forgeCalendarParams">
+        <div class="form-split">
+          <div class="field">
+            <label for="forgeYearDays">年长（天）</label>
+            <input type="number" id="forgeYearDays" min="120" max="720" step="1" value="360">
+          </div>
+          <div class="field">
+            <label for="forgeMonthCount">月数</label>
+            <input type="number" id="forgeMonthCount" min="3" max="24" step="1" value="13">
+          </div>
+          <div class="field">
+            <label for="forgeWeekLen">周长（天）</label>
+            <input type="number" id="forgeWeekLen" min="3" max="12" step="1" value="7">
+          </div>
+          <div class="field">
+            <label for="forgeMoonCount">卫星</label>
+            <select id="forgeMoonCount">
+              <option value="0">无卫星</option>
+              <option value="1" selected>一颗</option>
+              <option value="2">两颗</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-split">
+          <div class="field">
+            <label for="forgeEraName">纪元名</label>
+            <input type="text" id="forgeEraName" maxlength="12" value="星澜历" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="forgeDayQuery">速查：年内第几天</label>
+            <input type="number" id="forgeDayQuery" min="1" max="720" step="1" placeholder="比如 100" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <div class="forge-params" id="forgeClimateParams" hidden>
+        <div class="form-split">
+          <div class="field">
+            <label for="forgeLatitude">纬度带</label>
+            <select id="forgeLatitude">
+              <option value="寒带">寒带</option>
+              <option value="温带" selected>温带</option>
+              <option value="亚热带">亚热带</option>
+              <option value="热带">热带</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="forgeTerrain">地貌</label>
+            <select id="forgeTerrain">
+              <option value="沿海" selected>沿海</option>
+              <option value="内陆腹地">内陆腹地</option>
+              <option value="群岛">群岛</option>
+              <option value="沙漠绿洲">沙漠绿洲</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="forgeMagic">魔力影响</label>
+            <select id="forgeMagic">
+              <option value="无魔力干扰" selected>无魔力干扰</option>
+              <option value="元素潮汐">元素潮汐</option>
+              <option value="灵脉地气">灵脉地气</option>
+              <option value="长冬诅咒">长冬诅咒</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="forge-params" id="forgeFolkParams" hidden>
+        <div class="form-split">
+          <div class="field">
+            <label for="forgeLivelihood">生计</label>
+            <select id="forgeLivelihood">
+              <option value="渔猎">渔猎</option>
+              <option value="农耕" selected>农耕</option>
+              <option value="商贸">商贸</option>
+              <option value="矿业">矿业</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="forgeThreat">最大威胁</label>
+            <select id="forgeThreat">
+              <option value="海难风暴">海难风暴</option>
+              <option value="兽潮">兽潮</option>
+              <option value="瘟疫">瘟疫</option>
+              <option value="夜行之物" selected>夜行之物</option>
+              <option value="饥荒">饥荒</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="forgeFaith">信仰</label>
+            <select id="forgeFaith">
+              <option value="祖先崇拜" selected>祖先崇拜</option>
+              <option value="月神">月神</option>
+              <option value="海神">海神</option>
+              <option value="无官方信仰">无官方信仰</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="forgeOutput">演算结果（可直接存为设定词条）</label>
+        <textarea id="forgeOutput" rows="12" readonly></textarea>
+      </div>
+
+      <div class="field">
+        <label for="forgeAiInput">AI 拓展方向 <span class="field-optional">选填</span></label>
+        <input type="text" id="forgeAiInput" maxlength="120" autocomplete="off" placeholder="留空则按领域默认方向；比如：补一套挂在这历法上的航海节日">
+        <p class="field-hint">点下方「复制给 AI 拓展」，把推衍结果、已有世界法则和这个方向一起带给 AI</p>
+      </div>
+    </div>
+
+    <footer class="dialog-actions">
+      <span class="dialog-hint" id="forgeSeedHint">种子 —</span>
+      <button type="button" class="btn ghost forge-ai-btn" id="forgeAiBtn" title="复制一段拓展请求，粘贴给任何 AI">复制给 AI 拓展</button>
+      <button type="button" class="btn ghost" id="forgeRerollBtn">换一套</button>
+      <button type="button" class="btn primary" id="forgeSaveBtn">存为设定词条</button>
+    </footer>
+  </dialog>
+
   <dialog id="sparkDialog" class="dialog spark-dialog" aria-labelledby="sparkDialogTitle">
     <header class="dialog-head">
       <div>
@@ -645,6 +869,50 @@
       <span class="dialog-hint">书架页按 I 也能抽</span>
       <button type="button" class="btn ghost" id="sparkRedrawBtn">换一组</button>
       <button type="button" class="btn primary" id="sparkDoneBtn">合上</button>
+    </footer>
+  </dialog>
+
+
+  <dialog id="civ6ExportDialog" class="dialog civ6-dialog" aria-labelledby="civ6ExportTitle">
+    <header class="dialog-head">
+      <div>
+        <p class="dialog-eyebrow">CIVILIZATION VI · WORLD BUILDER</p>
+        <h2 id="civ6ExportTitle">导出到文明6世界构建器</h2>
+      </div>
+      <button type="button" class="icon-btn dialog-close" id="civ6ExportCloseBtn" aria-label="关闭">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+      </button>
+    </header>
+
+    <div class="dialog-body civ6-guide">
+      <p class="civ6-guide-target">当前地图：<strong id="civ6ExportTarget"></strong></p>
+
+      <h3>操作指南</h3>
+      <ol class="civ6-steps">
+        <li>点击下方「生成并下载」，浏览器会在本机生成 <code>词条名.Civ6Map</code> 文件（不经过任何服务器）。</li>
+        <li>把下载的文件复制到文明6的世界构建器存档目录（目录不存在就新建）：
+          <code class="civ6-path">%USERPROFILE%\Documents\My Games\Sid Meier's Civilization VI\Saves\WorldBuilder</code></li>
+        <li>启动文明6，主菜单选择 <strong>世界构建器（World Builder）</strong>，打开这张地图，即可在完整 3D 引擎里继续加工。</li>
+        <li>想直接试玩：在世界构建器里给文明放置出生点后开一局即可。</li>
+      </ol>
+
+      <h3>导出对照说明</h3>
+      <ul class="civ6-mapping">
+        <li>草原 / 平原 / 沙漠 / 雪原 → 同名地形；丘陵与山脉 → 对应的丘陵、山地地形</li>
+        <li>湖泊与岸边浅水 → 海岸（Coast），深水 → 海洋（Ocean）</li>
+        <li>森林 → 森林地貌，沼泽 → 沼泽地貌，火山 → 山地 + 火山地貌</li>
+        <li>河流 → 六边形边界河流（靠近世界构建器的河流工具重描可微调）</li>
+        <li>奇观：圣山 → 乞力马扎罗，魔泉 → 青春之泉，世界树 → 潘塔纳尔，沉没神殿 → 大堡礁</li>
+        <li>遗迹、神殿、要塞、港口、营地、石阵、凶地等地标没有文明6对应物，不会导出——请在构建器里用图钉或手工补齐</li>
+        <li>城市不会转成出生点，出生点请在构建器里自行放置</li>
+      </ul>
+
+      <p class="civ6-status" id="civ6ExportStatus"></p>
+    </div>
+
+    <footer class="dialog-foot">
+      <button type="button" class="btn" id="civ6ExportCancelBtn">取消</button>
+      <button type="button" class="btn primary" id="civ6ExportConfirmBtn">生成并下载 .Civ6Map</button>
     </footer>
   </dialog>
 

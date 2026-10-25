@@ -1,11 +1,15 @@
 /* 液态玻璃折射层
    架构改编自 shuding/liquid-glass（MIT License）
    https://github.com/shuding/liquid-glass · Copyright (c) 2025 Shu Ding
+   折射数学严格移植自 Kyant0/AndroidLiquidGlass（Apache License 2.0）
+   https://github.com/Kyant0/AndroidLiquidGlass · Copyright 2025 Kyant
+   —— circleMap 圆弧折射曲线、SDF 梯度位移方向、角落色散模型
+   （dispersionIntensity = centeredCoord.x*y / halfSize.x*y）。
    原理：Canvas 按元素尺寸计算圆角矩形 SDF，生成归一化位移图，
    经 feImage + feDisplacementMap 让 backdrop-filter 产生边缘折射；
    中心保持清晰，与 iOS 液态玻璃一致。
-   本站改造：低分辨率位移图、按需重建（ResizeObserver）、
-   折射带宽度固定像素、模糊量跟随外观面板滑块（CSS 变量）。
+   本站改造：低分辨率位移图、按需重建（多重触发）、模糊量跟随
+   外观面板滑块（CSS 变量）。
    仅 Chromium 支持 backdrop-filter: url()；其余浏览器自动跳过，
    保留 CSS 里的普通磨砂。 */
 
@@ -17,13 +21,14 @@
   if (!isChromium || !CSS.supports('backdrop-filter', 'url(#lg-probe)')) return;
 
   const MAP_LONG_SIDE = 144; // 位移图长边像素，低分辨率即可，feImage 会拉伸
-  // 折射带按官方比例：约短边 12%，随元素尺寸在 12–44px 间伸缩；
-  // 边缘位移拉满带宽（透镜式挤压），文字多的浮层再叠加轻微提亮
-  // （HIG regular 变体的 luminosity adaptation 的 Web 近似）。
+  // refractionHeight（Kyant0 术语）：约短边 12%，随元素尺寸在 12–44px 间伸缩
   const BAND_RATIO = 0.12;
   const BAND_MIN = 12;
   const BAND_MAX = 44;
-  const BEND_RATIO = 1.0;
+  const BEND_RATIO = 1.0; // refractionAmount = 带宽（位移拉满）
+  // 色散强度系数：Kyant0 模型的 intensity 值域 ±1 会把角落位移放大到 2×，
+  // SVG 三路共享 scale 时会拉低主折射，故取温和值
+  const CHROMA = 0.35;
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const XLINK_NS = 'http://www.w3.org/1999/xlink';
@@ -35,18 +40,38 @@
   const defs = document.createElementNS(SVG_NS, 'defs');
   host.appendChild(defs);
 
-  function smoothStep(a, b, t) {
-    t = Math.max(0, Math.min(1, (t - a) / (b - a)));
-    return t * t * (3 - 2 * t);
+  /* 以下三个函数严格移植自 Kyant0/AndroidLiquidGlass（Apache-2.0）
+     internal/Shaders.kt 的 AGSL 实现，坐标以短边归一化。 */
+
+  // 圆弧映射：玻璃截面为圆弧，光线偏折沿圆弧分布
+  function circleMap(x) {
+    return 1.0 - Math.sqrt(1.0 - x * x);
   }
 
-  // 圆角矩形 SDF：内部为负、边缘为 0；坐标以短边归一化
-  function roundedRectSDF(x, y, hw, hh, r) {
-    const qx = Math.abs(x) - hw + r;
-    const qy = Math.abs(y) - hh + r;
-    const ax = Math.max(qx, 0);
-    const ay = Math.max(qy, 0);
-    return Math.min(Math.max(qx, qy), 0) + Math.hypot(ax, ay) - r;
+  // 圆角矩形 SDF：内部为负、边缘为 0
+  function sdRoundedRect(x, y, hw, hh, r) {
+    const cx = Math.abs(x) - (hw - r);
+    const cy = Math.abs(y) - (hh - r);
+    const outside = Math.hypot(Math.max(cx, 0), Math.max(cy, 0)) - r;
+    const inside = Math.min(Math.max(cx, cy), 0);
+    return outside + inside;
+  }
+
+  // SDF 梯度：位移方向沿表面法线（角部沿角平分线、直边垂直边缘）
+  function gradSdRoundedRect(x, y, hw, hh, r) {
+    const cx = Math.abs(x) - (hw - r);
+    const cy = Math.abs(y) - (hh - r);
+    const sx = Math.sign(x) || 1;
+    const sy = Math.sign(y) || 1;
+    if (cx >= 0 || cy >= 0) {
+      const gx = Math.max(cx, 0);
+      const gy = Math.max(cy, 0);
+      const len = Math.hypot(gx, gy) || 1;
+      return { x: (sx * gx) / len, y: (sy * gy) / len };
+    }
+    // 直边区：法线指向更近的那条边
+    const gradX = cy <= cx ? 1 : 0;
+    return { x: sx * gradX, y: sy * (1 - gradX) };
   }
 
   function cornerRadius(el, w, h) {
@@ -62,18 +87,23 @@
     filter.setAttribute('filterUnits', 'userSpaceOnUse');
     filter.setAttribute('color-interpolation-filters', 'sRGB');
 
-    const feImage = document.createElementNS(SVG_NS, 'feImage');
-    feImage.setAttribute('id', filterId + '-map');
-    feImage.setAttribute('preserveAspectRatio', 'none');
-    filter.appendChild(feImage);
+    // 三张独立位移图：R/G/B 各一张（色散按 Kyant0 模型编码进图）
+    const feImages = {};
+    for (const k of ['R', 'G', 'B']) {
+      const fi = document.createElementNS(SVG_NS, 'feImage');
+      fi.setAttribute('id', filterId + '-map' + k);
+      fi.setAttribute('preserveAspectRatio', 'none');
+      fi.setAttribute('result', filterId + '-map' + k + '-r');
+      filter.appendChild(fi);
+      feImages[k] = fi;
+    }
 
-    // 官方 shader 的色差（chromatic aberration）：R/G/B 三路位移，
-    // scale 递差约 ±3.5%，分通道后用 screen 混合重组
-    // （参考 Amir Ghajari 对 iOS 26 效果的拆解）。
+    // 官方 shader 的色差（chromatic aberration）：R/G/B 三路位移
+    // 分通道后用 screen 混合重组（避免 alpha 溢出）
     function makeDisp(resultName, k) {
       const d = document.createElementNS(SVG_NS, 'feDisplacementMap');
       d.setAttribute('in', 'SourceGraphic');
-      d.setAttribute('in2', filterId + '-map');
+      d.setAttribute('in2', filterId + '-map' + k + '-r');
       d.setAttribute('xChannelSelector', 'R');
       d.setAttribute('yChannelSelector', 'G');
       d.setAttribute('result', resultName);
@@ -83,9 +113,9 @@
       cm.setAttribute('type', 'matrix');
       cm.setAttribute(
         'values',
-        k === 'r'
+        k === 'R'
           ? '1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0'
-          : k === 'g'
+          : k === 'G'
             ? '0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0'
             : '0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0',
       );
@@ -93,9 +123,9 @@
       filter.appendChild(cm);
       return d;
     }
-    const dispR = makeDisp('lgR', 'r');
-    const dispG = makeDisp('lgG', 'g');
-    const dispB = makeDisp('lgB', 'b');
+    const dispR = makeDisp('lgR', 'R');
+    const dispG = makeDisp('lgG', 'G');
+    const dispB = makeDisp('lgB', 'B');
     const blendRG = document.createElementNS(SVG_NS, 'feBlend');
     blendRG.setAttribute('in', 'lgR-c');
     blendRG.setAttribute('in2', 'lgG-c');
@@ -109,8 +139,12 @@
     filter.appendChild(blendRGB);
     defs.appendChild(filter);
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const canvases = {};
+    const ctxs = {};
+    for (const k of ['R', 'G', 'B']) {
+      canvases[k] = document.createElement('canvas');
+      ctxs[k] = canvases[k].getContext('2d');
+    }
     let lastW = 0;
     let lastH = 0;
 
@@ -136,61 +170,89 @@
       const scale = MAP_LONG_SIDE / Math.max(w, h);
       const mw = Math.max(8, Math.round(w * scale));
       const mh = Math.max(8, Math.round(h * scale));
-      canvas.width = mw;
-      canvas.height = mh;
 
       const m = Math.min(w, h); // 短边作为归一化基准
       const hw = w / 2 / m;
       const hh = h / 2 / m;
       const r = cornerRadius(el, w, h) / m;
+      // refractionHeight：折射带高度（Kyant0 术语）
       const bandPx = Math.max(BAND_MIN, Math.min(BAND_MAX, m * BAND_RATIO));
       const band = Math.min(bandPx / m, Math.min(hw, hh) * 0.9);
-      const bend = band * BEND_RATIO;
+      const amount = -band * BEND_RATIO; // 负值 = 向内采样
+      // 梯度用放大 1.5 倍的半径计算，角部过渡更平滑（Kyant0）
+      const gradRadius = Math.min(r * 1.5, Math.min(hw, hh));
 
-      const image = ctx.createImageData(mw, mh);
-      const data = image.data;
-      const raw = new Float32Array(mw * mh * 2);
+      const images = {};
+      const datas = {};
+      for (const k of ['R', 'G', 'B']) {
+        canvases[k].width = mw;
+        canvases[k].height = mh;
+        images[k] = ctxs[k].createImageData(mw, mh);
+        datas[k] = images[k].data;
+      }
+      const rawR = new Float32Array(mw * mh * 2);
+      const rawG = new Float32Array(mw * mh * 2);
+      const rawB = new Float32Array(mw * mh * 2);
       let maxDisp = 1e-6;
 
-      let k = 0;
+      let idx = 0;
       for (let py = 0; py < mh; py += 1) {
         const ny = py / mh - 0.5;
         for (let px = 0; px < mw; px += 1) {
           const nx = px / mw - 0.5;
-          const d = roundedRectSDF(nx, ny, hw, hh, r);
-          // 内圈 s=1（原样），边缘一圈 s→0（采样向中心收，形成折射）
-          const s = smoothStep(-band, 0, d);
-          const dist = Math.hypot(nx, ny);
-          const pull = dist > 1e-4 ? (1 - s) * bend : 0;
-          const ox = dist > 1e-4 ? (nx / dist) * pull : 0;
-          const oy = dist > 1e-4 ? (ny / dist) * pull : 0;
-          raw[k++] = ox;
-          raw[k++] = oy;
-          if (Math.abs(ox) > maxDisp) maxDisp = Math.abs(ox);
-          if (Math.abs(oy) > maxDisp) maxDisp = Math.abs(oy);
+          // —— Kyant0 RoundedRectRefractionWithDispersion 数学 ——
+          let sd = sdRoundedRect(nx, ny, hw, hh, r);
+          if (-sd >= band) {
+            // 折射带之外：零位移（中心清晰）
+            rawR[idx] = 0; rawR[idx + 1] = 0;
+            rawG[idx] = 0; rawG[idx + 1] = 0;
+            rawB[idx] = 0; rawB[idx + 1] = 0;
+            idx += 2;
+            continue;
+          }
+          sd = Math.min(sd, 0);
+          const d = circleMap(1 - -sd / band) * amount;
+          const g = gradSdRoundedRect(nx, ny, hw, hh, gradRadius);
+          const ox = d * g.x;
+          const oy = d * g.y;
+          // 色散只在「角落」出现（Kyant0 dispersionIntensity）
+          const i = (CHROMA * nx * ny) / (hw * hh);
+          rawR[idx] = ox * (1 + i);
+          rawR[idx + 1] = oy * (1 + i);
+          rawG[idx] = ox;
+          rawG[idx + 1] = oy;
+          rawB[idx] = ox * (1 - i);
+          rawB[idx + 1] = oy * (1 - i);
+          for (const v of [rawR[idx], rawR[idx + 1], rawB[idx], rawB[idx + 1]]) {
+            const av = Math.abs(v);
+            if (av > maxDisp) maxDisp = av;
+          }
+          idx += 2;
         }
       }
 
-      let j = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = (raw[j++] / maxDisp * 0.5 + 0.5) * 255;
-        data[i + 1] = (raw[j++] / maxDisp * 0.5 + 0.5) * 255;
-        data[i + 2] = 0;
-        data[i + 3] = 255;
+      for (const [k, raw] of [['R', rawR], ['G', rawG], ['B', rawB]]) {
+        const data = datas[k];
+        let j = 0;
+        for (let p = 0; p < data.length; p += 4) {
+          data[p] = (raw[j++] / maxDisp * 0.5 + 0.5) * 255;
+          data[p + 1] = (raw[j++] / maxDisp * 0.5 + 0.5) * 255;
+          data[p + 2] = 0;
+          data[p + 3] = 255;
+        }
+        ctxs[k].putImageData(images[k], 0, 0);
+        const url = canvases[k].toDataURL();
+        feImages[k].setAttribute('width', String(w));
+        feImages[k].setAttribute('height', String(h));
+        feImages[k].setAttributeNS(XLINK_NS, 'href', url);
+        feImages[k].setAttribute('href', url);
       }
-      ctx.putImageData(image, 0, 0);
-
-      const url = canvas.toDataURL();
-      feImage.setAttribute('width', String(w));
-      feImage.setAttribute('height', String(h));
-      feImage.setAttributeNS(XLINK_NS, 'href', url);
-      feImage.setAttribute('href', url);
       // 位移图归一化到 [0,1]，scale 换算回元素像素（短边基准）；
-      // 三路 scale 递差形成边缘色散
+      // 色散已按 Kyant0 模型编码进三张图，三路 scale 一致
       const baseScale = maxDisp * m;
-      dispR.setAttribute('scale', (baseScale * 1.035).toFixed(2));
+      dispR.setAttribute('scale', baseScale.toFixed(2));
       dispG.setAttribute('scale', baseScale.toFixed(2));
-      dispB.setAttribute('scale', (baseScale * 0.965).toFixed(2));
+      dispB.setAttribute('scale', baseScale.toFixed(2));
 
       const chain = [
         `url(#${filterId})`,

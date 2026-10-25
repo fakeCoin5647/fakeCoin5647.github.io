@@ -829,16 +829,34 @@ button.nav-item {
 }
 
 html.is-sheer {
-  --muted: #525b6d;
-  --faint: #6f788b;
+  --muted: #4d566a;
+  --faint: #646e82;
 }
 
 html.is-sheer .page {
-  background: rgba(255, 255, 255, calc(var(--glass-alpha) + 0.05));
+  background: rgba(255, 255, 255, calc(var(--glass-alpha) + 0.08));
 }
 
 html.is-sheer .sidebar {
-  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.36 + 0.1));
+  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.36 + 0.12));
+}
+
+/* 通透状态下次级按钮垫实一点，避免与背景拉不开 */
+html.is-sheer .btn.ghost {
+  border-color: rgba(139, 152, 180, 0.55);
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--ink);
+}
+
+/* 通透状态下，次要文字垫一层极细的白色抬升，避免被壁纸彩纹干扰 */
+html.is-sheer .page-desc,
+html.is-sheer .section-note,
+html.is-sheer .side-note,
+html.is-sheer .empty-state p,
+html.is-sheer .trash-summary,
+html.is-sheer .novel-card-summary,
+html.is-sheer .entry-card-excerpt {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.45);
 }
 
 .side-note {
@@ -6034,7 +6052,11 @@ html.is-sheer .sidebar {
   --lg-bottom-light: calc(0.38 * var(--rim-strength));
   --lg-radius: 20px;
   --lg-pill: 999px;
-  --lg-ease: cubic-bezier(0.32, 0.72, 0.3, 1);
+  /* 缓动与反馈时长采用 Lens 设计系统 token（MIT，
+     ruiqichenbiec/design-systems）：spring 果冻曲线 */
+  --lg-ease: cubic-bezier(0.2, 0.9, 0.25, 1.22);
+  --lg-fast: 160ms;
+  --lg-feedback: 520ms;
 }
 
 /* 整块外壳：一块有厚度的玻璃 */
@@ -6138,10 +6160,10 @@ html.is-sheer .sidebar {
   -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(1.6);
 }
 
-/* 弹窗与浮层：更通透的玻璃板 */
+/* 弹窗与浮层：更通透的玻璃板（大圆角分级参考 Lens panel token） */
 .dialog {
   border: 1px solid rgba(255, 255, 255, calc(0.8 * var(--rim-strength)));
-  border-radius: 24px;
+  border-radius: 28px;
   background:
     linear-gradient(
       172deg,
@@ -6153,8 +6175,10 @@ html.is-sheer .sidebar {
     /* 官方式悬浮影：超大柔影 + 极近贴影，边缘无硬过渡 */
     0 44px 120px -34px rgba(15, 25, 60, 0.5),
     0 4px 14px rgba(15, 25, 60, 0.1),
-    /* 双侧镜面：顶亮线 + 底部最外亮线，内侧保留厚度暗线 */
+    /* 双侧镜面：顶亮线 + 底部最外亮线，内侧保留厚度暗线；
+       左缘亮线取自 Lens surface-shadow 的双亮线结构 */
     inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
+    inset 1px 0 0 rgba(255, 255, 255, calc(0.2 * var(--rim-strength))),
     inset 0 -1px 0 rgba(255, 255, 255, calc(0.55 * var(--rim-strength))),
     inset 0 -2px 0 rgba(19, 29, 62, 0.08),
     inset 0 0 0 1px rgba(255, 255, 255, calc(0.22 * var(--rim-strength)));
@@ -6164,7 +6188,7 @@ html.is-sheer .sidebar {
 
 .appearance-panel {
   border: 1px solid rgba(255, 255, 255, calc(0.8 * var(--rim-strength)));
-  border-radius: 20px;
+  border-radius: 24px;
   background:
     linear-gradient(
       172deg,
@@ -6177,6 +6201,7 @@ html.is-sheer .sidebar {
   box-shadow:
     0 26px 64px -22px rgba(15, 25, 60, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
+    inset 1px 0 0 rgba(255, 255, 255, calc(0.2 * var(--rim-strength))),
     inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light));
 }
 
@@ -6272,15 +6297,32 @@ html.is-sheer .sidebar {
 }
 
 /* 评论悬浮按钮：官方 clear 观感——tint 很轻（约 8%），
-   主要靠磨砂 + 亮度 + 边缘折射成形 */
+   主要靠磨砂 + 亮度 + 边缘折射成形。
+   站点壁纸明暗不一，tint 过轻会让按钮沉进暗壁纸：
+   折中 50%/38% + 亮度抬升，任何壁纸上按钮与文字都保持分离 */
 .comment-fab {
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.34),
-    rgba(226, 236, 252, 0.2)
+    rgba(255, 255, 255, 0.5),
+    rgba(226, 236, 252, 0.38)
   );
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6) brightness(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(1.08);
+}
+
+.comment-fab .icon,
+.comment-fab-label {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+
+/* 控件过渡统一 Lens spring 缓动（果冻回弹） */
+.btn,
+.icon-btn,
+.side-action,
+.nav-item,
+.filter-pill,
+.appearance-preset {
+  transition-timing-function: var(--lg-ease);
 }
 
 /* 官方按压反馈：玻璃在按下瞬间「聚光」——内圈泛白光并轻微收缩 */
@@ -6326,6 +6368,48 @@ html.is-sheer .sidebar {
   }
 }
 
+/* Civ6 导出指南 */
+.civ6-guide {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.civ6-guide h3 {
+  margin: 4px 0 0;
+}
+
+.civ6-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.civ6-mapping {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+.civ6-path {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--muted, rgba(120, 130, 155, 0.14));
+  font-size: 12.5px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.civ6-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 12.5px;
+}
+
 /* 城址推荐标记 */
 .map-suggest-layer {
   pointer-events: none;
@@ -6340,6 +6424,130 @@ html.is-sheer .sidebar {
 
 .map-city-type-row button {
   min-width: 52px;
+}
+
+/* ---------- 流动玻璃：hover 光泽 ----------
+   机制移植自 glass-lens-react（MIT License）
+   https://github.com/jvreeken/glass-lens-react
+   1) shimmer：hover 时光角 360° 扫掠一圈，inset 亮 rim 沿玻璃边缘流动；
+   2) reveal：hover/focus/active 时 overlay 亮度抬升（brightness 1.5）淡入。
+   光角经 @property 注册并用 CSS sin()/cos() 换算 rim 偏移（Chromium 111+）；
+   不支持的浏览器两条 box-shadow 与动画整体失效，自然回退到原有样式。 */
+@property --lg-light {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 315deg;
+}
+
+.btn,
+.icon-btn,
+.side-action,
+.nav-item,
+.side-novel-link,
+.sidebar .workspace-nav-link,
+.search-box,
+.sort-control,
+.appearance-preset,
+.filter-pill,
+.view-switch-btn,
+.comment-fab {
+  --lg-light: 315deg;
+  position: relative;
+}
+
+.btn::after,
+.icon-btn::after,
+.side-action::after,
+.nav-item::after,
+.side-novel-link::after,
+.sidebar .workspace-nav-link::after,
+.search-box::after,
+.sort-control::after,
+.appearance-preset::after,
+.filter-pill::after,
+.view-switch-btn::after,
+.comment-fab::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  box-shadow:
+    inset calc(-1.5px * sin(var(--lg-light))) calc(1.5px * cos(var(--lg-light))) 0 0
+      rgba(255, 255, 255, 0.55),
+    inset calc(-3px * sin(var(--lg-light))) calc(3px * cos(var(--lg-light))) 4px -2px
+      rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: brightness(1.5);
+  backdrop-filter: brightness(1.5);
+}
+
+.btn:hover::after,
+.btn:focus-visible::after,
+.btn:active::after,
+.icon-btn:hover::after,
+.icon-btn:focus-visible::after,
+.icon-btn:active::after,
+.side-action:hover::after,
+.side-action:active::after,
+.nav-item:hover::after,
+.nav-item:active::after,
+.side-novel-link:hover::after,
+.sidebar .workspace-nav-link:hover::after,
+.search-box:focus-within::after,
+.sort-control:hover::after,
+.appearance-preset:hover::after,
+.filter-pill:hover::after,
+.view-switch-btn:hover::after,
+.comment-fab:hover::after {
+  opacity: 1;
+}
+
+.btn:hover,
+.icon-btn:hover,
+.side-action:hover,
+.nav-item:hover,
+.side-novel-link:hover,
+.sidebar .workspace-nav-link:hover,
+.appearance-preset:hover,
+.filter-pill:hover,
+.view-switch-btn:hover,
+.comment-fab:hover {
+  animation: lg-shimmer 0.7s ease-out;
+}
+
+@keyframes lg-shimmer {
+  from {
+    --lg-light: 0deg;
+  }
+  to {
+    --lg-light: 360deg;
+  }
+}
+
+/* 大浮层（对话框/外观面板）不做整圈扫掠，改为柔和的指针光斑：
+   光斑位置 --mx/--my 由 liquid-glass.js 在指针移动时写入 */
+.dialog[open]::before,
+.appearance-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 30%),
+    rgba(255, 255, 255, 0.2),
+    transparent 65%
+  );
+}
+
+.dialog[open]:hover::before,
+.appearance-panel:hover::before {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

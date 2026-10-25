@@ -3901,3 +3901,203 @@ button {
     transition: none;
   }
 }
+
+/* ---------- 练笔房（碰撞后重建） ---------- */
+
+.drills-section .content-head {
+  margin-bottom: 14px;
+}
+
+.drill-list {
+  display: grid;
+  gap: 12px;
+}
+
+.drill-card {
+  padding: 16px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.drill-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.drill-kind-chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+.drill-novel-chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 10.5px;
+}
+
+.drill-source-chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.drill-time {
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 9.5px;
+}
+
+.drill-card-title {
+  margin: 9px 0 0;
+  font-family: var(--reading);
+  font-size: 16.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.drill-card-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 7px 0 0;
+}
+
+.drill-card-links-label {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.drill-card-link {
+  padding: 1px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  color: var(--accent-deep);
+  font-size: 11px;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+a.drill-card-link:hover {
+  border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+.drill-card-link.is-dead {
+  border-style: dashed;
+  color: var(--faint);
+}
+
+.drill-card-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+.drill-card-meta {
+  margin: 7px 0 0;
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.drill-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.drill-copy-btn {
+  color: var(--accent-deep);
+}
+
+.drill-copy-btn:hover {
+  border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+.drill-kind-switch {
+  flex-wrap: wrap;
+}
+
+.drill-link-chip span:first-child {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-ai-btn {
+  color: var(--accent-deep);
+}
+
+.entry-ai-btn:hover {
+  border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+/* ---------- 世界演算 ---------- */
+
+.forge-dialog .dialog-body {
+  display: grid;
+  gap: 12px;
+}
+
+.forge-tab-switch {
+  flex-wrap: wrap;
+}
+
+.forge-params {
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.forge-params[hidden] {
+  display: none;
+}
+
+.forge-params .form-split {
+  margin-top: 8px;
+}
+
+.forge-params .form-split:first-child {
+  margin-top: 0;
+}
+
+#forgeOutput {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.85;
+  white-space: pre;
+}
+
+.forge-open-btn {
+  color: var(--accent-deep);
+}
+
+.forge-open-btn:hover {
+  border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+@media (max-width: 560px) {
+  .drill-card-actions {
+    flex-wrap: wrap;
+  }
+}

@@ -265,6 +265,56 @@ layout: default
         </section>
       </section>
 
+      <section class="view drills-view" id="drillsView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            <span>返回书架</span>
+          </a>
+        </nav>
+
+        <section class="shelf-section drills-section" aria-labelledby="drillsHeading">
+          <h2 class="sr-only" id="drillsHeading">练笔房</h2>
+
+          <header class="content-head">
+            <div class="content-head-text">
+              <p class="eyebrow">PRACTICE ROOM</p>
+              <h1 class="content-title">练笔房</h1>
+              <p class="content-desc">刻意练习细节叙述：粘贴范文仿写、随机抽题开写，写完一键复制给 AI 点评。</p>
+            </div>
+            <div class="content-head-actions">
+              <button type="button" class="btn ghost" id="drillPromptBtn" title="随机抽一道练笔题，可用你自己的角色和地点出题">
+                <svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg>
+                随机出题
+              </button>
+              <button type="button" class="btn primary" id="drillNewBtn">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+                新增练习
+              </button>
+            </div>
+          </header>
+
+          <div class="list-meta">
+            <p id="drillsCount" aria-live="polite">还没有练习</p>
+          </div>
+
+          <div class="drill-list" id="drillsList"></div>
+
+          <div class="empty-state" id="drillsEmpty" hidden>
+            <svg class="empty-art" viewBox="0 0 200 140" aria-hidden="true">
+              <rect x="52" y="34" width="96" height="72" rx="6" fill="#ccd5e8"/>
+              <path d="M60 96 96 60l14 14 20-20 18 18" stroke="#6f86f0" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M148 72v24h-16" stroke="#6f86f0" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <h3>还没有开始练笔</h3>
+            <p>点「随机出题」抽一道题，或粘贴一段你喜欢的范文开始仿写；写完用「复制点评请求」发给 AI。</p>
+            <div class="empty-actions">
+              <button type="button" class="btn primary" id="drillsEmptyNewBtn">开始第一题</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
       <section class="view publish-view" id="publishView" hidden>
         <nav class="workspace-breadcrumb" aria-label="面包屑">
           <a class="back-link" href="#/">

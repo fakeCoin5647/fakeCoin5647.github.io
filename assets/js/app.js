@@ -54,11 +54,11 @@
   const APPEARANCE_PANEL_MARGIN = 12;
   const APPEARANCE_PANEL_MAX = 600;
   const DEFAULT_APPEARANCE = {
-    glassAlpha: 66,
-    cardAlpha: 40,
+    glassAlpha: 68,
+    cardAlpha: 46,
     blur: 28,
     accent: 'blue',
-    wallpaperDim: 60,
+    wallpaperDim: 66,
     rim: 100,
     readingScale: 100,
   };
@@ -102,10 +102,10 @@
     liquid: {
       label: '液态玻璃',
       accent: 'blue',
-      glassAlpha: 66,
-      cardAlpha: 40,
+      glassAlpha: 68,
+      cardAlpha: 46,
       blur: 28,
-      wallpaperDim: 60,
+      wallpaperDim: 66,
       rim: 100,
     },
   };
@@ -475,6 +475,57 @@
     sparkSentence: $('#sparkSentence'),
     sparkCards: $('#sparkCards'),
     moonPhase: $('#moonPhase'),
+    forgeDialog: $('#forgeDialog'),
+    forgeDialogCloseBtn: $('#forgeDialogCloseBtn'),
+    forgeTabSwitch: $('#forgeDialog .forge-tab-switch'),
+    forgeCalendarParams: $('#forgeCalendarParams'),
+    forgeClimateParams: $('#forgeClimateParams'),
+    forgeFolkParams: $('#forgeFolkParams'),
+    forgeYearDays: $('#forgeYearDays'),
+    forgeMonthCount: $('#forgeMonthCount'),
+    forgeWeekLen: $('#forgeWeekLen'),
+    forgeMoonCount: $('#forgeMoonCount'),
+    forgeEraName: $('#forgeEraName'),
+    forgeDayQuery: $('#forgeDayQuery'),
+    forgeLatitude: $('#forgeLatitude'),
+    forgeTerrain: $('#forgeTerrain'),
+    forgeMagic: $('#forgeMagic'),
+    forgeLivelihood: $('#forgeLivelihood'),
+    forgeThreat: $('#forgeThreat'),
+    forgeFaith: $('#forgeFaith'),
+    forgeOutput: $('#forgeOutput'),
+    forgeSeedHint: $('#forgeSeedHint'),
+    forgeRerollBtn: $('#forgeRerollBtn'),
+    forgeSaveBtn: $('#forgeSaveBtn'),
+    forgeAiInput: $('#forgeAiInput'),
+    forgeAiBtn: $('#forgeAiBtn'),
+    drillsView: $('#drillsView'),
+    drillsList: $('#drillsList'),
+    drillsCount: $('#drillsCount'),
+    drillsEmpty: $('#drillsEmpty'),
+    drillsEmptyNewBtn: $('#drillsEmptyNewBtn'),
+    drillNewBtn: $('#drillNewBtn'),
+    drillPromptBtn: $('#drillPromptBtn'),
+    drillDialog: $('#drillDialog'),
+    drillDialogEyebrow: $('#drillDialogEyebrow'),
+    drillDialogTitle: $('#drillDialogTitle'),
+    drillDialogCloseBtn: $('#drillDialogCloseBtn'),
+    drillForm: $('#drillForm'),
+    drillTitleInput: $('#drillTitleInput'),
+    drillTitleError: $('#drillTitleError'),
+    drillSourceInput: $('#drillSourceInput'),
+    drillSourceNoteInput: $('#drillSourceNoteInput'),
+    drillMineInput: $('#drillMineInput'),
+    drillMineCount: $('#drillMineCount'),
+    drillReviewInput: $('#drillReviewInput'),
+    drillCancelBtn: $('#drillCancelBtn'),
+    drillSaveBtn: $('#drillSaveBtn'),
+    drillNovelSelect: $('#drillNovelSelect'),
+    drillLinkEditor: $('#drillLinkEditor'),
+    drillLinkInput: $('#drillLinkInput'),
+    drillLinkSuggestions: $('#drillLinkSuggestions'),
+    sidebarDrillCount: $('#sidebarDrillCount'),
+    sidebarDrillsLink: $('#sidebarDrillsLink'),
     backupReminder: $('#backupReminder'),
     sideCapacity: $('#sideCapacity'),
     footerExportBtn: $('#footerExportBtn'),
@@ -675,6 +726,13 @@
     mapGenerateBtn: $('#mapGenerateBtn'),
     mapExportBtn: $('#mapExportBtn'),
     mapSuggestBtn: $('#mapSuggestBtn'),
+    mapCiv6Btn: $('#mapCiv6Btn'),
+    civ6ExportDialog: $('#civ6ExportDialog'),
+    civ6ExportCloseBtn: $('#civ6ExportCloseBtn'),
+    civ6ExportCancelBtn: $('#civ6ExportCancelBtn'),
+    civ6ExportConfirmBtn: $('#civ6ExportConfirmBtn'),
+    civ6ExportTarget: $('#civ6ExportTarget'),
+    civ6ExportStatus: $('#civ6ExportStatus'),
     mapCityTypeRow: $('#mapCityTypeRow'),
     mapPathList: $('#mapPathList'),
     mapPathCount: $('#mapPathCount'),
@@ -725,6 +783,9 @@
     publishExpanded: Object.create(null),
     publishFocus: null,
     search: { items: [], activeIndex: -1, mode: 'recent' },
+    drills: [],
+    drillDraft: { id: null, kind: 'free', dirty: false, links: [] },
+    forge: null,
   };
 
   let isComposingTag = false;
@@ -739,6 +800,7 @@
     state.novels = library.novels;
     state.trash = library.trash;
     state.comments = library.comments;
+    state.drills = library.drills;
     state.appearance = loadAppearance();
     applyAppearance();
     document.body.appendChild(els.appearancePanel);
@@ -834,14 +896,30 @@
       }
       comments.sort((a, b) => timeValue(b.createdAt) - timeValue(a.createdAt));
 
+      const rawDrills =
+        migrated.data && !Array.isArray(migrated.data) && Array.isArray(migrated.data.drills)
+          ? migrated.data.drills
+          : [];
+      const drills = [];
+      const drillSeen = new Set();
+      for (const rawItem of rawDrills) {
+        if (drills.length >= DRILL_MAX_COUNT) break;
+        const drill = normalizeDrill(rawItem);
+        if (!drill || drillSeen.has(drill.id)) continue;
+        drillSeen.add(drill.id);
+        drills.push(drill);
+      }
+      drills.sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt));
+
       return {
         novels: list.map((item) => normalizeNovel(item)?.novel).filter(Boolean),
         trash,
         comments,
+        drills,
       };
     } catch (error) {
       console.warn('读取本地书架数据失败：', error);
-      return { novels: [], trash: [], comments: [] };
+      return { novels: [], trash: [], comments: [], drills: [] };
     }
   }
 
@@ -858,6 +936,7 @@
           novels: state.novels,
           trash: state.trash,
           comments: state.comments,
+          drills: state.drills,
         })
       );
       return true;
@@ -1656,6 +1735,10 @@
       return parts.length === 1 ? { view: 'comments' } : { view: 'missing' };
     }
 
+    if (parts[0] === 'drills') {
+      return parts.length === 1 ? { view: 'drills' } : { view: 'missing' };
+    }
+
     if (parts[0] === 'publish') {
       return parts.length === 1 ? { view: 'publish' } : { view: 'missing' };
     }
@@ -1696,6 +1779,7 @@
       route.view === 'shelf' ||
       route.view === 'trash' ||
       route.view === 'comments' ||
+      route.view === 'drills' ||
       route.view === 'publish'
     ) {
       return route.view;
@@ -1858,6 +1942,9 @@
     } else if (route.view === 'comments') {
       showView('comments');
       renderComments();
+    } else if (route.view === 'drills') {
+      showView('drills');
+      renderDrills();
     } else if (route.view === 'publish') {
       showView('publish');
       renderPublish();
@@ -1905,6 +1992,7 @@
     els.trashView.hidden = name !== 'trash';
     els.novelView.hidden = name !== 'novel';
     els.commentsView.hidden = name !== 'comments';
+    els.drillsView.hidden = name !== 'drills';
     els.publishView.hidden = name !== 'publish';
     els.missingView.hidden = name !== 'missing';
   }
@@ -1916,6 +2004,8 @@
       document.title = `回收站 · ${SITE_NAME}`;
     } else if (route.view === 'comments') {
       document.title = `评论与标注 · ${SITE_NAME}`;
+    } else if (route.view === 'drills') {
+      document.title = `练笔房 · ${SITE_NAME}`;
     } else if (route.view === 'publish') {
       document.title = `公开作品 · ${SITE_NAME}`;
     } else if (route.view === 'missing') {
@@ -2468,6 +2558,11 @@
       commentCount > 99 ? '99+' : String(commentCount);
     els.sidebarCommentCount.hidden = commentCount === 0;
 
+    els.sidebarDrillCount.textContent =
+      state.drills.length > 99 ? '99+' : String(state.drills.length);
+    els.sidebarDrillCount.hidden = state.drills.length === 0;
+    els.sidebarDrillsLink.classList.toggle('is-active', route.view === 'drills');
+
     els.sidebarTrashLink.classList.toggle('is-active', onTrash);
     if (onTrash) {
       els.sidebarTrashLink.setAttribute('aria-current', 'page');
@@ -2891,6 +2986,16 @@
       const headActions = el('div', 'content-head-actions');
       headActions.append(createCharactersViewSwitch(), addBtn);
       head.append(headText, headActions);
+    } else if (sectionKey === 'settings') {
+      const forgeBtn = el('button', 'btn ghost forge-open-btn');
+      forgeBtn.type = 'button';
+      forgeBtn.dataset.action = 'open-forge';
+      forgeBtn.dataset.novelId = novel.id;
+      forgeBtn.title = '按参数推衍历法、气候与民俗，存为严谨的设定词条';
+      forgeBtn.append(icon('i-star'), document.createTextNode('演算设定'));
+      const headActions = el('div', 'content-head-actions');
+      headActions.append(forgeBtn, addBtn);
+      head.append(headText, headActions);
     } else {
       head.append(headText, addBtn);
     }
@@ -3158,6 +3263,15 @@
     editBtn.dataset.entryId = entry.id;
     editBtn.append(icon('i-pencil'), document.createTextNode('编辑'));
 
+    const aiBtn = el('button', 'btn ghost entry-ai-btn');
+    aiBtn.type = 'button';
+    aiBtn.dataset.action = 'copy-entry-ai';
+    aiBtn.dataset.novelId = novel.id;
+    aiBtn.dataset.sectionKey = sectionKey;
+    aiBtn.dataset.entryId = entry.id;
+    aiBtn.title = '复制这条词条和它的上下文，粘贴给 AI 讨论';
+    aiBtn.append(icon('i-export'), document.createTextNode('给 AI'));
+
     const deleteBtn = el('button', 'icon-btn danger-hover');
     deleteBtn.type = 'button';
     deleteBtn.dataset.action = 'delete-entry';
@@ -3168,7 +3282,7 @@
     deleteBtn.title = '删除';
     deleteBtn.appendChild(icon('i-trash'));
 
-    actions.append(pinBtn, editBtn, deleteBtn);
+    actions.append(pinBtn, editBtn, aiBtn, deleteBtn);
 
     const title = el('h1', 'entry-detail-title', entry.title);
     const subtitle = entry.subtitle
@@ -3215,6 +3329,7 @@
     body.appendChild(block);
 
     attachBacklinks(novel, sectionKey, entry, body);
+    attachRelatedDrills(novel, entry, body);
 
     const meta = el('footer', 'entry-detail-meta');
     const created = new Date(entry.createdAt);
@@ -5053,7 +5168,7 @@
 
   /* ---------- Entry editor ---------- */
 
-  function openEntryEditor({ novelId, sectionKey, entryId = null }) {
+  function openEntryEditor({ novelId, sectionKey, entryId = null, preset = null }) {
     const novel = findNovel(novelId);
     if (!novel) {
       showToast('这本小说已经不在了', 'error');
@@ -5079,7 +5194,7 @@
       id: entry ? entry.id : null,
       dirty: false,
     };
-    state.draftTags = entry ? [...entry.tags] : [];
+    state.draftTags = entry ? [...entry.tags] : preset ? [...preset.tags] : [];
 
     els.entryForm.reset();
     clearEntryTitleError();
@@ -5106,6 +5221,14 @@
       els.entryDialogEyebrow.textContent = `${config.eyebrow} · EDIT`;
       els.entryDialogTitle.textContent = `编辑${config.singular}`;
       els.entrySaveBtn.textContent = '保存修改';
+    } else if (preset) {
+      // 演算工坊等外部工具的预填草稿
+      els.entryTitleInput.value = preset.title || '';
+      els.entrySubtitleInput.value = preset.subtitle || '';
+      els.entryNotesInput.value = preset.notes || '';
+      els.entryDialogEyebrow.textContent = `${config.eyebrow} · NEW`;
+      els.entryDialogTitle.textContent = `新增${config.singular}`;
+      els.entrySaveBtn.textContent = '保存条目';
     } else {
       els.entryDialogEyebrow.textContent = `${config.eyebrow} · NEW`;
       els.entryDialogTitle.textContent = `新增${config.singular}`;
@@ -9026,6 +9149,320 @@
     image.src = url;
   }
 
+
+  const CIV6_TEMPLATE_URL = 'assets/civ6/template.Civ6Map';
+  const CIV6_SQLJS_URL = 'assets/js/sql-wasm.js';
+  const CIV6_WASM_URL = 'assets/js/sql-wasm.wasm';
+  const CIV6_CONTINENTS = [
+    'CONTINENT_AFRICA',
+    'CONTINENT_ASIA',
+    'CONTINENT_EUROPE',
+    'CONTINENT_AMERICA',
+  ];
+  const CIV6_WONDER_FEATURES = {
+    wonderMountain: 'FEATURE_KILIMANJARO',
+    wonderSpring: 'FEATURE_FOUNTAIN_YOUTH',
+    wonderTree: 'FEATURE_PANTANAL',
+    wonderSea: 'FEATURE_BARRIER_REEF',
+  };
+  const CIV6_TERRAIN_FEATURES = {
+    forest: 'FEATURE_FOREST',
+    swamp: 'FEATURE_MARSH',
+  };
+  let civ6SqlRuntime = null;
+
+  function loadCiv6SqlRuntime() {
+    if (!civ6SqlRuntime) {
+      civ6SqlRuntime = new Promise((resolve, reject) => {
+        const init = () => {
+          if (!window.initSqlJs) return false;
+          window
+            .initSqlJs({ locateFile: (file) => `assets/js/${file}` })
+            .then(resolve)
+            .catch(reject);
+          return true;
+        };
+        if (init()) return;
+        const script = document.createElement('script');
+        script.src = CIV6_SQLJS_URL;
+        script.onload = () => {
+          if (!init()) reject(new Error('sql.js 初始化失败'));
+        };
+        script.onerror = () => reject(new Error('sql.js 脚本加载失败'));
+        document.head.appendChild(script);
+      });
+    }
+    return civ6SqlRuntime;
+  }
+
+  function civ6NeighborCell(col, row, direction) {
+    const odd = row & 1;
+    switch (direction) {
+      case 'E':
+        return [col + 1, row];
+      case 'W':
+        return [col - 1, row];
+      case 'NE':
+        return [col + odd, row - 1];
+      case 'NW':
+        return [col + odd - 1, row - 1];
+      case 'SE':
+        return [col + odd, row + 1];
+      case 'SW':
+        return [col + odd - 1, row + 1];
+      default:
+        return null;
+    }
+  }
+
+  function buildCiv6Continents(map) {
+    // 连通陆地块编号：相邻同片陆地共用一个大陆标签，湖泊与海除外
+    const labels = new Map();
+    let nameIndex = 0;
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const key = `${col},${row}`;
+        const terrain = map.tiles[key] || 'grass';
+        if (terrain === 'water' || terrain === 'lake' || labels.has(key)) continue;
+        const name = CIV6_CONTINENTS[
+          Math.min(nameIndex, CIV6_CONTINENTS.length - 1)
+        ];
+        nameIndex += 1;
+        const queue = [[col, row]];
+        labels.set(key, name);
+        for (let head = 0; head < queue.length; head += 1) {
+          const [currentCol, currentRow] = queue[head];
+          for (const direction of MAP_DIRECTIONS) {
+            const [nextCol, nextRow] = mapNeighborCell(
+              currentCol,
+              currentRow,
+              direction
+            );
+            if (
+              nextCol < 0 ||
+              nextRow < 0 ||
+              nextCol >= map.cols ||
+              nextRow >= map.rows
+            )
+              continue;
+            const nextKey = `${nextCol},${nextRow}`;
+            if (labels.has(nextKey)) continue;
+            const nextTerrain = map.tiles[nextKey] || 'grass';
+            if (nextTerrain === 'water' || nextTerrain === 'lake') continue;
+            labels.set(nextKey, name);
+            queue.push([nextCol, nextRow]);
+          }
+        }
+      }
+    }
+
+    return labels;
+  }
+
+  function buildCiv6Rivers(map) {
+    // 文明6的河流画在六边形边界上：每格有西/西北/东北三条边标志
+    const rivers = new Map();
+    const flagFor = (id) => {
+      if (!rivers.has(id)) rivers.set(id, { NE: 0, W: 0, NW: 0 });
+      return rivers.get(id);
+    };
+
+    for (const path of map.paths || []) {
+      if (path.kind !== 'river') continue;
+      const points = path.points;
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const from = points[index];
+        const to = points[index + 1];
+        for (const direction of ['E', 'W', 'NE', 'NW', 'SE', 'SW']) {
+          const next = civ6NeighborCell(from.col, from.row, direction);
+          if (!next || next[0] !== to.col || next[1] !== to.row) continue;
+          if (direction === 'E') flagFor(to.row * map.cols + to.col).W = 1;
+          else if (direction === 'W') flagFor(from.row * map.cols + from.col).W = 1;
+          else if (direction === 'NE') flagFor(from.row * map.cols + from.col).NE = 1;
+          else if (direction === 'NW') flagFor(from.row * map.cols + from.col).NW = 1;
+          else if (direction === 'SE') flagFor(to.row * map.cols + to.col).NW = 1;
+          else if (direction === 'SW') flagFor(to.row * map.cols + to.col).NE = 1;
+        }
+      }
+    }
+
+    return rivers;
+  }
+
+  function civ6TerrainOf(terrainKey, depth) {
+    if (terrainKey === 'lake') return 'TERRAIN_COAST';
+    if (terrainKey === 'water') return depth === 1 ? 'TERRAIN_COAST' : 'TERRAIN_OCEAN';
+    const base = {
+      grass: 'TERRAIN_GRASS',
+      plains: 'TERRAIN_PLAINS',
+      desert: 'TERRAIN_DESERT',
+      snow: 'TERRAIN_SNOW',
+    }[terrainKey] || 'TERRAIN_GRASS';
+    if (terrainKey === 'mountain' || terrainKey === 'volcano')
+      return `${base}_MOUNTAIN`;
+    if (terrainKey === 'hills') return `${base}_HILLS`;
+    return base;
+  }
+
+  function setCiv6Status(message) {
+    if (els.civ6ExportStatus) els.civ6ExportStatus.textContent = message || '';
+  }
+
+  async function runCiv6Export() {
+    const editor = state.mapEditor;
+    if (!editor || !els.civ6ExportDialog) return;
+
+    const novel = findNovel(editor.novelId);
+    const entries = novel && novel.entries[editor.sectionKey];
+    const entry = entries
+      ? entries.find((item) => item.id === editor.entryId)
+      : null;
+    const baseName =
+      (entry ? entry.title : '地图').replace(/[\\/:*?\"<>|]/g, '').slice(0, 40) ||
+      '地图';
+
+    const confirmBtn = els.civ6ExportConfirmBtn;
+    confirmBtn.disabled = true;
+
+    try {
+      setCiv6Status('正在加载转换引擎（首次约 1MB，之后有缓存）…');
+      const SQL = await loadCiv6SqlRuntime();
+
+      setCiv6Status('正在读取地图模板…');
+      const response = await fetch(CIV6_TEMPLATE_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error('模板读取失败');
+      const db = new SQL.Database(
+        new Uint8Array(await response.arrayBuffer())
+      );
+
+      const map = editor.draft;
+      const depthMap = collectMapWaterDepth(map);
+      const continents = buildCiv6Continents(map);
+      const rivers = buildCiv6Rivers(map);
+
+      setCiv6Status('正在生成地块…');
+      db.run(
+        "UPDATE Map SET Width=?, Height=?, MapSizeType='MAPSIZE_DUEL' WHERE ID='Default'",
+        [map.cols, map.rows]
+      );
+      db.run('DELETE FROM Plots');
+      db.run('DELETE FROM PlotFeatures');
+      db.run('DELETE FROM PlotRivers');
+      db.run('DELETE FROM PlotCliffs');
+      db.run('DELETE FROM StartPositions');
+      db.run('DELETE FROM Players');
+      db.run('DELETE FROM PlayerAttributes');
+
+      const usedFeaturePlots = new Set();
+      for (let row = 0; row < map.rows; row += 1) {
+        for (let col = 0; col < map.cols; col += 1) {
+          const key = `${col},${row}`;
+          const terrainKey = map.tiles[key] || 'grass';
+          const terrain = civ6TerrainOf(terrainKey, depthMap.get(key));
+          const continent =
+            terrainKey === 'water' || terrainKey === 'lake'
+              ? ''
+              : continents.get(key) || 'CONTINENT_AFRICA';
+          db.run(
+            'INSERT INTO Plots (ID, TerrainType, ContinentType, IsImpassable) VALUES (?, ?, ?, 0)',
+            [row * map.cols + col, terrain, continent]
+          );
+
+          if (terrainKey === 'volcano') {
+            db.run('INSERT INTO PlotFeatures (ID, FeatureType) VALUES (?, ?)', [
+              row * map.cols + col,
+              'FEATURE_VOLCANO',
+            ]);
+            usedFeaturePlots.add(key);
+          }
+          const terrainFeature = CIV6_TERRAIN_FEATURES[terrainKey];
+          if (terrainFeature) {
+            db.run('INSERT INTO PlotFeatures (ID, FeatureType) VALUES (?, ?)', [
+              row * map.cols + col,
+              terrainFeature,
+            ]);
+            usedFeaturePlots.add(key);
+          }
+        }
+      }
+
+      for (const [key, featureKey] of Object.entries(map.features || {})) {
+        if (!/^\d+,\d+$/.test(key)) continue;
+        const [col, row] = key.split(',').map(Number);
+        if (col >= map.cols || row >= map.rows) continue;
+        if (usedFeaturePlots.has(key)) continue;
+        const wonder = CIV6_WONDER_FEATURES[featureKey];
+        if (!wonder) continue;
+        db.run('INSERT INTO PlotFeatures (ID, FeatureType) VALUES (?, ?)', [
+          row * map.cols + col,
+          wonder,
+        ]);
+      }
+
+      for (const [id, flags] of rivers) {
+        db.run(
+          'INSERT INTO PlotRivers (ID, IsNEOfRiver, IsWOfRiver, IsNWOfRiver, EFlowDirection, SEFlowDirection, SWFlowDirection) VALUES (?, ?, ?, ?, 0, 0, 0)',
+          [id, flags.NE, flags.W, flags.NW]
+        );
+      }
+
+      const mapName = entry ? entry.title : '未命名地图';
+      const mapDescription = entry && entry.summary
+        ? entry.summary.slice(0, 120)
+        : '由 Coin 的创作小屋导出的世界观地图';
+      for (const [id, value] of [
+        ['LOC_A113DF54E83542E88D31B527A19C3A80_MAP_NAME', mapName],
+        ['LOC_A113DF54E83542E88D31B527A19C3A80_MAP_DESCRIPTION', mapDescription],
+        ['LOC_A113DF54E83542E88D31B527A19C3A80_MOD_TITLE', mapName],
+        ['LOC_A113DF54E83542E88D31B527A19C3A80_MOD_DESCRIPTION', mapDescription],
+      ]) {
+        db.run('UPDATE ModText SET Value=? WHERE ID=?', [value, id]);
+      }
+
+      setCiv6Status('正在打包文件…');
+      const bytes = db.export();
+      db.close();
+
+      const blob = new Blob([bytes], { type: 'application/octet-stream' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${baseName}.Civ6Map`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+
+      setCiv6Status(
+        `已生成 ${baseName}.Civ6Map（${Math.round(bytes.length / 1024)} KB），按上方第 2 步放入存档目录即可。`
+      );
+    } catch (error) {
+      setCiv6Status(`导出失败：${error.message}`);
+    } finally {
+      confirmBtn.disabled = false;
+    }
+  }
+
+  function openCiv6ExportDialog() {
+    const editor = state.mapEditor;
+    if (!editor || !els.civ6ExportDialog) return;
+    const novel = findNovel(editor.novelId);
+    const entries = novel && novel.entries[editor.sectionKey];
+    const entry = entries
+      ? entries.find((item) => item.id === editor.entryId)
+      : null;
+    if (els.civ6ExportTarget) {
+      els.civ6ExportTarget.textContent = entry ? entry.title : '未命名地图';
+    }
+    setCiv6Status('');
+    els.civ6ExportDialog.showModal();
+  }
+
+  function closeCiv6ExportDialog() {
+    if (els.civ6ExportDialog && els.civ6ExportDialog.open) {
+      els.civ6ExportDialog.close();
+    }
+  }
+
+
   function attemptCloseMapEditor() {
     const editor = state.mapEditor;
     if (!editor) {
@@ -10673,14 +11110,24 @@
         parsed && !Array.isArray(parsed) && Array.isArray(parsed.comments)
           ? parsed.comments
           : [];
+      const rawDrills =
+        parsed && !Array.isArray(parsed) && Array.isArray(parsed.drills)
+          ? parsed.drills
+          : [];
 
-      if (!rawNovels && rawTrash.length === 0 && rawComments.length === 0) {
+      if (
+        !rawNovels &&
+        rawTrash.length === 0 &&
+        rawComments.length === 0 &&
+        rawDrills.length === 0
+      ) {
         throw new Error(`这不是 ${SITE_NAME} 的备份文件`);
       }
 
       const incoming = [];
       const incomingTrash = [];
       const incomingComments = [];
+      const incomingDrills = [];
       let skipped = 0;
 
       for (const raw of rawNovels || []) {
@@ -10711,10 +11158,20 @@
         incomingComments.push(comment);
       }
 
+      for (const raw of rawDrills) {
+        const drill = normalizeDrill(raw);
+        if (!drill) {
+          skipped += 1;
+          continue;
+        }
+        incomingDrills.push(drill);
+      }
+
       if (
         incoming.length === 0 &&
         incomingTrash.length === 0 &&
-        incomingComments.length === 0
+        incomingComments.length === 0 &&
+        incomingDrills.length === 0
       ) {
         throw new Error('文件里没有有效的内容');
       }
@@ -10722,9 +11179,11 @@
       const previousNovels = state.novels;
       const previousTrash = state.trash;
       const previousComments = state.comments;
+      const previousDrills = state.drills;
       const counts = mergeLibraries(incoming);
       const addedTrash = mergeTrash(incomingTrash);
       const commentCounts = mergeComments(incomingComments);
+      const drillCounts = mergeDrills(incomingDrills);
       const changed =
         counts.addedNovels > 0 ||
         counts.updatedNovels > 0 ||
@@ -10732,12 +11191,15 @@
         counts.updatedEntries > 0 ||
         addedTrash > 0 ||
         commentCounts.added > 0 ||
-        commentCounts.updated > 0;
+        commentCounts.updated > 0 ||
+        drillCounts.added > 0 ||
+        drillCounts.updated > 0;
 
       if (!changed) {
         state.novels = previousNovels;
         state.trash = previousTrash;
         state.comments = previousComments;
+        state.drills = previousDrills;
         showToast('没有发现需要导入的新内容');
         return;
       }
@@ -10746,6 +11208,7 @@
         state.novels = previousNovels;
         state.trash = previousTrash;
         state.comments = previousComments;
+        state.drills = previousDrills;
         return;
       }
 
@@ -10760,6 +11223,8 @@
       if (addedTrash) parts.push(`回收站 ${addedTrash} 项`);
       if (commentCounts.added) parts.push(`新增 ${commentCounts.added} 条评论`);
       if (commentCounts.updated) parts.push(`更新 ${commentCounts.updated} 条评论`);
+      if (drillCounts.added) parts.push(`新增 ${drillCounts.added} 条练笔`);
+      if (drillCounts.updated) parts.push(`更新 ${drillCounts.updated} 条练笔`);
       if (skipped) parts.push(`跳过 ${skipped} 条无效内容`);
       showToast(`导入完成：${parts.join('，')}`);
       refreshDataSafetyPanel();
@@ -10928,6 +11393,1024 @@
       state.comments = [...commentMap.values()]
         .sort((a, b) => timeValue(b.createdAt) - timeValue(a.createdAt))
         .slice(0, COMMENT_MAX_COUNT);
+    }
+
+    return { added, updated };
+  }
+
+  /* ---------- 世界演算（历法 / 气候 / 民俗） ---------- */
+
+  const FORGE_MONTH_PREFIXES = ['霜', '星', '潮', '焰', '风', '雪', '灯', '雾', '云', '雷', '花', '夜', '晨', '汐', '冰', '叶', '河', '影', '歌', '石', '海', '林', '烬', '岚'];
+  const FORGE_MOON_NAMES = ['银盘', '绯瞳', '灰鸥', '青璧', '孤灯', '碎镜'];
+  const FORGE_FEST_PREFIXES = ['灯', '潮', '火', '穗', '盐', '霜', '归', '醒', '祭', '戒'];
+  const FORGE_FEST_SUFFIXES = ['祭', '节', '夜', '日', '会'];
+
+  const CLIMATE_BASE = {
+    寒带: { temp: '-35℃ ~ 10℃', seasons: '暖季 / 长冬', note: '生长季极短，地表封冻大半年，一切围绕「熬过冬天」组织' },
+    温带: { temp: '-12℃ ~ 30℃', seasons: '春 / 夏 / 秋 / 冬', note: '四季分明，冬季需储粮，文明节奏由农时决定' },
+    亚热带: { temp: '0℃ ~ 36℃', seasons: '温暖季 / 台风雨季', note: '夏湿冬干，季风是所有传说的开头' },
+    热带: { temp: '18℃ ~ 40℃', seasons: '雨季 / 旱季', note: '全年高温，降水的来去决定生死与战争' },
+  };
+
+  const CLIMATE_TERRAIN = {
+    沿海: { precip: '季风降水，夏湿冬干', hazards: ['台风', '风暴潮', '海难'], build: '石墙厚窗、屋檐深远防咸风，粮仓垫高防潮', food: '渔获腌藏、晒盐、耐储的硬面饼', travel: '封港期商路断绝，海图与老舵手比黄金贵' },
+    内陆腹地: { precip: '全年偏少，集中在短春', hazards: ['大旱', '蝗灾', '寒潮'], build: '夯土厚墙、地窖储冰储粮，村落依井而建', food: '腌腊风干、耐储块茎与杂粮', travel: '商队只在春秋两个窗口期上路，冬季封路' },
+    群岛: { precip: '多雨而岛间分布不均', hazards: ['火山', '海难', '随船疫病'], build: '高脚屋防潮防浪，神庙必建在最高处', food: '芋与鱼、发酵酱料、椰糖', travel: '岛际航线完全依赖季风，逆风季禁航' },
+    沙漠绿洲: { precip: '极少，夜露与地下水是命脉', hazards: ['沙暴', '水源枯竭', '热浪'], build: '厚土穹顶、白墙反光、地下暗渠引水', food: '烤饼、椰枣、以香料换粮', travel: '驼队夜行昼伏，星图与水井位置是最高机密' },
+  };
+
+  const CLIMATE_MAGIC = {
+    无魔力干扰: null,
+    元素潮汐: '每逢双月圆满，元素活性暴涨：当夜火系法术失控、海面浮起发光生物。居民在该夜熄火静居，形成「熄灯夜」的底层逻辑。',
+    灵脉地气: '大地灵脉沿线草木葱茏，脉外荒斑累累：城镇全部沿脉而建，沃野与荒漠只隔一条线，「走脉人」成为最重要的职业。',
+    长冬诅咒: '每隔数年降临一次「无夏之年」，作物一季绝收：粮仓制度、冬税与遗冬祭祀塑造了整个文明谨慎、储蓄、敬畏的性格。',
+  };
+
+  const FOLK_LIVELIHOOD = {
+    渔猎: { guild: '渔团与猎行', goods: '皮毛、鱼胶、鲸油', virtue: '敬畏与均分' },
+    农耕: { guild: '社仓与稻会', goods: '谷物、麻布、新酒', virtue: '勤俭与储藏' },
+    商贸: { guild: '商会与镖行', goods: '盐、香料、远国奇货', virtue: '契约与信用' },
+    矿业: { guild: '矿帮与匠会', goods: '铁矿、宝石、燃料', virtue: '谨慎与互助' },
+  };
+
+  const FOLK_THREAT = {
+    海难风暴: { fear: '海', taboo: '出海不喊「满」字；风暴前夜全城熄灯，只留灯塔一盏', festAnchor: '风暴季首夜', extra: '船首挂旧锚，归航要倒着走上岸，把海留在身后' },
+    兽潮: { fear: '荒野', taboo: '秋末不单行、不夜猎；孩童人人佩哨，哨绳断即是凶讯', festAnchor: '秋末月圆', extra: '猎到的第一头兽要还山：割左耳挂村口，肉分孤老' },
+    瘟疫: { fear: '病', taboo: '外来客先住「净舍」七日；病家门前挂灰绳，邻里送饭不进门', festAnchor: '雨季首日', extra: '医师收诊金只收旧物——新物带病气，是句人人懂的暗语' },
+    夜行之物: { fear: '夜', taboo: '日落后不呼真名，用小名与诨号；门槛撒盐灰，窗挂铜铃', festAnchor: '年中长夜', extra: '夜路遇人先看影子：影子朝向不对的，不搭话、不停步' },
+    饥荒: { fear: '空仓', taboo: '糟蹋粮食者游街；婚宴不设肉，以素显诚', festAnchor: '收获月圆', extra: '借粮不立字据，还时加一捧——「一捧息」养出了整个信用体系' },
+  };
+
+  const FOLK_FAITH = {
+    祖先崇拜: { teacher: '祠堂的牌位', ritual: '大事先告祖，出征前捧一抔灶土' },
+    月神: { teacher: '月宫的祭司', ritual: '新月夜剪发甲，满月夜不审判——月神看着' },
+    海神: { teacher: '退潮线上的老祭司', ritual: '下水前以酒酹浪，归来补一炷香' },
+    无官方信仰: { teacher: '走方的说书人', ritual: '不拜神拜「先例」：族老口中的旧例就是律法' },
+  };
+
+  function forgePick(rand, list) {
+    return list[Math.floor(rand() * list.length)];
+  }
+
+  function forgeShuffle(rand, list) {
+    const copy = [...list];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rand() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function gcdForge(a, b) {
+    return b === 0 ? a : gcdForge(b, a % b);
+  }
+
+  function forgeMoonPhaseAt(day, period) {
+    const phase = ((day % period) + period) % period;
+    const ratio = phase / period;
+    if (ratio < 0.06 || ratio >= 0.94) return '新月（暗夜）';
+    if (ratio < 0.44) return '娥眉月';
+    if (ratio < 0.56) return '满月';
+    return '亏月';
+  }
+
+  // 历法：真算术——大小月按年长均摊，星期与月相由取模推出，速查任意一天的月相
+  function buildCalendarText(seed, yearDays, monthCount, weekLen, moonCount, eraName, queryDay) {
+    const rand = mulberry32(seed);
+    const base = Math.floor(yearDays / monthCount);
+    const remainder = yearDays % monthCount;
+    const monthNames = forgeShuffle(rand, FORGE_MONTH_PREFIXES)
+      .slice(0, Math.min(monthCount, FORGE_MONTH_PREFIXES.length))
+      .map((prefix) => `${prefix}月`);
+    while (monthNames.length < monthCount) {
+      monthNames.push(`第${monthNames.length + 1}月`);
+    }
+
+    const moons = [];
+    for (let i = 0; i < moonCount; i += 1) {
+      const period = 18 + Math.floor(rand() * 23);
+      moons.push({ name: FORGE_MOON_NAMES[i], period });
+    }
+
+    const weekdayName = (day) => {
+      if (weekLen === 7) {
+        return `${['日', '月', '火', '水', '木', '金', '土'][((day - 1) % 7 + 7) % 7]}曜`;
+      }
+      return `第${(((day - 1) % weekLen) + weekLen) % weekLen + 1}曜`;
+    };
+
+    const lines = [];
+    lines.push(`【${eraName} · 历法总纲】`);
+    lines.push(`一年 ${yearDays} 天，分 ${monthCount} 个月，${weekLen} 天为一轮星期。`);
+    if (remainder === 0) {
+      lines.push(`每月恰 ${base} 天，历法整齐，无闰无调。`);
+    } else {
+      lines.push(
+        `每月 ${base} 或 ${base + 1} 天：前 ${remainder} 个月为大月（${base + 1} 天），其余为小月（${base} 天）。`
+      );
+    }
+
+    lines.push('', '【月序与天数】');
+    let dayCursor = 1;
+    const seasonCount = monthCount % 4 === 0 ? 4 : 2;
+    const seasonNames = seasonCount === 4 ? ['春', '夏', '秋', '冬'] : ['雨半年', '干半年'];
+    for (let i = 0; i < monthCount; i += 1) {
+      const days = base + (i < remainder ? 1 : 0);
+      const season = seasonNames[Math.floor((i / monthCount) * seasonCount)];
+      const moonBits = moons.map(
+        (moon) => `${moon.name}${forgeMoonPhaseAt(dayCursor, moon.period)}`
+      );
+      lines.push(`${String(i + 1).padStart(2, ' ')}月 ${monthNames[i]}（${days} 天 · ${season} · 月首${moonBits.length ? '：' + moonBits.join('，') : '无月可见'}）`);
+      dayCursor += days;
+    }
+
+    if (moons.length > 0) {
+      lines.push('', '【卫星与月相】');
+      for (const moon of moons) {
+        lines.push(`${moon.name}：公转周期 ${moon.period} 天；每月首日为${forgeMoonPhaseAt(1, moon.period)}，满月大约落在每月第 ${Math.ceil(moon.period / 2)} 天。`);
+      }
+      if (moons.length === 2) {
+        const [a, b] = moons;
+        const lcm = Math.round((a.period * b.period) / gcdForge(a.period, b.period));
+        lines.push(
+          `双月同圆（「双满之夜」）每约 ${lcm} 天一次——这是夜最亮的一夜，也是一切夜行传说与禁忌的锚点。`
+        );
+        lines.push(`全年约双满 ${Math.max(1, Math.floor(yearDays / lcm))} 次；「无月之夜」散布其间——夜行之物与宵禁令最适合挂在这上面。`);
+      }
+    } else {
+      lines.push('', '【夜空】无卫星：夜晚只有星与风，暗夜文化由星空导航与火炬制度主导。');
+    }
+
+    lines.push('', '【星期】');
+    lines.push(`一轮星期 ${weekLen} 天：${weekdayName(1)}、${weekdayName(2)}……以此类推；${weekdayName(1)} 与 ${weekdayName(weekLen)} 常被赋予吉凶。`);
+
+    if (queryDay && queryDay >= 1 && queryDay <= yearDays) {
+      let acc = 0;
+      let monthIdx = 0;
+      for (let i = 0; i < monthCount; i += 1) {
+        const days = base + (i < remainder ? 1 : 0);
+        if (queryDay <= acc + days) {
+          monthIdx = i;
+          break;
+        }
+        acc += days;
+      }
+      const inMonthDay = queryDay - acc;
+      const season = seasonNames[Math.floor((monthIdx / monthCount) * seasonCount)];
+      const moonBits = moons.map((moon) => `${moon.name}为${forgeMoonPhaseAt(queryDay, moon.period)}`);
+      lines.push('', `【速查 · 第 ${queryDay} 天】`);
+      lines.push(`${eraName} ${monthNames[monthIdx]}第 ${inMonthDay} 天 · ${weekdayName(queryDay)} · ${season}${moonBits.length ? ' · ' + moonBits.join('，') : ''}。`);
+    }
+
+    lines.push('', '【推衍参数】');
+    lines.push(`年长 ${yearDays} 天 · ${monthCount} 月 · 周 ${weekLen} 天 · 卫星 ${moonCount} · 种子 ${seed}（同参数同种子可复现本历法）`);
+    return lines.join('\n');
+  }
+
+  function buildClimateText(seed, latitude, terrain, magic) {
+    const rand = mulberry32(seed);
+    const base = CLIMATE_BASE[latitude];
+    const land = CLIMATE_TERRAIN[terrain];
+    const lines = [];
+    lines.push(`【气候设定 · ${latitude}${terrain}】`);
+    lines.push(`气温年幅度：${base.temp}；季节结构：${base.seasons}。`);
+    lines.push(`${base.note}。`);
+    lines.push(`降水：${land.precip}。`);
+
+    lines.push('', '【季节倾向】');
+    const seasons = base.seasons.split(' / ');
+    const flavors = {
+      暖季: '融雪轰鸣，兽群北迁，一年里最忙碌的采集季',
+      长冬: '封港封路，室内劳作与漫长的讲述传统',
+      春: '融雪与播种，河流解冻的第一次雷鸣被当作开年',
+      夏: '生长与战季，昼长夜短，商路全开',
+      秋: '收获与迁徙，雾起于夜，储粮决定来年',
+      冬: '封冻与围炉，故事与债务都在炉边清算',
+      温暖季: '施工与远航的窗口，一切冒险都挤在这一季',
+      台风雨季: '风暴连月，屋顶与船锚接受年度大考',
+      雨季: '河水暴涨，低地成泽，疫病随积水滋生',
+      旱季: '水位线是所有纷争的标尺，凿井人与运水队最风光',
+    };
+    for (const season of seasons) {
+      const hazard = forgePick(rand, land.hazards);
+      const chance = 20 + Math.floor(rand() * 50);
+      lines.push(`${season}：${flavors[season] || '按本地节律展开'}；${hazard}出现概率约 ${chance}%。`);
+    }
+
+    lines.push('', '【极端天气】');
+    const hazardNotes = {
+      台风: '季风季尾最凶，港口提前三天落闸',
+      风暴潮: '与天文大潮重合时淹到碑线，城里的老碑就是水位的史书',
+      海难: '多发生在换季风转的第一周——老水手管那叫「谎风」',
+      大旱: '以三年为周期小旱、九年为周期大旱，社仓制度因此而生',
+      蝗灾: '大旱次年必蝗，扑蝗的锣声就是战争动员',
+      寒潮: '秋末春头各一次，倒春寒冻死的秧苗决定当年的婚事数量',
+      火山: '沉睡与苏醒以代计，苏醒前井水先变味',
+      随船疫病: '疫情总随第一条春船进港，净舍与灰绳由此而来',
+      沙暴: '墙一般的沙墙提前半个时辰有静风预兆，驼队跪伏以待',
+      水源枯竭: '绿洲的消亡先从井水发苦开始，逐井南迁是部落的史诗',
+      热浪: '白日出行视为自杀，正午的城市是空的',
+    };
+    for (const hazard of land.hazards) {
+      lines.push(`· ${hazard}：${hazardNotes[hazard] || '按本地节律出现'}。`);
+    }
+
+    if (CLIMATE_MAGIC[magic]) {
+      lines.push('', `【魔力影响 · ${magic}】`);
+      lines.push(CLIMATE_MAGIC[magic]);
+    }
+
+    lines.push('', '【衍生影响（气候 → 民生的因果链）】');
+    lines.push(`建筑：${land.build}。`);
+    lines.push(`饮食：${land.food}。`);
+    lines.push(`出行：${land.travel}。`);
+
+    lines.push('', '【推衍参数】');
+    lines.push(`${latitude} · ${terrain} · ${magic} · 种子 ${seed}`);
+    return lines.join('\n');
+  }
+
+  function buildFolkText(seed, livelihood, threat, faith) {
+    const rand = mulberry32(seed);
+    const live = FOLK_LIVELIHOOD[livelihood];
+    const fear = FOLK_THREAT[threat];
+    const believe = FOLK_FAITH[faith];
+    const lines = [];
+    lines.push(`【民俗设定 · ${livelihood}文明】`);
+    lines.push(`生计以${livelihood}为主：${live.guild}掌握话语权，硬通货是${live.goods}；公认的美德是「${live.virtue}」。`);
+    lines.push(`信仰：${faith === '无官方信仰' ? '没有官方神祇' : `${faith}信仰盛行`}——${believe.ritual}。`);
+
+    lines.push('', '【节日】');
+    const anchors = ['年末最后一夜', fear.festAnchor, '收获之后第一个满月', '开春第一场雨'];
+    const festActions = {
+      夜行之物: ['彻夜点灯、围火守岁，把夜挡在光外', '孩童彻夜不眠，由族老轮流讲「驱夜」的旧事', '家家门前提灯巡走三圈，灯火连成一条护河'],
+      海难风暴: ['全城熄灯只留灯塔，以静默安抚海', '船主向海酹酒，众人分食最后一网鱼', '把当年沉船者的名字刻上碑，念一遍、添一灯'],
+      兽潮: ['鸣锣巡山，第一口新粮投还荒野', '猎户集体夜宿寨墙，替全村「守秋」', '焚烧旧哨绳、换新绳，孩童授哨成人礼'],
+      瘟疫: ['净街洒灰，各家门前互换食物以示同舟', '净舍七日的客人今日出舍，全村为其洗尘', '药师巡门赠苦茶，喝尽不皱眉者受赞'],
+      饥荒: ['开仓互赠，让最穷的一家也过得了冬', '人人吃一顿「忆荒饭」：只有野菜与清水', '封灶一日，全城只吃冷食，记住空仓的滋味'],
+    };
+    const liveActions = [
+      `${live.guild.split('与')[0]}主祭，向${live.goods.split('、')[0]}行礼谢年`,
+      `匠人公开炫技、孩童拜师，行当的荣耀日`,
+      `外地行商赶集，一年里最大的市集与婚期都挤在这几天`,
+    ];
+    const actionPool = forgeShuffle(rand, [...festActions[threat], ...liveActions]);
+    let actionIdx = 0;
+    for (const anchor of forgeShuffle(rand, anchors).slice(0, 3)) {
+      const name = `${forgePick(rand, FORGE_FEST_PREFIXES)}${forgePick(rand, FORGE_FEST_SUFFIXES)}`;
+      const action = actionPool[actionIdx % actionPool.length];
+      actionIdx += 1;
+      lines.push(`· ${name}（${anchor}）：因「${threat}」而起——${action}。`);
+    }
+
+    lines.push('', '【日常禁忌】');
+    lines.push(`· ${fear.taboo}。`);
+    lines.push(`· ${fear.extra}。`);
+    lines.push(`· 借${live.goods.split('、')[0]}必还双倍小份——「小份息」，还的是人情不是物。`);
+
+    lines.push('', '【谚语】');
+    lines.push(`· 「${fear.fear}教会人的，比${believe.teacher}多。」`);
+    lines.push(`· 「${live.goods.split('、')[0]}会烂，「${live.virtue}」不会。」`);
+
+    lines.push('', '【推衍参数】');
+    lines.push(`${livelihood} · ${threat} · ${faith} · 种子 ${seed}`);
+    return lines.join('\n');
+  }
+
+  const FORGE_TABS = {
+    calendar: { tag: '天文历法' },
+    climate: { tag: '天气气候' },
+    folk: { tag: '民风民俗' },
+  };
+
+  function getForgeState() {
+    if (!state.forge) {
+      state.forge = {
+        tab: 'calendar',
+        seed: Math.floor(Math.random() * 90000) + 10000,
+        novelId: null,
+        lastDraft: null,
+      };
+    }
+    return state.forge;
+  }
+
+  function syncForgeTabs() {
+    const forge = getForgeState();
+    els.forgeTabSwitch.querySelectorAll('button[data-forge-tab]').forEach((btn) => {
+      const active = btn.dataset.forgeTab === forge.tab;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    els.forgeCalendarParams.hidden = forge.tab !== 'calendar';
+    els.forgeClimateParams.hidden = forge.tab !== 'climate';
+    els.forgeFolkParams.hidden = forge.tab !== 'folk';
+  }
+
+  function runForge() {
+    const forge = getForgeState();
+    const seed = forge.seed;
+    let text;
+    let title;
+    let subtitle;
+
+    if (forge.tab === 'calendar') {
+      const yearDays = Math.min(720, Math.max(120, Math.floor(Number(els.forgeYearDays.value) || 360)));
+      const monthCount = Math.min(24, Math.max(3, Math.floor(Number(els.forgeMonthCount.value) || 13)));
+      const weekLen = Math.min(12, Math.max(3, Math.floor(Number(els.forgeWeekLen.value) || 7)));
+      const moonCount = Math.min(2, Math.max(0, Math.floor(Number(els.forgeMoonCount.value) || 0)));
+      const eraName = els.forgeEraName.value.trim().slice(0, 12) || '新历';
+      const queryDay = Math.floor(Number(els.forgeDayQuery.value)) || 0;
+      text = buildCalendarText(seed, yearDays, monthCount, weekLen, moonCount, eraName, queryDay);
+      title = `历法 · ${eraName}`;
+      subtitle = `天文历法 · ${yearDays} 天 ${monthCount} 月${moonCount > 0 ? ` · ${moonCount === 1 ? '单月' : '双月'}` : ' · 无月'}`;
+    } else if (forge.tab === 'climate') {
+      const latitude = els.forgeLatitude.value;
+      const terrain = els.forgeTerrain.value;
+      const magic = els.forgeMagic.value;
+      text = buildClimateText(seed, latitude, terrain, magic);
+      title = `气候 · ${latitude}${terrain}`;
+      subtitle = `天气气候 · ${magic}`;
+    } else {
+      const livelihood = els.forgeLivelihood.value;
+      const threat = els.forgeThreat.value;
+      const faith = els.forgeFaith.value;
+      text = buildFolkText(seed, livelihood, threat, faith);
+      title = `民俗 · ${livelihood}与${threat}`;
+      subtitle = `民风民俗 · ${faith}`;
+    }
+
+    els.forgeOutput.value = text;
+    els.forgeSeedHint.textContent = `种子 ${seed} · 同参数同种子可复现`;
+    forge.lastDraft = {
+      title,
+      subtitle,
+      tags: ['世界法则', FORGE_TABS[forge.tab].tag],
+      notes: text,
+    };
+  }
+
+  function openForge(novelId) {
+    if (!novelId || !findNovel(novelId)) {
+      showToast('先进入一本小说的设定分区再演算', 'error');
+      return;
+    }
+    const forge = getForgeState();
+    forge.novelId = novelId;
+    syncForgeTabs();
+    runForge();
+    els.forgeDialog.showModal();
+  }
+
+  function saveForgeDraft() {
+    const forge = getForgeState();
+    if (!forge.novelId || !forge.lastDraft) return;
+    const preset = forge.lastDraft;
+    els.forgeDialog.close();
+    openEntryEditor({
+      novelId: forge.novelId,
+      sectionKey: 'settings',
+      preset,
+    });
+  }
+
+  // AI 拓展：把推衍结果、该小说已有的「世界法则」清单与拓展方向打包成请求。
+  // 已有法则随行是防吃设定的延伸——AI 拓展必须长在既有正典上，而不是另起炉灶。
+  function buildForgeAiRequest() {
+    const forge = getForgeState();
+    if (!forge.lastDraft) return null;
+    const novel = findNovel(forge.novelId);
+    const domain = FORGE_TABS[forge.tab].tag;
+    const custom = els.forgeAiInput.value.trim();
+    const defaultDirections = {
+      calendar: '请补充 3–5 个挂在这套历法上的节日与历史大事纪年（给出具体日期，如「星澜历·潮月第十四日」），并检查推衍结果有无内在矛盾。',
+      climate: '请推衍当地的主要物产、两三种由气候催生的职业，以及一张简明的「灾年大事表」；与我已有的世界法则冲突之处请单独指出。',
+      folk: '请补充俚语 3 句、仪式细节 2 处、阶层与行当关系一段；每条新内容都必须能追溯到「生计 / 威胁 / 信仰」的因果。',
+    };
+
+    const lines = [
+      `我正在为小说《${novel ? novel.title : '我的小说'}》搭建世界设定。下面是我用参数推衍出的${domain}设定，请在此基础上继续拓展。`,
+    ];
+
+    if (novel) {
+      const laws = novel.entries.settings.filter(
+        (entry) => entry.tags.includes('世界法则')
+      );
+      if (laws.length > 0) {
+        lines.push('', '【我已有的世界法则】（你的拓展必须与它们一致，不得矛盾）');
+        for (const law of laws.slice(0, 12)) {
+          lines.push(`· ${law.title}${law.tags.length > 1 ? `（${law.tags.filter((t) => t !== '世界法则')[0] || ''}）` : ''}`);
+        }
+      }
+    }
+
+    lines.push('', '【待拓展的推衍结果】', forge.lastDraft.notes);
+    lines.push('', '【拓展方向】', custom || defaultDirections[forge.tab]);
+    lines.push(
+      '',
+      '要求：输出为可直接存档的中文设定文本（分节、条目化）；如发现我现有设定的矛盾，先列矛盾再给修正建议。'
+    );
+    return lines.join('\n');
+  }
+
+  async function copyForgeForAi() {
+    const request = buildForgeAiRequest();
+    if (!request) return;
+    const ok = await copyTextToClipboard(request);
+    showToast(
+      ok ? '已复制拓展请求；AI 的回答可整段贴进新设定词条存档' : '复制失败，请手动复制',
+      ok ? 'default' : 'error'
+    );
+  }
+
+  /* ---------- 练笔房 ---------- */
+
+  const DRILL_MAX_COUNT = 200;
+  const DRILL_KINDS = {
+    imitation: { label: '仿写' },
+    senses: { label: '五感' },
+    scene: { label: '场景' },
+    dialogue: { label: '对话' },
+    emotion: { label: '情绪' },
+    free: { label: '自由' },
+  };
+  const DRILL_TEXT_LIMIT = 8000;
+  const DRILL_MAX_LINKS = 4;
+
+  const DRILL_PROMPTS = [
+    { kind: 'senses', text: '写 {who} 在 {where} 闻到的三种气味，其中一种必须勾起一段回忆。' },
+    { kind: 'senses', text: '只用听觉写 {where} 的清晨：五种声音，由远到近。' },
+    { kind: 'senses', text: '写 {who} 手触碰一件旧物时的触感，不许出现「粗糙」「光滑」这类词。' },
+    { kind: 'scene', text: '{who} 第一次走进 {where}：写下注意到的三个细节，至少一个不是视觉。' },
+    { kind: 'scene', text: '写 {where} 打烊后的十分钟：没有对话，只有空间和光。' },
+    { kind: 'scene', text: '同一场雨落在 {where} 的两个角落，写出两种完全不同的氛围。' },
+    { kind: 'emotion', text: '写 {who} 强忍怒气的一顿饭：全程不许出现「生气」「愤怒」。' },
+    { kind: 'emotion', text: '{who} 收到期待已久的消息却只回了一个字——用动作和周围细节写出TA的内心翻涌。' },
+    { kind: 'emotion', text: '写「如释重负」：不点破情绪，只写身体先松下来的那个瞬间。' },
+    { kind: 'dialogue', text: '{who} 和别人谈一件要紧事，两人都在回避正题：对话推进三层，每层更近一步。' },
+    { kind: 'dialogue', text: '写一段吵架：全程不用「说」以外的说话动词，用动作打断对话。' },
+    { kind: 'dialogue', text: '两个角色用闲聊掩护试探，读者要能看出谁先察觉了。' },
+    { kind: 'imitation', text: '选一段你最佩服的景物描写，抄下来，再用 {where} 重写一遍。' },
+    { kind: 'imitation', text: '找一个你喜欢的作家写「等待」的段落，仿写 {who} 在 {where} 等人。' },
+    { kind: 'imitation', text: '摘一段厉害的动作戏，换成 {who} 的日常动作（做饭/修东西）仿写。' },
+    { kind: 'free', text: '写 {where} 里一个只出现一次的配角：三句话立起来，删掉一句会可惜。' },
+    { kind: 'free', text: '用一百字写掉一整个下午，再挑出最废的一句删掉。' },
+  ];
+
+  function normalizeDrillKind(value) {
+    return typeof value === 'string' && DRILL_KINDS[value] ? value : 'free';
+  }
+
+  function normalizeDrillLink(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const entryId = cleanText(raw.entryId, 100);
+    const title = cleanText(raw.title, 60);
+    const sectionKey = SECTIONS[raw.sectionKey] ? raw.sectionKey : null;
+    if (!entryId || !title || !sectionKey) return null;
+    return { entryId, sectionKey, title };
+  }
+
+  function normalizeDrill(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const title = cleanText(raw.title, 120);
+    const mine = typeof raw.mine === 'string' ? raw.mine.replace(/\r\n?/g, '\n').trim().slice(0, DRILL_TEXT_LIMIT) : '';
+    if (!title || !mine) return null;
+
+    const createdAt = parseDate(raw.createdAt) || new Date().toISOString();
+    const updatedAt = parseDate(raw.updatedAt) || createdAt;
+    const linked = [];
+    const seenLink = new Set();
+    for (const item of Array.isArray(raw.linked) ? raw.linked : []) {
+      const link = normalizeDrillLink(item);
+      if (!link || seenLink.has(link.entryId)) continue;
+      seenLink.add(link.entryId);
+      linked.push(link);
+      if (linked.length >= DRILL_MAX_LINKS) break;
+    }
+
+    return {
+      id: cleanText(raw.id, 80) || makeId(),
+      kind: normalizeDrillKind(raw.kind),
+      title,
+      novelId: cleanText(raw.novelId, 100),
+      linked,
+      source: typeof raw.source === 'string' ? raw.source.replace(/\r\n?/g, '\n').trim().slice(0, DRILL_TEXT_LIMIT) : '',
+      sourceNote: cleanText(raw.sourceNote, 60),
+      mine,
+      review: typeof raw.review === 'string' ? raw.review.replace(/\r\n?/g, '\n').trim().slice(0, DRILL_TEXT_LIMIT) : '',
+      createdAt,
+      updatedAt,
+    };
+  }
+
+  async function copyTextToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      try {
+        const helper = document.createElement('textarea');
+        helper.value = text;
+        helper.setAttribute('readonly', '');
+        helper.style.cssText = 'position:fixed;left:-9999px;top:0;';
+        document.body.appendChild(helper);
+        helper.select();
+        const ok = document.execCommand('copy');
+        helper.remove();
+        return ok;
+      } catch (fallbackError) {
+        return false;
+      }
+    }
+  }
+
+  function renderDrills() {
+    const has = state.drills.length > 0;
+    els.drillsCount.textContent = has ? `共 ${state.drills.length} 条练习` : '还没有练习';
+    els.drillsEmpty.hidden = has;
+    els.drillsList.hidden = !has;
+
+    const fragment = document.createDocumentFragment();
+    for (const drill of state.drills) {
+      fragment.appendChild(createDrillCard(drill));
+    }
+    els.drillsList.replaceChildren(fragment);
+
+    renderSidebar(state.route);
+  }
+
+  function createDrillCard(drill) {
+    const kind = DRILL_KINDS[drill.kind] || DRILL_KINDS.free;
+    const card = el('article', 'drill-card');
+    card.dataset.drillId = drill.id;
+
+    const head = el('div', 'drill-card-head');
+    head.appendChild(el('span', 'drill-kind-chip', kind.label));
+    const novel = drill.novelId ? findNovel(drill.novelId) : null;
+    if (novel) {
+      head.appendChild(el('span', 'drill-novel-chip', `《${novel.title}》`));
+    }
+    if (drill.source) {
+      const src = el('span', 'drill-source-chip', `范文${drill.sourceNote ? ` · ${drill.sourceNote}` : ''}`);
+      src.title = '这条练习带着范文';
+      head.appendChild(src);
+    }
+    const time = el('time', 'drill-time');
+    time.dateTime = drill.updatedAt;
+    time.textContent = relativeDate(new Date(drill.updatedAt));
+    head.appendChild(time);
+
+    const title = el('h3', 'drill-card-title', drill.title);
+
+    let linksRow = null;
+    if (novel && drill.linked.length > 0) {
+      linksRow = el('p', 'drill-card-links');
+      linksRow.appendChild(el('span', 'drill-card-links-label', '关联：'));
+      for (const link of drill.linked) {
+        const stillThere = novel.entries[link.sectionKey]?.some(
+          (item) => item.id === link.entryId
+        );
+        if (!stillThere) {
+          linksRow.appendChild(el('span', 'drill-card-link is-dead', link.title));
+          continue;
+        }
+        const anchor = el('a', 'drill-card-link', link.title);
+        anchor.href = entryHash(novel.id, link.sectionKey, link.entryId);
+        anchor.title = `${SECTIONS[link.sectionKey].label} · ${link.title}`;
+        linksRow.appendChild(anchor);
+      }
+    }
+
+    const excerpt = el('p', 'drill-card-excerpt', drill.mine.replace(/\s+/g, ' '));
+    const meta = el('p', 'drill-card-meta', `我的练笔 ${formatWordCount(countTextWords(drill.mine))}${drill.review ? ' · 已有点评' : ''}`);
+
+    const actions = el('div', 'drill-card-actions');
+    const copyBtn = el('button', 'btn ghost drill-copy-btn');
+    copyBtn.type = 'button';
+    copyBtn.dataset.action = 'copy-drill-ai';
+    copyBtn.dataset.drillId = drill.id;
+    copyBtn.title = '复制一段已经写好的点评请求，粘贴给任何 AI 即可';
+    copyBtn.append(icon('i-export'), document.createTextNode('复制点评请求'));
+
+    const editBtn = el('button', 'btn ghost');
+    editBtn.type = 'button';
+    editBtn.dataset.action = 'edit-drill';
+    editBtn.dataset.drillId = drill.id;
+    editBtn.append(icon('i-pencil'), document.createTextNode('编辑'));
+
+    const deleteBtn = el('button', 'icon-btn danger-hover');
+    deleteBtn.type = 'button';
+    deleteBtn.dataset.action = 'delete-drill';
+    deleteBtn.dataset.drillId = drill.id;
+    deleteBtn.setAttribute('aria-label', `删除练习「${drill.title}」`);
+    deleteBtn.title = '删除';
+    deleteBtn.appendChild(icon('i-trash'));
+
+    actions.append(copyBtn, editBtn, deleteBtn);
+    if (linksRow) {
+      card.append(head, title, linksRow, excerpt, meta, actions);
+    } else {
+      card.append(head, title, excerpt, meta, actions);
+    }
+    return card;
+  }
+
+  function openDrillEditor(drill = null, preset = null) {
+    state.drillDraft = {
+      id: drill ? drill.id : null,
+      kind: drill ? drill.kind : preset ? preset.kind : 'free',
+      dirty: false,
+      links: drill ? drill.linked.map((link) => ({ ...link })) : [],
+    };
+    els.drillForm.reset();
+    els.drillTitleError.hidden = true;
+    els.drillDialogEyebrow.textContent = drill ? 'PRACTICE · EDIT' : 'PRACTICE · NEW';
+    els.drillDialogTitle.textContent = drill ? '编辑练习' : '新增练习';
+    els.drillSaveBtn.textContent = drill ? '保存修改' : '保存练习';
+
+    if (drill) {
+      els.drillTitleInput.value = drill.title;
+      els.drillSourceInput.value = drill.source;
+      els.drillSourceNoteInput.value = drill.sourceNote;
+      els.drillMineInput.value = drill.mine;
+      els.drillReviewInput.value = drill.review;
+    } else if (preset) {
+      els.drillTitleInput.value = preset.title;
+    }
+    syncDrillKindSwitch();
+    syncDrillNovelOptions(drill ? drill.novelId : '');
+    renderDrillLinks();
+    updateDrillMineCount();
+
+    els.drillDialog.showModal();
+    requestAnimationFrame(() => els.drillTitleInput.focus());
+  }
+
+  function syncDrillKindSwitch() {
+    els.drillForm.querySelectorAll('.drill-kind-switch button[data-kind]').forEach((btn) => {
+      const active = btn.dataset.kind === state.drillDraft.kind;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function syncDrillNovelOptions(selectedId) {
+    const fragment = document.createDocumentFragment();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '不关联';
+    fragment.appendChild(placeholder);
+    for (const novel of state.novels) {
+      const option = document.createElement('option');
+      option.value = novel.id;
+      option.textContent = novel.title;
+      fragment.appendChild(option);
+    }
+    els.drillNovelSelect.replaceChildren(fragment);
+    const valid = selectedId && state.novels.some((novel) => novel.id === selectedId);
+    els.drillNovelSelect.value = valid ? selectedId : '';
+    syncDrillLinkState();
+  }
+
+  function getDrillNovel() {
+    const id = els.drillNovelSelect.value;
+    return id ? findNovel(id) : null;
+  }
+
+  function syncDrillLinkState() {
+    const novel = getDrillNovel();
+    els.drillLinkInput.disabled = !novel;
+    els.drillLinkInput.placeholder = novel
+      ? `输入《${novel.title}》里的词条名`
+      : '先选小说，再输入词条名';
+    if (!novel) {
+      els.drillLinkInput.value = '';
+      state.drillDraft.links = [];
+      renderDrillLinks();
+    }
+    updateDrillLinkSuggestions();
+  }
+
+  function updateDrillLinkSuggestions() {
+    const fragment = document.createDocumentFragment();
+    const novel = getDrillNovel();
+    if (novel) {
+      for (const key of SECTION_KEYS) {
+        for (const entry of novel.entries[key]) {
+          const option = document.createElement('option');
+          option.value = entry.title;
+          option.label = `${SECTIONS[key].label} · ${entry.title}`;
+          fragment.appendChild(option);
+        }
+      }
+    }
+    els.drillLinkSuggestions.replaceChildren(fragment);
+  }
+
+  function renderDrillLinks() {
+    els.drillLinkEditor.querySelectorAll('.editor-tag').forEach((chip) => chip.remove());
+    const fragment = document.createDocumentFragment();
+    for (const link of state.drillDraft.links) {
+      const chip = el('span', 'editor-tag drill-link-chip');
+      const label = el('span', '', `${SECTIONS[link.sectionKey].label}·${link.title}`);
+      const removeBtn = el('button', '', '×');
+      removeBtn.type = 'button';
+      removeBtn.setAttribute('aria-label', `移除关联 ${link.title}`);
+      removeBtn.addEventListener('click', () => {
+        state.drillDraft.links = state.drillDraft.links.filter(
+          (item) => item.entryId !== link.entryId
+        );
+        markDrillDirty();
+        renderDrillLinks();
+        els.drillLinkInput.focus();
+      });
+      chip.append(label, removeBtn);
+      fragment.appendChild(chip);
+    }
+    els.drillLinkEditor.insertBefore(fragment, els.drillLinkInput);
+  }
+
+  function markDrillDirty() {
+    if (state.drillDraft) state.drillDraft.dirty = true;
+  }
+
+  function addDrillLink(rawValue) {
+    const novel = getDrillNovel();
+    const title = rawValue.trim();
+    if (!novel || !title) return false;
+    if (state.drillDraft.links.some((link) => link.title === title)) {
+      els.drillLinkInput.value = '';
+      return false;
+    }
+    if (state.drillDraft.links.length >= DRILL_MAX_LINKS) {
+      showToast(`最多关联 ${DRILL_MAX_LINKS} 条词条`);
+      return false;
+    }
+    const key = title.toLowerCase();
+    const hits = [];
+    for (const sectionKey of SECTION_KEYS) {
+      for (const entry of novel.entries[sectionKey]) {
+        if (entry.title.trim().toLowerCase() === key) {
+          hits.push({ entry, sectionKey });
+        }
+      }
+    }
+    if (hits.length === 0) {
+      showToast(`《${novel.title}》里没有叫「${title}」的词条`);
+      return false;
+    }
+    hits.sort((a, b) => timeValue(b.entry.updatedAt) - timeValue(a.entry.updatedAt));
+    state.drillDraft.links.push({
+      entryId: hits[0].entry.id,
+      sectionKey: hits[0].sectionKey,
+      title: hits[0].entry.title,
+    });
+    markDrillDirty();
+    renderDrillLinks();
+    els.drillLinkInput.value = '';
+    return true;
+  }
+
+  function updateDrillMineCount() {
+    els.drillMineCount.textContent = `${els.drillMineInput.value.length} 字`;
+  }
+
+  function saveDrill() {
+    const title = els.drillTitleInput.value.trim();
+    const mine = els.drillMineInput.value.trim();
+    if (!title) {
+      els.drillTitleError.hidden = false;
+      els.drillTitleInput.focus();
+      return;
+    }
+    if (!mine) {
+      showToast('先写下你的练笔正文', 'error');
+      els.drillMineInput.focus();
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const fields = {
+      kind: state.drillDraft.kind,
+      title: title.slice(0, 120),
+      novelId: els.drillNovelSelect.value,
+      linked: state.drillDraft.links.map((link) => ({ ...link })),
+      source: els.drillSourceInput.value.trim().slice(0, DRILL_TEXT_LIMIT),
+      sourceNote: els.drillSourceNoteInput.value.trim().slice(0, 60),
+      mine: mine.slice(0, DRILL_TEXT_LIMIT),
+      review: els.drillReviewInput.value.trim().slice(0, DRILL_TEXT_LIMIT),
+    };
+
+    const previous = state.drills;
+    const editing = state.drillDraft.id;
+    if (editing) {
+      state.drills = state.drills.map((drill) =>
+        drill.id === editing ? { ...drill, ...fields, updatedAt: now } : drill
+      );
+    } else {
+      state.drills = [{ id: makeId(), ...fields, createdAt: now, updatedAt: now }, ...state.drills].slice(
+        0,
+        DRILL_MAX_COUNT
+      );
+    }
+    if (!persist()) {
+      state.drills = previous;
+      return;
+    }
+
+    state.drillDraft.dirty = false;
+    els.drillDialog.close();
+    renderDrills();
+    showToast(editing ? '练习已更新' : '练习已收好，常回来翻翻');
+  }
+
+  function attemptCloseDrillDialog() {
+    if (!els.drillDialog.open) return;
+    if (!state.drillDraft.dirty) {
+      els.drillDialog.close();
+      return;
+    }
+    openConfirm({
+      title: '放弃这次练习？',
+      message: '尚未保存的练笔内容会丢失。',
+      okLabel: '放弃练习',
+      onConfirm: () => {
+        state.drillDraft.dirty = false;
+        els.drillDialog.close();
+      },
+    });
+  }
+
+  function deleteDrill(id) {
+    const drill = state.drills.find((item) => item.id === id);
+    if (!drill) return;
+    openConfirm({
+      title: '删除这条练习？',
+      message: `「${drill.title}」删除后无法恢复。`,
+      okLabel: '删除练习',
+      onConfirm: () => {
+        const previous = state.drills;
+        state.drills = state.drills.filter((item) => item.id !== id);
+        if (!persist()) {
+          state.drills = previous;
+          return;
+        }
+        renderDrills();
+        showToast('练习已删除');
+      },
+    });
+  }
+
+  function drawDrillPrompt() {
+    const prompt = DRILL_PROMPTS[Math.floor(Math.random() * DRILL_PROMPTS.length)];
+    const whoPool = collectSparkPool(['characters']);
+    const wherePool = collectSparkPool(['world', 'maps']);
+    const who = whoPool.length > 0 ? whoPool[Math.floor(Math.random() * whoPool.length)].entry.title : '一位角色';
+    const where = wherePool.length > 0 ? wherePool[Math.floor(Math.random() * wherePool.length)].entry.title : '某处地方';
+    const title = prompt.text.replace('{who}', who).replace('{where}', where);
+    openDrillEditor(null, { kind: prompt.kind, title });
+  }
+
+  function buildDrillAiRequest(drill) {
+    const kind = DRILL_KINDS[drill.kind] || DRILL_KINDS.free;
+    const lines = [
+      '我在刻意练习小说的细节叙述，请帮我点评这次练笔。',
+      '',
+      `【练习类型】${kind.label}`,
+      `【练习题目】${drill.title}`,
+    ];
+    const novel = drill.novelId ? findNovel(drill.novelId) : null;
+    if (novel) {
+      lines.push(`【所属小说】《${novel.title}》`);
+      for (const link of drill.linked) {
+        const entry = novel.entries[link.sectionKey]?.find(
+          (item) => item.id === link.entryId
+        );
+        if (!entry) continue;
+        const brief = entry.summary || entry.notes.replace(/\s+/g, ' ').slice(0, 120);
+        lines.push(
+          `【关联设定·${SECTIONS[link.sectionKey].label}】${entry.title}${brief ? `：${brief}` : ''}`
+        );
+      }
+    }
+    if (drill.source) {
+      lines.push(`【范文｜我模仿的对象${drill.sourceNote ? `（${drill.sourceNote}）` : ''}】`, drill.source);
+    }
+    lines.push('【我的练笔】', drill.mine, '');
+    lines.push(
+      '请从四个方面给我具体、可执行的修改建议，每条都指到我原文的具体句子：',
+      '1. 细节具体度：哪些描写是「放之四海皆准」的通用款？换成什么会更独特？',
+      '2. 五感与视角：还缺哪种感官？视角有没有不自觉漂移？',
+      '3. 节奏与句长：哪里拖了，哪里赶了？',
+      drill.source ? '4. 与范文的差距：我最没学到手的那一招是什么？' : '4. 我最该优先改的一处是什么？',
+      '最后请给一段 100 字以内的示范改写（只改最要紧的一处）。'
+    );
+    return lines.join('\n');
+  }
+
+  async function copyDrillForAi(id) {
+    const drill = state.drills.find((item) => item.id === id);
+    if (!drill) return;
+    const ok = await copyTextToClipboard(buildDrillAiRequest(drill));
+    showToast(
+      ok ? '已复制点评请求，粘贴给 AI；收到回复后贴回「复盘 / AI 点评」' : '复制失败，请手动选择文本复制',
+      ok ? 'default' : 'error'
+    );
+  }
+
+  function attachRelatedDrills(novel, entry, body) {
+    const related = state.drills.filter(
+      (drill) =>
+        drill.novelId === novel.id &&
+        drill.linked.some((link) => link.entryId === entry.id)
+    );
+    if (related.length === 0) return;
+
+    const block = el('section', 'entry-detail-block entry-related-drills');
+    block.appendChild(
+      el('h3', 'entry-block-title', `相关练笔 · ${related.length} 条`)
+    );
+    const list = el('div', 'backlink-list');
+    for (const drill of related.slice(0, 5)) {
+      const kind = DRILL_KINDS[drill.kind] || DRILL_KINDS.free;
+      const row = el('a', 'backlink-row');
+      row.href = '#/drills';
+      const iconWrap = el('span', 'backlink-row-icon');
+      iconWrap.appendChild(icon('i-pencil'));
+      const main = el('span', 'backlink-row-main');
+      main.appendChild(el('span', 'backlink-row-title', `${kind.label} · ${drill.title}`));
+      main.appendChild(el('span', 'backlink-row-excerpt', drill.mine.replace(/\s+/g, ' ')));
+      row.append(iconWrap, main);
+      list.appendChild(row);
+    }
+    block.appendChild(list);
+    if (related.length > 5) {
+      block.appendChild(el('p', 'backlink-more', `还有 ${related.length - 5} 条相关练习`));
+    }
+    body.appendChild(block);
+  }
+
+  async function copyEntryForAi(novelId, sectionKey, entryId) {
+    const novel = findNovel(novelId);
+    const entry =
+      novel && novel.entries[sectionKey]
+        ? novel.entries[sectionKey].find((item) => item.id === entryId)
+        : null;
+    if (!novel || !entry) return;
+
+    const lines = [
+      `# 《${novel.title}》· ${SECTIONS[sectionKey].label} · ${entry.title}`,
+    ];
+    if (entry.subtitle) lines.push(`定位：${entry.subtitle}`);
+    if (entry.aliases.length > 0) lines.push(`别名：${entry.aliases.join('、')}`);
+    if (entry.summary) lines.push('', `一句话：${entry.summary}`);
+    if (entry.notes) lines.push('', entry.notes);
+
+    const needles = [entry.title, ...entry.aliases].filter(Boolean);
+    const mentions = [];
+    if (needles.length > 0) {
+      outer: for (const key of SECTION_KEYS) {
+        for (const src of novel.entries[key]) {
+          if (src.id === entry.id) continue;
+          const haystack = `${src.title}\n${src.summary}\n${src.notes}`.toLowerCase();
+          if (needles.some((needle) => haystack.includes(needle.toLowerCase()))) {
+            mentions.push(`${src.title}（${SECTIONS[key].label}）`);
+            if (mentions.length >= 5) break outer;
+          }
+        }
+      }
+    }
+    if (mentions.length > 0) {
+      lines.push('', `被这些内容提到：${mentions.join('、')}`);
+    }
+    lines.push('', '——以上是我小说里的设定资料。请基于它回答我接下来的问题。');
+
+    const ok = await copyTextToClipboard(lines.join('\n'));
+    showToast(ok ? '已复制词条与上下文，去粘贴给 AI 吧' : '复制失败，请手动复制', ok ? 'default' : 'error');
+  }
+
+  function mergeDrills(incoming) {
+    const map = new Map(state.drills.map((drill) => [drill.id, drill]));
+    let added = 0;
+    let updated = 0;
+
+    for (const drill of incoming) {
+      const current = map.get(drill.id);
+      if (!current) {
+        map.set(drill.id, drill);
+        added += 1;
+        continue;
+      }
+      if (timeValue(drill.updatedAt) > timeValue(current.updatedAt)) {
+        map.set(drill.id, drill);
+        updated += 1;
+      }
+    }
+
+    if (added > 0 || updated > 0) {
+      state.drills = [...map.values()]
+        .sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt))
+        .slice(0, DRILL_MAX_COUNT);
     }
 
     return { added, updated };
@@ -11153,6 +12636,7 @@
       novels: state.novels,
       trash: state.trash,
       comments: state.comments,
+      drills: state.drills,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json;charset=utf-8',
@@ -11171,8 +12655,10 @@
       state.trash.length > 0 ? `、${state.trash.length} 项回收站记录` : '';
     const commentSuffix =
       state.comments.length > 0 ? `、${state.comments.length} 条评论` : '';
+    const drillSuffix =
+      state.drills.length > 0 ? `、${state.drills.length} 条练笔` : '';
     showToast(
-      `已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}${commentSuffix}`
+      `已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}${commentSuffix}${drillSuffix}`
     );
 
     writeBackupMeta(now);
@@ -12303,6 +13789,91 @@
     els.importFile.addEventListener('change', handleImportFile);
 
     if (els.sparkBtn) els.sparkBtn.addEventListener('click', openSparkDialog);
+
+    if (els.drillNewBtn) els.drillNewBtn.addEventListener('click', () => openDrillEditor());
+    if (els.drillsEmptyNewBtn) {
+      els.drillsEmptyNewBtn.addEventListener('click', () => openDrillEditor());
+    }
+    if (els.drillPromptBtn) els.drillPromptBtn.addEventListener('click', drawDrillPrompt);
+    if (els.drillForm) {
+      els.drillForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveDrill();
+      });
+      els.drillForm.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+          event.preventDefault();
+          saveDrill();
+        }
+      });
+      els.drillForm.addEventListener('input', () => {
+        if (!state.drillDraft.dirty) state.drillDraft.dirty = true;
+        updateDrillMineCount();
+      });
+      els.drillForm.querySelector('.drill-kind-switch').addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-kind]');
+        if (!btn) return;
+        event.preventDefault();
+        state.drillDraft.kind = normalizeDrillKind(btn.dataset.kind);
+        state.drillDraft.dirty = true;
+        syncDrillKindSwitch();
+      });
+      els.drillNovelSelect.addEventListener('change', () => {
+        state.drillDraft.dirty = true;
+        syncDrillLinkState();
+      });
+      els.drillLinkEditor.addEventListener('click', (event) => {
+        if (event.target === els.drillLinkEditor) els.drillLinkInput.focus();
+      });
+      els.drillLinkInput.addEventListener('keydown', (event) => {
+        if (event.isComposing) return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (els.drillLinkInput.value.trim()) addDrillLink(els.drillLinkInput.value);
+        }
+      });
+    }
+    if (els.drillCancelBtn) els.drillCancelBtn.addEventListener('click', attemptCloseDrillDialog);
+    if (els.drillDialogCloseBtn) {
+      els.drillDialogCloseBtn.addEventListener('click', attemptCloseDrillDialog);
+    }
+    if (els.drillDialog) {
+      els.drillDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        attemptCloseDrillDialog();
+      });
+    }
+
+    if (els.forgeTabSwitch) {
+      els.forgeTabSwitch.addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-forge-tab]');
+        if (!btn) return;
+        event.preventDefault();
+        getForgeState().tab = btn.dataset.forgeTab;
+        syncForgeTabs();
+        runForge();
+      });
+    }
+    if (els.forgeRerollBtn) {
+      els.forgeRerollBtn.addEventListener('click', () => {
+        getForgeState().seed = Math.floor(Math.random() * 90000) + 10000;
+        runForge();
+      });
+    }
+    if (els.forgeSaveBtn) els.forgeSaveBtn.addEventListener('click', saveForgeDraft);
+    if (els.forgeAiBtn) els.forgeAiBtn.addEventListener('click', copyForgeForAi);
+    if (els.forgeDialogCloseBtn) {
+      els.forgeDialogCloseBtn.addEventListener('click', () => els.forgeDialog.close());
+    }
+    const forgeParamIds = [
+      'forgeYearDays', 'forgeMonthCount', 'forgeWeekLen', 'forgeMoonCount',
+      'forgeEraName', 'forgeDayQuery', 'forgeLatitude', 'forgeTerrain',
+      'forgeMagic', 'forgeLivelihood', 'forgeThreat', 'forgeFaith',
+    ];
+    for (const id of forgeParamIds) {
+      const node = document.getElementById(id);
+      if (node) node.addEventListener('input', runForge);
+    }
     if (els.sparkRedrawBtn) {
       els.sparkRedrawBtn.addEventListener('click', () => drawSparks());
     }
@@ -12868,6 +14439,18 @@
     if (els.mapSuggestBtn) {
       els.mapSuggestBtn.addEventListener('click', toggleMapSuggestions);
     }
+    if (els.mapCiv6Btn) {
+      els.mapCiv6Btn.addEventListener('click', openCiv6ExportDialog);
+    }
+    if (els.civ6ExportCloseBtn) {
+      els.civ6ExportCloseBtn.addEventListener('click', closeCiv6ExportDialog);
+    }
+    if (els.civ6ExportCancelBtn) {
+      els.civ6ExportCancelBtn.addEventListener('click', closeCiv6ExportDialog);
+    }
+    if (els.civ6ExportConfirmBtn) {
+      els.civ6ExportConfirmBtn.addEventListener('click', runCiv6Export);
+    }
     if (els.mapGenerateBtn) {
       els.mapGenerateBtn.addEventListener('click', generateMapTerrain);
     }
@@ -13123,7 +14706,10 @@
         els.commentDialog.open ||
         els.confirmDialog.open ||
         els.mapDialog.open ||
-        els.sparkDialog.open
+        els.sparkDialog.open ||
+        els.civ6ExportDialog.open ||
+        els.drillDialog.open ||
+        els.forgeDialog.open
       ) {
         return;
       }
@@ -13140,7 +14726,10 @@
         els.commentDialog.open ||
         els.confirmDialog.open ||
         els.mapDialog.open ||
-        els.sparkDialog.open
+        els.sparkDialog.open ||
+        els.civ6ExportDialog.open ||
+        els.drillDialog.open ||
+        els.forgeDialog.open
       ) {
         return;
       }
@@ -13358,6 +14947,31 @@
       case 'toggle-publish-entries':
         event.preventDefault();
         togglePublishEntries(actionEl.dataset.novelId);
+        break;
+      case 'copy-drill-ai':
+        event.preventDefault();
+        copyDrillForAi(actionEl.dataset.drillId);
+        break;
+      case 'edit-drill':
+        event.preventDefault();
+        if (actionEl.dataset.drillId) {
+          const drill = state.drills.find((item) => item.id === actionEl.dataset.drillId);
+          if (drill) openDrillEditor(drill);
+        }
+        break;
+      case 'delete-drill':
+        event.preventDefault();
+        if (actionEl.dataset.drillId) deleteDrill(actionEl.dataset.drillId);
+        break;
+      case 'copy-entry-ai':
+        event.preventDefault();
+        if (novelId && sectionKey && entryId) {
+          copyEntryForAi(novelId, sectionKey, entryId);
+        }
+        break;
+      case 'open-forge':
+        event.preventDefault();
+        openForge(novelId);
         break;
       case 'export-novel-markdown':
         event.preventDefault();
