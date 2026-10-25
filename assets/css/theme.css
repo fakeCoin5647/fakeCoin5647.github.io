@@ -14,15 +14,13 @@
   --glass: rgba(255, 255, 255, var(--glass-alpha));
   --glass-border: rgba(255, 255, 255, 0.65);
   --glass-soft: rgba(255, 255, 255, calc(var(--card-alpha) - 0.04));
+  /* 官方厚度感描边：顶边宽亮带 → 侧面渐弱 → 底边收暗（180° 而非对角） */
   --glass-rim: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 1) 0%,
-    rgba(255, 255, 255, 0.9) 8%,
-    rgba(186, 200, 226, 0.5) 30%,
-    rgba(120, 138, 176, 0.52) 58%,
-    rgba(214, 228, 250, 0.6) 76%,
-    rgba(255, 255, 255, 0.95) 88%,
-    rgba(255, 255, 255, 1) 100%
+    180deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.58) 26%,
+    rgba(202, 214, 236, 0.3) 58%,
+    rgba(118, 134, 172, 0.44) 100%
   );
   --rule: rgba(38, 42, 51, 0.12);
   --accent-rgb: 79, 109, 245;
@@ -128,8 +126,10 @@ body {
   flex-direction: column;
   min-width: 0;
   padding: 1.7rem 1.05rem 1.3rem;
-  border-right: 1px solid var(--rule);
-  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.44));
+  /* HIG：侧栏属于功能层玻璃——更透，右缘一道亮线勾出玻璃分隔 */
+  border-right: 1px solid rgba(255, 255, 255, calc(0.34 * var(--rim-strength)));
+  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.36));
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, calc(0.16 * var(--rim-strength)));
 }
 
 .brand {
@@ -838,7 +838,7 @@ html.is-sheer .page {
 }
 
 html.is-sheer .sidebar {
-  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.44 + 0.08));
+  background: rgba(255, 255, 255, calc(var(--card-alpha) * 0.36 + 0.1));
 }
 
 .side-note {
@@ -6150,10 +6150,13 @@ html.is-sheer .sidebar {
       rgba(233, 239, 251, calc(var(--glass-alpha) - 0.04))
     );
   box-shadow:
-    0 34px 90px -26px rgba(15, 25, 60, 0.55),
-    0 6px 18px rgba(15, 25, 60, 0.12),
+    /* 官方式悬浮影：超大柔影 + 极近贴影，边缘无硬过渡 */
+    0 44px 120px -34px rgba(15, 25, 60, 0.5),
+    0 4px 14px rgba(15, 25, 60, 0.1),
+    /* 双侧镜面：顶亮线 + 底部最外亮线，内侧保留厚度暗线 */
     inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
-    inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light)),
+    inset 0 -1px 0 rgba(255, 255, 255, calc(0.55 * var(--rim-strength))),
+    inset 0 -2px 0 rgba(19, 29, 62, 0.08),
     inset 0 0 0 1px rgba(255, 255, 255, calc(0.22 * var(--rim-strength)));
   backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(1.6);
   -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(1.6);
@@ -6268,15 +6271,33 @@ html.is-sheer .sidebar {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.5 * var(--rim-strength)));
 }
 
-/* 评论悬浮按钮：更透的活玻璃 */
+/* 评论悬浮按钮：官方 clear 观感——tint 很轻（约 8%），
+   主要靠磨砂 + 亮度 + 边缘折射成形 */
 .comment-fab {
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.74),
-    rgba(238, 244, 255, 0.56)
+    rgba(255, 255, 255, 0.34),
+    rgba(226, 236, 252, 0.2)
   );
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
+}
+
+/* 官方按压反馈：玻璃在按下瞬间「聚光」——内圈泛白光并轻微收缩 */
+.btn:active:not(:disabled),
+.icon-btn:active:not(:disabled),
+.side-action:active,
+.nav-item:active:not(.is-active),
+.filter-pill:active,
+.appearance-preset:active,
+.side-novel-link:active,
+.sidebar .workspace-nav-link:active,
+.comment-fab:active {
+  box-shadow:
+    inset 0 2px 12px rgba(255, 255, 255, calc(0.55 * var(--rim-strength))),
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.8 * var(--rim-strength)));
+  transform: scale(0.97);
+  transition-duration: 0.08s;
 }
 
 /* 边缘折射由 assets/js/liquid-glass.js 按元素尺寸生成

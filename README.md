@@ -236,7 +236,9 @@ jekyll serve
 
 `trash` 与 `comments` 都是可选的；回收站记录保存了删除前的完整快照与原位置序号，因此恢复小说或词条（包括地图数据）会回到原来的顺序。评论的 `target` 同时保存了稳定 ID 和当时的名称快照：跳转时按 ID 重新解析当前位置与名称，目标不存在时按快照展示为失效。评论按 ID 合并，最多保留 1000 条，正文上限 2000 字。
 
-小说可选的 `cover` 只接受站内上传后压缩得到的 `data:image/jpeg`、`data:image/png` 或 `data:image/webp` 数据地址，外部图片链接会被忽略；上传图片会裁成 2:3，输出为 480×720 的 JPEG。
+小说可选的 `cover` 只接受站内上传后压缩得到的 `data:image/jpeg`、`data:image/png` 或 `data:image/webp` 数据地址，外部图片链接会被忽略；上传图片会裁成 2:3，输出为 480×720 的 JPEG。小说还可以有可选的 `wordGoal`（正整数，0 或缺省 = 未设定），用于概览「写作进度」面板的目标进度；它是私人写作管理信息，不会进入公开快照。
+
+词条正文里的 `[[名字]]` 是本站的词条链接语法：详情页渲染时解析为指向同小说内同名（或别名）词条的链接；目标不存在时显示为灰色待建链，同名多条时显示为琥珀色警示链。存储永远是原文，导出 Markdown 与公开页均不解析（公开页会把括号还原为纯文本名称）。
 
 每个词条包含 `id / title / subtitle / summary / notes / tags / aliases / status / visibility / pinned / createdAt / updatedAt`；`visibility` 为 `inherit`（跟随小说，默认）、`public` 或 `private`。`aliases` 是别名 / 称谓列表（最多 5 个、单个 12 字），供搜索与反向链接识别「晚姐」这类名字；`status` 是大纲条目的状态标记（`planning` 构思中、`drafting` 写作中、`done` 已完成，缺失或空字符串 = 未标记），目前只有大纲分区使用。角色词条还会记录每张谱系里的节点位置 `graphPositions`（按谱系 ID 保存）。地图词条额外包含 `map` 字段，记录画布尺寸、地形、地标、路径与城市：
 

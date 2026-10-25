@@ -57,10 +57,16 @@
         </div>
 
         <div class="field">
+          <label for="novelGoalInput">字数目标 <span class="field-optional">选填</span></label>
+          <input type="number" id="novelGoalInput" name="wordGoal" min="0" max="5000000" step="1000" inputmode="numeric" placeholder="比如 50000；留空表示暂不设定" autocomplete="off">
+          <p class="field-hint">设定后概览会显示进度；只保存在本机，不会公开</p>
+        </div>
+
+        <div class="field">
           <label for="novelDescriptionInput">故事简介 <span class="field-optional">选填</span></label>
           <textarea id="novelDescriptionInput" name="description" rows="6" placeholder="时代、地点、主要冲突、故事气质……想到什么就先写下来。"></textarea>
           <div class="field-foot">
-            <span class="field-hint">纯文本即可，换行会保留</span>
+            <span class="field-hint">纯文本即可，换行会保留；用 [[名字]] 可以链接到本书的其他词条</span>
             <span class="field-hint counter" id="novelDescriptionCount">0 字</span>
           </div>
         </div>
@@ -171,7 +177,7 @@
           <label for="entryNotesInput"><span id="entryNotesLabelText">详细内容</span> <span class="field-optional">选填</span></label>
           <textarea id="entryNotesInput" name="notes" rows="8"></textarea>
           <div class="field-foot">
-            <span class="field-hint">纯文本即可，换行会保留</span>
+            <span class="field-hint">纯文本即可，换行会保留；用 [[名字]] 可以链接到本书的其他词条</span>
             <span class="field-hint counter" id="entryNotesCount">0 字</span>
           </div>
         </div>
@@ -616,6 +622,30 @@
     </header>
 
     <div class="search-results" id="searchResults" role="listbox" aria-label="搜索结果"></div>
+  </dialog>
+
+  <dialog id="sparkDialog" class="dialog spark-dialog" aria-labelledby="sparkDialogTitle">
+    <header class="dialog-head">
+      <div>
+        <p class="dialog-eyebrow">A SPARK FROM YOUR SHELF</p>
+        <h2 id="sparkDialogTitle">灵感抽签</h2>
+      </div>
+      <button type="button" class="icon-btn dialog-close" id="sparkDialogCloseBtn" aria-label="关闭">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+      </button>
+    </header>
+
+    <div class="dialog-body">
+      <p class="spark-sentence" id="sparkSentence"></p>
+      <div class="spark-cards" id="sparkCards"></div>
+      <p class="spark-hint">三张卡都来自你的书架；点卡片可以直接翻到那一页。</p>
+    </div>
+
+    <footer class="dialog-actions">
+      <span class="dialog-hint">书架页按 I 也能抽</span>
+      <button type="button" class="btn ghost" id="sparkRedrawBtn">换一组</button>
+      <button type="button" class="btn primary" id="sparkDoneBtn">合上</button>
+    </footer>
   </dialog>
 
   <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>

@@ -542,6 +542,7 @@
     novelTitleError: $('#novelTitleError'),
     novelGenreInput: $('#novelGenreInput'),
     novelSummaryInput: $('#novelSummaryInput'),
+    novelGoalInput: $('#novelGoalInput'),
     novelDescriptionInput: $('#novelDescriptionInput'),
     novelDescriptionCount: $('#novelDescriptionCount'),
     novelCoverPreview: $('#novelCoverPreview'),
@@ -1147,6 +1148,11 @@
         tone,
         cover: normalizeCover(raw.cover),
         pinned: raw.pinned === true,
+        // 字数目标是私人写作管理信息：0 = 未设定，且不进公开快照
+        wordGoal:
+          Number.isFinite(raw.wordGoal) && raw.wordGoal > 0
+            ? Math.min(Math.floor(raw.wordGoal), 5000000)
+            : 0,
         visibility: normalizeNovelVisibility(raw.visibility),
         createdAt,
         updatedAt,
@@ -2585,6 +2591,108 @@
     return cover;
   }
 
+  /* ---------- 写作统计卡 ---------- */
+
+  const STATS_COLLAPSE_KEY = 'gushibu.statsCollapsed.v1';
+
+  function isStatsCollapsed() {
+    try {
+      return localStorage.getItem(STATS_COLLAPSE_KEY) === '1';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function setStatsCollapsed(collapsed) {
+    try {
+      localStorage.setItem(STATS_COLLAPSE_KEY, collapsed ? '1' : '0');
+    } catch (error) {
+      /* 忽略 */
+    }
+  }
+
+  // 收紧版统计卡：小格只有图标与「有无内容」的状态点（不堆数字），
+  // 大数字区是唯一主角——设了目标显示进度，没设显示总字数。全部渲染时聚合，不落盘。
+  function createNovelStatsPanel(novel) {
+    const words = countNovelWords(novel);
+    const goal = novel.wordGoal > 0 ? novel.wordGoal : 0;
+    const collapsed = isStatsCollapsed();
+
+    const panel = el('section', 'panel novel-stats-panel');
+    const head = el('div', 'panel-head');
+    const headText = el('div');
+    headText.append(
+      el('p', 'eyebrow', 'PROGRESS'),
+      el('h2', 'panel-title', '写作进度')
+    );
+
+    const headMeta = el(
+      'span',
+      'novel-stats-head-meta',
+      goal > 0
+        ? `${formatWordCount(words)} / ${formatWordCount(goal)}`
+        : formatWordCount(words)
+    );
+
+    const toggleBtn = el('button', 'link-btn', collapsed ? '展开' : '收起');
+    toggleBtn.type = 'button';
+    toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+
+    const actions = el('div', 'panel-head-actions');
+    actions.append(toggleBtn);
+    head.append(headText, headMeta, actions);
+
+    const body = el('div', 'novel-stats-body');
+    body.hidden = collapsed;
+
+    const main = el('div', 'novel-stats-main');
+    const figure = el('div', 'novel-stats-figure');
+    if (goal > 0) {
+      const percent = Math.min(100, Math.round((words / goal) * 100));
+      figure.append(
+        el('strong', '', `${words.toLocaleString('zh-Hans-CN')}`),
+        el('span', '', `/ ${goal.toLocaleString('zh-Hans-CN')} 字 · ${percent}%`)
+      );
+      const bar = el('div', 'novel-stats-bar');
+      const fill = el('i');
+      fill.style.width = `${percent}%`;
+      bar.appendChild(fill);
+      main.append(figure, bar);
+    } else {
+      figure.append(
+        el('strong', '', `${words.toLocaleString('zh-Hans-CN')}`),
+        el('span', '', '字 · 在「编辑资料」里设个目标，让进度自己说话')
+      );
+      main.appendChild(figure);
+    }
+
+    const tiles = el('div', 'novel-stats-tiles');
+    for (const key of SECTION_KEYS) {
+      const config = SECTIONS[key];
+      const count = novel.entries[key].length;
+      const tile = el('a', `novel-stats-tile${count > 0 ? ' has-content' : ''}`);
+      tile.href = sectionHash(novel.id, key);
+      tile.title = `${config.label} · ${count} 条`;
+      tile.appendChild(icon(config.icon));
+      tile.appendChild(el('span', '', config.label));
+      tile.appendChild(el('span', 'novel-stats-dot'));
+      tiles.appendChild(tile);
+    }
+
+    body.append(main, tiles);
+
+    toggleBtn.addEventListener('click', () => {
+      const next = !body.hidden;
+      body.hidden = next;
+      setStatsCollapsed(next);
+      toggleBtn.textContent = next ? '展开' : '收起';
+      toggleBtn.setAttribute('aria-expanded', String(!next));
+    });
+
+    panel.append(head, body);
+    return panel;
+  }
+
   function renderOverview(novel) {
     const fragment = document.createDocumentFragment();
 
@@ -2617,6 +2725,7 @@
       novel.description || '还没有写下故事简介。可以从时代、地点和主要冲突开始。'
     );
     synopsis.append(synopsisHead, synopsisBody);
+    const statsPanel = createNovelStatsPanel(novel);
 
     const worldHead = el('div', 'overview-head-block');
     const worldHeadText = el('div');
@@ -2661,7 +2770,7 @@
       recentPanel.appendChild(list);
     }
 
-    fragment.append(synopsis, worldHead, sectionGrid, recentHead, recentPanel);
+    fragment.append(synopsis, statsPanel, worldHead, sectionGrid, recentHead, recentPanel);
     els.workspaceContent.replaceChildren(fragment);
   }
 
@@ -3085,7 +3194,8 @@
     block.appendChild(el('h3', 'entry-block-title', config.notesLabel));
 
     if (entry.notes) {
-      const notes = el('div', 'entry-notes', entry.notes);
+      const notes = el('div', 'entry-notes');
+      renderLinkedNotes(notes, entry.notes, novel);
       block.appendChild(notes);
     } else {
       const emptyNotes = el('div', 'entry-notes-empty');
@@ -3116,6 +3226,79 @@
     article.append(head, body, meta);
     fragment.appendChild(article);
     els.workspaceContent.replaceChildren(fragment);
+  }
+
+  /* ---------- 正文 [[词条链接]] ---------- */
+
+  // 存储永远是原文，渲染时才解析。失效链接置灰（目标还没建），
+  // 同名多条用琥珀色警示并链接到最近更新的一条（颜色即警示，不静默接错线）。
+  const WIKILINK_PATTERN = /\[\[([^\[\]\n]{1,60})\]\]/g;
+  const WIKILINK_RENDER_LIMIT = 200;
+
+  function buildNovelLinkIndex(novel) {
+    const byTitle = new Map();
+    const byAlias = new Map();
+    for (const key of SECTION_KEYS) {
+      for (const entry of novel.entries[key]) {
+        const title = entry.title.trim().toLowerCase();
+        if (title) {
+          if (!byTitle.has(title)) byTitle.set(title, []);
+          byTitle.get(title).push({ entry, sectionKey: key });
+        }
+        for (const alias of entry.aliases) {
+          const name = alias.trim().toLowerCase();
+          if (!name) continue;
+          if (!byAlias.has(name)) byAlias.set(name, []);
+          byAlias.get(name).push({ entry, sectionKey: key });
+        }
+      }
+    }
+    return { byTitle, byAlias };
+  }
+
+  function renderLinkedNotes(container, text, novel) {
+    const index = buildNovelLinkIndex(novel);
+    let rendered = 0;
+    let cursor = 0;
+    WIKILINK_PATTERN.lastIndex = 0;
+    let match;
+
+    while ((match = WIKILINK_PATTERN.exec(text)) !== null) {
+      if (rendered >= WIKILINK_RENDER_LIMIT) break;
+      const label = match[1].trim();
+      if (!label) continue; // [[ ]] 内只有空白：当普通文本，不消耗
+      const before = text.slice(cursor, match.index);
+      if (before) container.appendChild(document.createTextNode(before));
+
+      let hits = index.byTitle.get(label.toLowerCase()) ||
+        index.byAlias.get(label.toLowerCase()) ||
+        null;
+      if (hits) {
+        const seen = new Set();
+        hits = hits.filter((hit) =>
+          seen.has(hit.entry.id) ? false : (seen.add(hit.entry.id), true)
+        );
+      }
+
+      if (!hits) {
+        const dead = el('span', 'entry-link is-dead', label);
+        dead.title = '还没有这个词条';
+        container.appendChild(dead);
+      } else {
+        hits.sort((a, b) => timeValue(b.entry.updatedAt) - timeValue(a.entry.updatedAt));
+        const link = el('a', 'entry-link', label);
+        link.href = entryHash(novel.id, hits[0].sectionKey, hits[0].entry.id);
+        if (hits.length > 1) {
+          link.classList.add('is-ambiguous');
+          link.title = `存在 ${hits.length} 条同名词条，已链接到最近更新的一条`;
+        }
+        container.appendChild(link);
+      }
+
+      rendered += 1;
+      cursor = match.index + match[0].length;
+    }
+    container.appendChild(document.createTextNode(text.slice(cursor)));
   }
 
   /* ---------- Entry backlinks ---------- */
@@ -4531,6 +4714,7 @@
       els.novelTitleInput.value = novel.title;
       els.novelGenreInput.value = novel.genre;
       els.novelSummaryInput.value = novel.summary;
+      els.novelGoalInput.value = novel.wordGoal > 0 ? String(novel.wordGoal) : '';
       els.novelDescriptionInput.value = novel.description;
       els.novelPublicInput.checked = isNovelPublic(novel);
       setNovelStatus(novel.status);
@@ -4766,6 +4950,12 @@
     });
   }
 
+  function readNovelGoalInput() {
+    const value = Number.parseInt(els.novelGoalInput.value, 10);
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    return Math.min(value, 5000000);
+  }
+
   function saveNovel() {
     if (state.novelDraft.coverBusy) {
       showToast('封面图片还在处理中，稍等一下');
@@ -4798,6 +4988,7 @@
         tone: toneInput ? Number(toneInput.value) : 0,
         cover: state.novelDraft.cover || '',
         pinned: false,
+        wordGoal: readNovelGoalInput(),
         visibility,
         createdAt: now,
         updatedAt: now,
@@ -4827,6 +5018,7 @@
               status: statusInput ? statusInput.value : 'planning',
               tone: toneInput ? Number(toneInput.value) : novel.tone,
               cover: state.novelDraft.cover || '',
+              wordGoal: readNovelGoalInput(),
               visibility,
               updatedAt: now,
             }
@@ -12894,7 +13086,8 @@
         els.graphDialog.open ||
         els.commentDialog.open ||
         els.confirmDialog.open ||
-        els.mapDialog.open
+        els.mapDialog.open ||
+        els.sparkDialog.open
       ) {
         return;
       }
@@ -12910,7 +13103,8 @@
         els.graphDialog.open ||
         els.commentDialog.open ||
         els.confirmDialog.open ||
-        els.mapDialog.open
+        els.mapDialog.open ||
+        els.sparkDialog.open
       ) {
         return;
       }

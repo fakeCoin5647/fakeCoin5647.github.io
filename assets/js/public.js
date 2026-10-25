@@ -1776,7 +1776,11 @@
 
     els.entryNotesTitle.textContent = config.notesLabel;
     if (entry.notes) {
-      els.entryNotes.textContent = entry.notes;
+      // 公开页不解析 [[词条链接]] 语法，还原为纯文本名称
+      els.entryNotes.textContent = entry.notes.replace(
+        /\[\[([^\[\]\n]{1,60})\]\]/g,
+        '$1'
+      );
       els.entryNotes.hidden = false;
       els.entryNotesEmpty.hidden = true;
     } else {
