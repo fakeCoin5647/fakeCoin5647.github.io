@@ -344,6 +344,7 @@
   const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
 
   let mapWaterDepth = null;
+  let mapLod = '2d';
 
   const MAP_CITY_TYPES = {
     city: { label: '城市' },
@@ -6568,9 +6569,16 @@
 
   function buildMapMarkup(
     map,
-    { selectedCityId = null, selectedPathId = null, pendingPath = null, suggestions = null } = {}
+    {
+      selectedCityId = null,
+      selectedPathId = null,
+      pendingPath = null,
+      suggestions = null,
+      lod = '2d',
+    } = {}
   ) {
     mapWaterDepth = collectMapWaterDepth(map);
+    mapLod = lod;
     const terrainParts = [];
     const coastParts = [];
     const pathParts = [];
@@ -6896,7 +6904,7 @@
   function buildMapHexInner(col, row, terrainKey) {
     const center = hexCenter(col, row);
     const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
-    const raised = MAP_RAISED_TERRAINS[terrainKey];
+    const raised = mapLod === '3d' ? MAP_RAISED_TERRAINS[terrainKey] : null;
     let fill;
     if (terrainKey === 'lake') fill = 'url(#mapLakeGrad)';
     else if (terrainKey === 'water') {
@@ -6914,7 +6922,9 @@
     if (raised) {
       shadeLayer = buildRaisedHexTop(terrainKey, col, row, center, raised);
     } else {
-      const strongShade = ['mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
+      const strongShade =
+        ['mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey) ||
+        (mapLod === '2d' && terrainKey === 'hills');
       const softShade = ['grass', 'plains', 'desert'].includes(terrainKey);
       shadeLayer = strongShade
         ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
@@ -6961,6 +6971,22 @@
     )} ${roundMapCoordinate(y)})" aria-hidden="true">`;
     const close = '</g>';
     const hash = Math.abs((col * 7 + row * 13) % 97);
+
+    if (mapLod === '2d') {
+      // 拉远时的平面制图风格：只保留最简单的识别符号
+      if (terrainKey === 'mountain') {
+        return `${open}<path d="M-9 7 L0 -8.5 L9 7 Z" fill="#8b91a1"/><path d="M0 -8.5 L9 7 L3.6 7 Z" fill="#6f7585"/><path d="M0 -8.5 L-2.8 -2.8 L2.8 -2.8 Z" fill="#f4f8fc"/>${close}`;
+      }
+      if (terrainKey === 'volcano') {
+        return `${open}<path d="M-9 7 L-2.4 -6 L2.4 -6 L9 7 Z" fill="#544b4f"/><path d="M-2.4 -6 L2.4 -6 L1.4 -8 L-1.4 -8 Z" fill="#2c262a"/><circle cy="-10" r="1.5" fill="rgba(240,140,70,.85)"/>${close}`;
+      }
+      if (terrainKey === 'forest') {
+        const mini = (tx, ty, scale, dark) =>
+          `<g transform="translate(${tx} ${ty}) scale(${scale})"><path d="M0 -11 L-5 2 H5 Z" fill="${dark ? '#4c7450' : '#527c56'}"/><path d="M0 -4 L-7 10 H7 Z" fill="${dark ? '#587f5c' : '#618f65'}"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g>`;
+        return `${open}${mini(-5, 3, 0.62, hash % 2 === 0)}${mini(6, -4, 0.48, hash % 3 !== 0)}${close}`;
+      }
+      return '';
+    }
 
     if (terrainKey === 'grass') {
       if (hash % 3 === 2) {
@@ -7226,6 +7252,7 @@
       brushSize: 1,
       showGrid: false,
       suggestions: null,
+      lod: '2d',
       selectedCityId: null,
       selectedPathId: null,
       pendingPath: null,
@@ -7453,6 +7480,7 @@
       selectedPathId: editor.selectedPathId,
       pendingPath: editor.pendingPath,
       suggestions: editor.suggestions,
+      lod: editor.lod || '2d',
     })}</g>`;
     applyMapView();
   }
@@ -7561,7 +7589,15 @@
     const percent = editor.fitScale
       ? Math.round((scale / editor.fitScale) * 100)
       : Math.round(scale * 100);
-    els.mapZoomBadge.textContent = `${percent}%`;
+    // 文明6式细节层次：拉近看立体地形，拉远回到平面制图（迟滞区间避免抖动）
+    const currentLod = editor.lod || '2d';
+    const desiredLod = percent >= 118 ? '3d' : percent <= 102 ? '2d' : currentLod;
+    if (currentLod !== desiredLod) {
+      editor.lod = desiredLod;
+      renderMapCanvas();
+      return;
+    }
+    els.mapZoomBadge.textContent = `${percent}% · ${currentLod === '3d' ? '3D' : '2D'}`;
   }
 
   function syncMapViewportBox() {
@@ -8943,7 +8979,7 @@
       )}" width="${roundMapCoordinate(bounds.width + padding * 2)}" height="${roundMapCoordinate(
         bounds.height + padding * 2
       )}" fill="#eef2f8"/>` +
-      buildMapMarkup(editor.draft) +
+      buildMapMarkup(editor.draft, { lod: '3d' }) +
       buildMapExportOverlays(
         editor.draft,
         entry ? entry.title : '未命名地图',
