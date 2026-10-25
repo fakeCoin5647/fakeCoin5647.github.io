@@ -26,6 +26,16 @@
   {% include templates.html %}
   {% include dialogs.html %}
 
+  <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <filter id="lg-refract" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.009 0.013" numOctaves="2" seed="8" result="noise"/>
+        <feGaussianBlur in="noise" stdDeviation="1.2" result="ripple"/>
+        <feDisplacementMap in="SourceGraphic" in2="ripple" scale="12" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
+
   <script src="assets/js/app.js"></script>
 </body>
 </html>

@@ -51,11 +51,11 @@
   const APPEARANCE_PANEL_MARGIN = 12;
   const APPEARANCE_PANEL_MAX = 600;
   const DEFAULT_APPEARANCE = {
-    glassAlpha: 78,
-    cardAlpha: 50,
-    blur: 20,
+    glassAlpha: 66,
+    cardAlpha: 40,
+    blur: 28,
     accent: 'blue',
-    wallpaperDim: 50,
+    wallpaperDim: 60,
     rim: 100,
     readingScale: 100,
   };
@@ -96,6 +96,15 @@
       wallpaperDim: 30,
       rim: 88,
     },
+    liquid: {
+      label: '液态玻璃',
+      accent: 'blue',
+      glassAlpha: 66,
+      cardAlpha: 40,
+      blur: 28,
+      wallpaperDim: 60,
+      rim: 100,
+    },
   };
   const COVER_WIDTH = 480;
   const COVER_HEIGHT = 720;
@@ -123,6 +132,21 @@
     revising: { label: '修订中', className: 'status-revising' },
     done: { label: '已完成', className: 'status-done' },
   };
+
+  // 大纲状态复用小说状态的语言与配色；空字符串 = 未标记
+  const ENTRY_STATUS = {
+    planning: NOVEL_STATUS.planning,
+    drafting: NOVEL_STATUS.drafting,
+    done: NOVEL_STATUS.done,
+  };
+  const ALIAS_MAX_COUNT = 5;
+  const ALIAS_MAX_LENGTH = 12;
+  const BACKLINK_LIMIT = 20;
+  const BACKLINK_BATCH_SIZE = 100;
+  const BACKLINK_IDLE_DELAY = 200;
+  const LAST_VISIT_KEY = 'gushibu.lastVisit.v1';
+  const BACKUP_META_KEY = 'gushibu.backupMeta.v1';
+  const BACKUP_REMIND_DAYS = 90;
 
   const SECTIONS = {
     outline: {
@@ -363,6 +387,7 @@
     missingView: $('#missingView'),
 
     commentsToolbar: $('#commentsToolbar'),
+    commentsStatusFilters: $('#commentsStatusFilters'),
     commentsSearchInput: $('#commentsSearchInput'),
     commentsSearchClearBtn: $('#commentsSearchClearBtn'),
     commentsSortSelect: $('#commentsSortSelect'),
@@ -398,6 +423,10 @@
     trashClearBtn: $('#trashClearBtn'),
 
     shelfToolbar: $('#shelfToolbar'),
+    continueBanner: $('#continueBanner'),
+    continueBannerText: $('#continueBannerText'),
+    continueBannerTime: $('#continueBannerTime'),
+    continueBannerBtn: $('#continueBannerBtn'),
     shelfSearchInput: $('#shelfSearchInput'),
     shelfSearchClearBtn: $('#shelfSearchClearBtn'),
     shelfSortSelect: $('#shelfSortSelect'),
@@ -509,6 +538,7 @@
     entryNotesLabelText: $('#entryNotesLabelText'),
     entryNotesInput: $('#entryNotesInput'),
     entryNotesCount: $('#entryNotesCount'),
+    entryAliasesInput: $('#entryAliasesInput'),
     entryTagEditor: $('#entryTagEditor'),
     entryTagInput: $('#entryTagInput'),
     entryTagSuggestions: $('#entryTagSuggestions'),
@@ -629,7 +659,7 @@
     appearance: { ...DEFAULT_APPEARANCE },
     route: null,
     shelf: { query: '', status: 'all', sort: 'updated' },
-    commentDirectory: { query: '', sort: 'newest' },
+    commentDirectory: { query: '', sort: 'newest', status: 'open' },
     commentDraft: {
       mode: null,
       id: null,
@@ -644,6 +674,8 @@
     draftTags: [],
     confirmAction: null,
     pendingHighlight: null,
+    backlinksToken: 0,
+    outlineStatusFilter: 'all',
     sidebarScroll: null,
     listScrolls: Object.create(null),
     mapEditor: null,
@@ -1080,6 +1112,8 @@
       summary: cleanText(raw.summary, 160),
       notes: typeof raw.notes === 'string' ? raw.notes.trim() : '',
       tags: normalizeTags(Array.isArray(raw.tags) ? raw.tags : []),
+      aliases: normalizeAliases(raw.aliases),
+      status: normalizeEntryStatus(raw.status),
       pinned: raw.pinned === true,
       visibility: normalizeEntryVisibility(raw.visibility),
       createdAt,
@@ -1088,6 +1122,34 @@
       graphPos: normalizeGraphPos(raw.graphPos),
       graphPositions: normalizeGraphPositions(raw.graphPositions),
     };
+  }
+
+  function normalizeAliases(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set();
+    const list = [];
+    for (const item of raw) {
+      if (typeof item !== 'string') continue;
+      const alias = item.trim().slice(0, ALIAS_MAX_LENGTH);
+      if (!alias) continue;
+      const key = alias.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      list.push(alias);
+      if (list.length >= ALIAS_MAX_COUNT) break;
+    }
+    return list;
+  }
+
+  function normalizeEntryStatus(value) {
+    return typeof value === 'string' && ENTRY_STATUS[value] ? value : '';
+  }
+
+  function parseAliasesInput(value) {
+    return String(value || '')
+      .split(/[,，、]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   function normalizeNovelVisibility(value) {
@@ -1187,6 +1249,7 @@
     return {
       id: cleanText(raw.id, 80) || makeId(),
       body,
+      status: raw.status === 'resolved' ? 'resolved' : 'open',
       createdAt,
       updatedAt,
       target,
@@ -2531,7 +2594,13 @@
 
   function renderSection(novel, sectionKey) {
     const config = SECTIONS[sectionKey];
-    const entries = sortEntries(novel.entries[sectionKey]);
+    const allEntries = sortEntries(novel.entries[sectionKey]);
+    const entries =
+      sectionKey === 'outline' && state.outlineStatusFilter !== 'all'
+        ? allEntries.filter(
+            (entry) => (entry.status || '') === state.outlineStatusFilter
+          )
+        : allEntries;
     const fragment = document.createDocumentFragment();
 
     const head = el('header', 'content-head');
@@ -2555,7 +2624,7 @@
     addBtn.appendChild(icon('i-plus'));
     addBtn.appendChild(document.createTextNode(config.addLabel));
 
-    if (sectionKey === 'characters' && entries.length > 0) {
+    if (sectionKey === 'characters' && allEntries.length > 0) {
       const headActions = el('div', 'content-head-actions');
       headActions.append(createCharactersViewSwitch(), addBtn);
       head.append(headText, headActions);
@@ -2564,16 +2633,25 @@
     }
     fragment.appendChild(head);
 
-    if (entries.length === 0) {
+    if (allEntries.length === 0) {
       fragment.appendChild(createSectionEmpty(novel, sectionKey));
     } else if (sectionKey === 'characters' && state.charactersView === 'graph') {
       fragment.appendChild(createCharacterGraphPanel(novel));
     } else {
-      const grid = el('div', 'entry-grid');
-      for (const entry of entries) {
-        grid.appendChild(createEntryCard(novel, sectionKey, entry));
+      if (sectionKey === 'outline') {
+        fragment.appendChild(createOutlineStatusFilter(novel));
       }
-      fragment.appendChild(grid);
+      if (entries.length === 0) {
+        fragment.appendChild(
+          el('p', 'section-filter-empty', '这个状态下还没有大纲，换一个筛选看看。')
+        );
+      } else {
+        const grid = el('div', 'entry-grid');
+        for (const entry of entries) {
+          grid.appendChild(createEntryCard(novel, sectionKey, entry));
+        }
+        fragment.appendChild(grid);
+      }
     }
 
     els.workspaceContent.replaceChildren(fragment);
@@ -2616,6 +2694,37 @@
     return [...entries].sort(
       (a, b) => pinWeight(b) - pinWeight(a) || timeValue(b.updatedAt) - timeValue(a.updatedAt)
     );
+  }
+
+  function createOutlineStatusFilter(novel) {
+    const counts = { all: novel.entries.outline.length, '': 0, planning: 0, drafting: 0, done: 0 };
+    for (const entry of novel.entries.outline) {
+      counts[normalizeEntryStatus(entry.status)] += 1;
+    }
+
+    const group = el('div', 'filter-row outline-status-filters');
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', '按大纲状态筛选');
+
+    const options = [
+      { value: 'all', label: '全部' },
+      { value: '', label: '未标记' },
+      { value: 'planning', label: '构思中' },
+      { value: 'drafting', label: '写作中' },
+      { value: 'done', label: '已完成' },
+    ];
+    for (const option of options) {
+      const active = state.outlineStatusFilter === option.value;
+      const chip = el('button', `filter-pill${active ? ' is-active' : ''}`);
+      chip.type = 'button';
+      chip.dataset.action = 'outline-status-filter';
+      chip.dataset.value = option.value;
+      chip.setAttribute('aria-pressed', String(active));
+      chip.appendChild(document.createTextNode(option.label));
+      chip.appendChild(el('span', 'filter-count', counts[option.value]));
+      group.appendChild(chip);
+    }
+    return group;
   }
 
   function createEntryCard(novel, sectionKey, entry) {
@@ -2670,6 +2779,13 @@
       ? '会进入公开快照'
       : '不会进入公开快照';
     tagsEl.appendChild(visibilityChip);
+
+    if (sectionKey === 'outline' && ENTRY_STATUS[entry.status]) {
+      const status = ENTRY_STATUS[entry.status];
+      tagsEl.appendChild(
+        el('span', `status-pill ${status.className} entry-status-pill`, status.label)
+      );
+    }
 
     for (const tag of entry.tags) {
       tagsEl.appendChild(el('span', 'entry-tag', tag));
@@ -2740,11 +2856,22 @@
       ? '这条内容会进入公开快照'
       : '这条内容只在本机可见';
     kicker.appendChild(detailVisibilityChip);
+    if (sectionKey === 'outline' && ENTRY_STATUS[entry.status]) {
+      const status = ENTRY_STATUS[entry.status];
+      kicker.appendChild(
+        el('span', `status-pill ${status.className} entry-status-pill`, status.label)
+      );
+    }
     if (countEntryWords(entry) > 0) {
       kicker.appendChild(createWordCountChip(countEntryWords(entry)));
     }
     for (const tag of entry.tags) {
       kicker.appendChild(el('span', 'entry-tag', tag));
+    }
+    for (const alias of entry.aliases) {
+      const aliasChip = el('span', 'entry-tag entry-alias-chip', alias);
+      aliasChip.title = '别名 / 称谓';
+      kicker.appendChild(aliasChip);
     }
 
     const actions = el('div', 'entry-detail-actions');
@@ -2822,6 +2949,8 @@
     }
     body.appendChild(block);
 
+    attachBacklinks(novel, sectionKey, entry, body);
+
     const meta = el('footer', 'entry-detail-meta');
     const created = new Date(entry.createdAt);
     const updated = new Date(entry.updatedAt);
@@ -2833,6 +2962,157 @@
     article.append(head, body, meta);
     fragment.appendChild(article);
     els.workspaceContent.replaceChildren(fragment);
+  }
+
+  /* ---------- Entry backlinks ---------- */
+
+  // 扫描同小说其他词条的 title/summary/notes，命中当前词条标题或别名即记一条反链。
+  // 首批同步扫描（≤100 条），其余用 idle 分批增量插入；路由切换通过 token 作废。
+  function attachBacklinks(novel, sectionKey, entry, body) {
+    const needles = [];
+    const seenNeedle = new Set();
+    for (const text of [entry.title, ...entry.aliases]) {
+      const key = text.trim().toLowerCase();
+      if (!key || seenNeedle.has(key)) continue;
+      seenNeedle.add(key);
+      needles.push(text.trim());
+    }
+    if (needles.length === 0) return;
+
+    const sources = [];
+    for (const key of SECTION_KEYS) {
+      for (const src of novel.entries[key]) {
+        if (src.id === entry.id) continue;
+        sources.push({ sectionKey: key, entry: src });
+      }
+    }
+    if (sources.length === 0) return;
+
+    const token = ++state.backlinksToken;
+    const matches = [];
+    let attached = false;
+    let cursor = 0;
+
+    const block = el('section', 'entry-detail-block entry-backlinks');
+    const title = el('h3', 'entry-block-title');
+    const list = el('div', 'backlink-list');
+    const more = el('p', 'backlink-more');
+    more.hidden = true;
+    block.append(title, list, more);
+
+    const scanSource = (source) => {
+      let hit = null;
+      for (const field of [
+        source.entry.title,
+        source.entry.summary,
+        source.entry.notes,
+      ]) {
+        if (!field) continue;
+        const lower = field.toLowerCase();
+        for (const needle of needles) {
+          const index = lower.indexOf(needle.toLowerCase());
+          if (index < 0) continue;
+          if (!hit || index < hit.index) {
+            hit = { field, index, length: needle.length };
+          }
+        }
+      }
+      return hit;
+    };
+
+    const buildRow = (source, hit) => {
+      const row = el('a', 'backlink-row');
+      row.href = entryHash(novel.id, source.sectionKey, source.entry.id);
+      const iconWrap = el('span', 'backlink-row-icon');
+      iconWrap.appendChild(icon(SECTIONS[source.sectionKey].icon));
+      const main = el('span', 'backlink-row-main');
+      main.appendChild(el('span', 'backlink-row-title', source.entry.title));
+      if (hit) {
+        const start = Math.max(0, hit.index - 24);
+        const end = Math.min(
+          hit.field.length,
+          hit.index + hit.length + 48
+        );
+        const excerpt = el('span', 'backlink-row-excerpt');
+        appendSearchHighlight(excerpt, {
+          before: (start > 0 ? '…' : '') + hit.field.slice(start, hit.index),
+          match: hit.field.slice(hit.index, hit.index + hit.length),
+          after:
+            hit.field.slice(hit.index + hit.length, end) +
+            (end < hit.field.length ? '…' : ''),
+        });
+        main.appendChild(excerpt);
+      }
+      row.append(iconWrap, main);
+      return row;
+    };
+
+    const syncHead = () => {
+      title.textContent = `被 ${matches.length} 条内容提到`;
+      const overflow = matches.length - BACKLINK_LIMIT;
+      more.hidden = overflow <= 0;
+      if (overflow > 0) {
+        more.textContent = `还有 ${overflow} 条内容提到了它`;
+      }
+    };
+
+    const ensureAttached = () => {
+      if (attached || matches.length === 0) return;
+      attached = true;
+      body.appendChild(block);
+    };
+
+    const renderBatch = (count) => {
+      const fragment = document.createDocumentFragment();
+      for (const match of matches.slice(-count)) {
+        fragment.appendChild(buildRow(match.source, match.hit));
+      }
+      list.appendChild(fragment);
+      while (list.children.length > BACKLINK_LIMIT) {
+        list.removeChild(list.firstChild);
+      }
+    };
+
+    for (; cursor < Math.min(sources.length, BACKLINK_BATCH_SIZE); cursor += 1) {
+      const hit = scanSource(sources[cursor]);
+      if (!hit) continue;
+      matches.push({ source: sources[cursor], hit });
+    }
+    if (matches.length > 0) {
+      syncHead();
+      renderBatch(matches.length);
+      ensureAttached();
+    }
+
+    if (cursor >= sources.length) return;
+
+    const scheduleIdle =
+      window.requestIdleCallback ||
+      ((callback) =>
+        window.setTimeout(
+          () => callback({ timeRemaining: () => 0 }),
+          BACKLINK_IDLE_DELAY
+        ));
+
+    const step = () => {
+      if (token !== state.backlinksToken) return;
+      let budget = BACKLINK_BATCH_SIZE;
+      const before = matches.length;
+      for (; cursor < sources.length && budget > 0; cursor += 1, budget -= 1) {
+        const hit = scanSource(sources[cursor]);
+        if (!hit) continue;
+        matches.push({ source: sources[cursor], hit });
+      }
+      if (matches.length > before) {
+        syncHead();
+        renderBatch(matches.length - before);
+        ensureAttached();
+      }
+      if (cursor < sources.length) {
+        scheduleIdle(step);
+      }
+    };
+    scheduleIdle(step);
   }
 
   /* ---------- Character graph ---------- */
@@ -4475,6 +4755,7 @@
       els.entrySubtitleInput.value = entry.subtitle;
       els.entrySummaryInput.value = entry.summary;
       els.entryNotesInput.value = entry.notes;
+      els.entryAliasesInput.value = entry.aliases.join('，');
       els.entryDialogEyebrow.textContent = `${config.eyebrow} · EDIT`;
       els.entryDialogTitle.textContent = `编辑${config.singular}`;
       els.entrySaveBtn.textContent = '保存修改';
@@ -4644,6 +4925,8 @@
     summary = '',
     notes = '',
     tags = [],
+    aliases,
+    status,
     visibility = 'inherit',
   }) {
     const novel = findNovel(novelId);
@@ -4660,6 +4943,9 @@
       tags: normalizeTags(tags),
       visibility: normalizeEntryVisibility(visibility),
     };
+    // aliases / status 未传时保持原值（saveEntry 与大纲编辑器之外的调用方不受影响）
+    if (aliases !== undefined) fields.aliases = normalizeAliases(aliases);
+    if (status !== undefined) fields.status = normalizeEntryStatus(status);
     let nextEntries;
 
     if (isNew) {
@@ -4727,6 +5013,7 @@
       summary: els.entrySummaryInput.value,
       notes: els.entryNotesInput.value,
       tags: state.draftTags,
+      aliases: parseAliasesInput(els.entryAliasesInput.value),
       visibility: getSelectedEntryVisibility(),
     });
 
@@ -5328,6 +5615,7 @@
       id: entry ? entry.id : null,
       dirty: false,
       tags: entry ? normalizeTags(entry.tags) : [],
+      status: entry ? normalizeEntryStatus(entry.status) : '',
       hash: window.location.hash,
     };
 
@@ -5404,6 +5692,24 @@
     }
 
     setVisibility(entry ? entry.visibility : 'inherit');
+
+    const statusSwitch = find('[data-outline-status]');
+    function setStatus(value) {
+      state.outlineDraft.status = normalizeEntryStatus(value);
+      statusSwitch.querySelectorAll('button[data-status-value]').forEach((btn) => {
+        const active = btn.dataset.statusValue === state.outlineDraft.status;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+    }
+    statusSwitch.addEventListener('click', (event) => {
+      const btn = event.target.closest('button[data-status-value]');
+      if (!btn) return;
+      event.preventDefault();
+      setStatus(btn.dataset.statusValue);
+      markDirty();
+    });
+    setStatus(entry ? entry.status : '');
 
     saveLabels.forEach((label) => {
       label.textContent = isNew ? '保存大纲' : '保存修改';
@@ -5548,6 +5854,7 @@
         summary: summaryInput.value,
         notes: notesInput.value,
         tags: state.outlineDraft.tags,
+        status: state.outlineDraft.status,
         visibility: getVisibility(),
       });
 
@@ -7321,6 +7628,35 @@
     };
   }
 
+  function buildMapWaterDistance(map, tiles) {
+    const dist = new Map();
+    const queue = [];
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        if ((tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        dist.set(`${col},${row}`, 0);
+        queue.push([col, row]);
+      }
+    }
+
+    for (let head = 0; head < queue.length; head += 1) {
+      const [col, row] = queue[head];
+      const depth = dist.get(`${col},${row}`) || 0;
+      if (depth >= 4) continue;
+      for (const direction of MAP_DIRECTIONS) {
+        const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+        if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+        const key = `${nextCol},${nextRow}`;
+        if (dist.has(key)) continue;
+        dist.set(key, depth + 1);
+        queue.push([nextCol, nextRow]);
+      }
+    }
+
+    return dist;
+  }
+
   function generateMapTerrainDraft(map) {
     const rand = mulberry32(Date.now() & 0xffffffff);
     const n1 = makeValueNoise(map.cols, map.rows, 6.5, rand);
@@ -7341,37 +7677,87 @@
           0.58 * n1(nx, row) +
           0.27 * n2(nx, row) +
           0.15 * n3(nx, row);
+        // Unciv 盘古大陆思路：椭圆大陆场让板块整体成形，噪声保留海岸破碎感
+        const ax = centerX + 0.6;
+        const ay = centerY + 0.6;
+        const dx = (nx - centerX) / ax;
+        const dy = (row - centerY) / ay;
+        const distFactor =
+          dx * dx + dy * dy + ((dx + dy) * (dx + dy)) / ((ax + ay) * (ax + ay));
+        const elliptic = Math.max(0, 1 - distFactor * 1.35);
+        const blended = raw * 0.74 + elliptic * 0.26;
         // 文明式大陆轮廓：离中心越远地势越低，四周自然成海
         const edge =
           Math.max(
             Math.abs(col - centerX) / (centerX + 0.5),
             Math.abs(row - centerY) / (centerY + 0.5)
           ) - 0.62;
-        const h = Math.min(raw, raw - Math.max(0, edge) * 0.9);
+        const h = Math.min(blended, blended - Math.max(0, edge) * 0.7);
         heights[row][col] = h;
+      }
+    }
+
+    // Unciv retryLoweringWaterLevel 思路：按目标海陆比从高度分布里校准海平面，
+    // 避免随机种子导致的全陆或全海
+    const allHeights = [];
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) allHeights.push(heights[row][col]);
+    }
+    allHeights.sort((a, b) => a - b);
+    const targetWater = 0.26 + rand() * 0.08;
+    const sampled =
+      allHeights[
+        Math.min(allHeights.length - 1, Math.floor(allHeights.length * targetWater))
+      ] || 0.34;
+    const waterLevel = Math.min(0.46, Math.max(0.2, sampled));
+    // 以陆地高度 96 分位为「山顶」：山脉/火山始终占陆地约 4%，与文明系列一致
+    const landHeights = allHeights.filter((v) => v > waterLevel);
+    const landMax =
+      landHeights.length > 8
+        ? landHeights[
+            Math.min(landHeights.length - 1, Math.floor(landHeights.length * 0.96))
+          ]
+        : waterLevel + 0.3;
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const h = heights[row][col];
+        const nx = col + 0.5 * (row & 1);
         const moisture = m(nx, row);
         const latitude = Math.abs(row - centerY) / (centerY + 0.5);
-        const temperature = 1 - latitude * 0.62 - Math.max(0, h - 0.72) * 0.9;
+        // 陆地相对海拔：水位校准后，地形分带不再受海平面高低影响
+        const landSpan = Math.max(0.12, landMax - waterLevel);
+        const landT =
+          h <= waterLevel
+            ? 0
+            : Math.max(0, Math.min(1, (h - waterLevel) / landSpan));
+        const temperature =
+          1 - latitude * 0.72 - Math.max(0, landT - 0.84) * 1.1;
 
         let key;
-        if (h < 0.34) key = 'water';
-        else if (temperature < 0.3) key = 'snow';
+        if (h < waterLevel) key = 'water';
+        else if (temperature < 0.3) key = landT > 0.9 ? 'mountain' : 'snow';
         else if (temperature < 0.42) key = moisture > 0.5 ? 'swamp' : 'plains';
-        else if (h < 0.39) key = moisture > 0.66 ? 'swamp' : 'desert';
-        else if (h < 0.5) key = moisture > 0.68 ? 'forest' : 'grass';
-        else if (h < 0.58) key = moisture > 0.52 ? 'forest' : 'plains';
-        else if (h < 0.66) key = moisture > 0.42 ? 'forest' : 'plains';
-        else if (h < 0.73) key = moisture > 0.5 ? 'forest' : 'hills';
-        else if (h < 0.8) key = 'hills';
-        else if (h < 0.865) key = 'mountain';
+        else if (landT < 0.08)
+          key = moisture > 0.68 ? 'swamp' : moisture < 0.32 ? 'desert' : 'grass';
+        else if (landT < 0.24)
+          key = moisture > 0.66 ? 'swamp' : moisture < 0.3 ? 'desert' : 'grass';
+        else if (landT < 0.42) key = moisture > 0.68 ? 'forest' : 'grass';
+        else if (landT < 0.58) key = moisture > 0.52 ? 'forest' : 'plains';
+        else if (landT < 0.72) key = moisture > 0.42 ? 'forest' : 'plains';
+        else if (landT < 0.82) key = moisture > 0.5 ? 'forest' : 'hills';
+        else if (landT < 0.9) key = 'hills';
+        else if (landT < 0.96) key = 'mountain';
         else key = moisture > 0.72 ? 'volcano' : 'mountain';
 
-        if (h >= 0.34 && h < 0.4 && moisture > 0.68 && temperature >= 0.42) key = 'swamp';
+        if (landT >= 0.05 && landT < 0.16 && moisture > 0.7 && temperature >= 0.42)
+          key = 'swamp';
         tiles[`${col},${row}`] = key;
       }
     }
 
     const riverPaths = buildGeneratedRivers(map, heights, tiles, rand);
+    const features = placeGeneratedFeatures(map, tiles, rand);
 
     for (const city of map.cities) {
       for (let row = city.row - 1; row <= city.row + 1; row += 1) {
@@ -7385,24 +7771,35 @@
       }
     }
 
-    return { tiles, riverPaths };
+    return { tiles, riverPaths, features };
   }
 
   function buildGeneratedRivers(map, heights, tiles, rand) {
+    const waterDist = buildMapWaterDistance(map, tiles);
+    let landCount = 0;
     const candidates = [];
 
     for (let row = 1; row < map.rows - 1; row += 1) {
       for (let col = 1; col < map.cols - 1; col += 1) {
-        const terrain = tiles[`${col},${row}`] || 'grass';
-        if (terrain !== 'mountain' && terrain !== 'volcano' && terrain !== 'hills') continue;
+        const key = `${col},${row}`;
+        const terrain = tiles[key] || 'grass';
+        if (terrain === 'water') continue;
+        landCount += 1;
+        // Unciv RiverGenerator：源头优先高地，且离水足够远，河流才有长度
+        if (terrain !== 'mountain' && terrain !== 'volcano' && terrain !== 'hills')
+          continue;
+        const fromWater = waterDist.get(key);
+        if (fromWater !== undefined && fromWater < 3) continue;
         candidates.push({ col, row, h: heights[row][col] });
       }
     }
 
     candidates.sort((a, b) => b.h - a.h);
+    // Unciv：河流数量随陆地面积自适应
+    const maxRivers = Math.max(3, Math.min(6, Math.round(landCount / 55)));
     const picked = [];
     for (const candidate of candidates) {
-      if (picked.length >= 4) break;
+      if (picked.length >= maxRivers) break;
       const tooClose = picked.some(
         (source) => mapHexDistance(source.col, source.row, candidate.col, candidate.row) < 4
       );
@@ -7410,20 +7807,22 @@
     }
 
     const rivers = [];
+    const usedCells = new Set();
 
     for (const source of picked) {
       const points = [{ col: source.col, row: source.row }];
       const visited = new Set([`${source.col},${source.row}`]);
       let current = source;
-      let reachedWater = false;
+      let ended = false;
 
-      for (let step = 0; step < 48; step += 1) {
+      for (let step = 0; step < 56 && !ended; step += 1) {
         if ((tiles[`${current.col},${current.row}`] || 'grass') === 'water') {
-          reachedWater = true;
+          ended = true;
           break;
         }
 
         let best = null;
+        let bestJoin = null;
         for (const direction of MAP_DIRECTIONS) {
           const [nextCol, nextRow] = mapNeighborCell(current.col, current.row, direction);
           if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) {
@@ -7435,21 +7834,31 @@
             col: nextCol,
             row: nextRow,
             h: heights[nextRow][nextCol],
+            join: (tiles[key] || 'grass') === 'water' || usedCells.has(key),
           };
+          // 优先汇入海洋或既有河流（Unciv 式支流汇合），否则走最低梯度
+          if (candidate.join) {
+            if (!bestJoin || candidate.h < bestJoin.h) bestJoin = candidate;
+            continue;
+          }
           if (!best || candidate.h < best.h) best = candidate;
         }
-        if (!best) break;
+        // 洼地逃生：没有更低邻格时允许小幅爬升，避免河流困死在盆地
+        const currentH = heights[current.row][current.col];
+        const next = bestJoin || (best && best.h <= currentH + 0.02 ? best : null);
+        if (!next) break;
 
-        visited.add(`${best.col},${best.row}`);
-        points.push({ col: best.col, row: best.row });
-        current = best;
-        if ((tiles[`${best.col},${best.row}`] || 'grass') === 'water') {
-          reachedWater = true;
+        visited.add(`${next.col},${next.row}`);
+        points.push({ col: next.col, row: next.row });
+        current = next;
+        if (next.join) {
+          ended = true;
           break;
         }
       }
 
-      if (reachedWater && points.length >= 4) {
+      if (ended && points.length >= 3) {
+        for (const point of points) usedCells.add(`${point.col},${point.row}`);
         rivers.push({
           id: makeId(),
           kind: 'river',
@@ -7461,20 +7870,104 @@
     return rivers;
   }
 
+  function placeGeneratedFeatures(map, tiles, rand) {
+    const features = {};
+    const pools = { shore: [], open: [], rough: [], cold: [] };
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const key = `${col},${row}`;
+        const terrain = tiles[key] || 'grass';
+        if (terrain === 'water') continue;
+        let hasWaterNeighbor = false;
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows)
+            continue;
+          if ((tiles[`${nextCol},${nextRow}`] || 'grass') === 'water') {
+            hasWaterNeighbor = true;
+            break;
+          }
+        }
+        if (terrain === 'hills' || terrain === 'mountain') pools.rough.push({ col, row });
+        else if (
+          hasWaterNeighbor &&
+          ['grass', 'plains', 'desert', 'snow'].includes(terrain)
+        )
+          pools.shore.push({ col, row });
+        else if (terrain === 'snow' || terrain === 'desert') pools.cold.push({ col, row });
+        else if (terrain === 'grass' || terrain === 'plains' || terrain === 'forest' || terrain === 'swamp')
+          pools.open.push({ col, row });
+      }
+    }
+
+    const shuffle = (list) => {
+      for (let i = list.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(rand() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    };
+    Object.values(pools).forEach(shuffle);
+
+    // Unciv MapRegions 思想：按地貌分配地标，让生成结果自带故事锚点
+    const plans = [
+      { pool: 'rough', options: ['fortress', 'danger'] },
+      { pool: 'shore', options: ['port'] },
+      { pool: 'open', options: ['ruins', 'camp', 'temple'] },
+      { pool: 'cold', options: ['stones', 'danger'] },
+    ];
+    const landTotal =
+      pools.shore.length + pools.open.length + pools.rough.length + pools.cold.length;
+    const target = Math.max(4, Math.min(8, Math.round(landTotal / 38)));
+    const placed = [];
+
+    const farEnough = (cell) =>
+      placed.every((p) => mapHexDistance(p.col, p.row, cell.col, cell.row) >= 3) &&
+      map.cities.every(
+        (city) => mapHexDistance(city.col, city.row, cell.col, cell.row) >= 2
+      );
+
+    const queue = plans.filter((plan) => pools[plan.pool].length > 0);
+    let guard = target * 12;
+    while (placed.length < target && guard > 0 && queue.length) {
+      guard -= 1;
+      const plan = queue.shift();
+      const pool = pools[plan.pool];
+      let cell = null;
+      while (pool.length) {
+        const candidate = pool.pop();
+        if (farEnough(candidate)) {
+          cell = candidate;
+          break;
+        }
+      }
+      if (!cell) continue;
+      const featureKey = plan.options[Math.floor(rand() * plan.options.length)];
+      features[`${cell.col},${cell.row}`] = featureKey;
+      placed.push(cell);
+      if (pool.length > 0) queue.push(plan);
+    }
+
+    return features;
+  }
+
   function generateMapTerrain() {
     const editor = state.mapEditor;
     if (!editor) return;
     openConfirm({
       title: '生成一片灵感大陆？',
       message:
-        '会按气候与湿度随机重绘地形，并让河流从山地流向海洋（河流会合并进现有水系；地标会被清空，城市保留）。可以用撤销找回。',
+        '会按大陆轮廓、气候与湿度随机重绘地形，自动校准海陆比例，让河流从高地汇流入海，并按地貌布置少量地标（会覆盖手动地标，城市保留）。可以用撤销找回。',
       okLabel: '生成地形',
       onConfirm: () => {
         const editorNow = state.mapEditor;
         if (!editorNow) return;
-        const { tiles, riverPaths } = generateMapTerrainDraft(editorNow.draft);
+        const { tiles, riverPaths, features } = generateMapTerrainDraft(
+          editorNow.draft
+        );
         editorNow.draft.tiles = tiles;
-        editorNow.draft.features = {};
+        editorNow.draft.features = features;
         const keptPaths = (editorNow.draft.paths || []).filter(
           (path) => path.kind !== 'river'
         );
@@ -7483,7 +7976,7 @@
         renderMapCanvas();
         renderMapInspector();
         syncMapDirtyUi();
-        showToast('已生成灵感大陆与水系，继续调整或撤销');
+        showToast('已生成大陆、水系与地标，继续调整或撤销');
       },
     });
   }
@@ -8798,6 +9291,7 @@
     const comment = {
       id: makeId(),
       body,
+      status: 'open',
       createdAt: now,
       updatedAt: now,
       target: { ...target },
@@ -8895,6 +9389,29 @@
     return [...groups.values()];
   }
 
+  // 评论状态的唯一写入口：切换必须写 updatedAt，否则多设备按新者胜合并时会回跳
+  function setCommentStatus(id, status) {
+    const comment = findComment(id);
+    if (!comment) {
+      showToast('这条评论已经不在了', 'error');
+      return;
+    }
+    const next = status === 'resolved' ? 'resolved' : 'open';
+    if ((comment.status || 'open') === next) return;
+
+    const now = new Date().toISOString();
+    const previous = state.comments;
+    state.comments = state.comments.map((item) =>
+      item.id === id ? { ...item, status: next, updatedAt: now } : item
+    );
+    if (!persist()) {
+      state.comments = previous;
+      return;
+    }
+    showToast(next === 'resolved' ? '已标记为已解决' : '已标回待处理');
+    refreshCurrentView();
+  }
+
   function renderComments() {
     syncCommentsSearchBox();
     const query = state.commentDirectory.query.trim().toLowerCase();
@@ -8903,24 +9420,47 @@
       (a, b) =>
         (timeValue(a.createdAt) - timeValue(b.createdAt)) * direction
     );
-    const visible = sorted.filter((comment) =>
-      matchesCommentQuery(comment, query)
-    );
+    const statusFilter = state.commentDirectory.status;
+    const visible = sorted.filter((comment) => {
+      if (
+        statusFilter !== 'all' &&
+        (comment.status || 'open') !== statusFilter
+      ) {
+        return false;
+      }
+      return matchesCommentQuery(comment, query);
+    });
+    const pendingCount = state.comments.filter(
+      (comment) => (comment.status || 'open') === 'open'
+    ).length;
     const hasComments = state.comments.length > 0;
 
     els.commentsToolbar.hidden = !hasComments;
+    els.commentsStatusFilters.hidden = !hasComments;
     els.commentsCount.hidden = !hasComments;
     els.commentsEmpty.hidden = hasComments;
     els.commentsNoResults.hidden = !hasComments || visible.length > 0;
     els.commentsList.hidden = visible.length === 0;
     els.commentsClearSearchBtn.hidden = !query;
     els.commentsSortSelect.value = state.commentDirectory.sort;
+    els.commentsStatusFilters.querySelectorAll('.filter-pill').forEach((button) => {
+      const value = button.dataset.commentStatus;
+      const active = statusFilter === value;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      const countEl = $('.filter-count', button);
+      if (!countEl) return;
+      if (value === 'open') countEl.textContent = pendingCount;
+      else if (value === 'resolved') {
+        countEl.textContent = state.comments.length - pendingCount;
+      } else countEl.textContent = state.comments.length;
+    });
 
     if (!hasComments) {
       els.commentsCount.textContent = '还没有评论';
     } else if (visible.length === 0) {
       els.commentsCount.textContent = '没有匹配的评论';
-    } else if (query) {
+    } else if (query || statusFilter !== 'all') {
       els.commentsCount.textContent = `筛选出 ${visible.length} 条评论`;
     } else {
       els.commentsCount.textContent = `共 ${visible.length} 条评论`;
@@ -8969,10 +9509,12 @@
 
   function createCommentCard(comment) {
     const info = describeCommentTarget(comment.target);
+    const resolved = (comment.status || 'open') === 'resolved';
     const card = el(
       'article',
       info.available ? 'comment-card' : 'comment-card is-unavailable'
     );
+    if (resolved) card.classList.add('is-resolved');
     card.dataset.commentId = comment.id;
 
     const head = el('div', 'comment-card-head');
@@ -8980,6 +9522,9 @@
     const chip = el('span', 'comment-target-chip');
     chip.append(icon('i-comment'), el('span', '', info.label));
     targetWrap.appendChild(chip);
+    if (resolved) {
+      targetWrap.appendChild(el('span', 'comment-resolved-chip', '已解决'));
+    }
     if (!info.available) {
       targetWrap.appendChild(
         el('span', 'comment-missing-chip', info.reason || '原位置已不存在')
@@ -9003,6 +9548,23 @@
     const body = el('p', 'comment-body', comment.body);
 
     const actions = el('div', 'comment-card-actions');
+    const statusBtn = el(
+      'button',
+      `btn ghost comment-status-btn${resolved ? ' is-resolved-btn' : ''}`
+    );
+    statusBtn.type = 'button';
+    statusBtn.dataset.action = 'comment-status';
+    statusBtn.dataset.commentId = comment.id;
+    statusBtn.dataset.statusValue = resolved ? 'resolved' : 'open';
+    statusBtn.setAttribute(
+      'aria-label',
+      resolved ? '把这条评论标回待处理' : '把这条评论标记为已解决'
+    );
+    if (!resolved) statusBtn.appendChild(icon('i-check'));
+    statusBtn.appendChild(
+      document.createTextNode(resolved ? '标为待处理' : '标记完成')
+    );
+
     const jumpBtn = el('button', 'btn ghost comment-jump');
     jumpBtn.type = 'button';
     jumpBtn.dataset.action = 'jump-comment';
@@ -9025,7 +9587,7 @@
     deleteBtn.title = '删除评论';
     deleteBtn.appendChild(icon('i-trash'));
 
-    actions.append(jumpBtn, editBtn, deleteBtn);
+    actions.append(statusBtn, jumpBtn, editBtn, deleteBtn);
     card.append(head, body, actions);
     return card;
   }
@@ -10065,7 +10627,12 @@
       const index = field.text.toLowerCase().indexOf(query);
       if (index < 0) continue;
       if (!best || field.weight > best.weight) {
-        best = { text: field.text, weight: field.weight, index };
+        best = {
+          text: field.text,
+          weight: field.weight,
+          index,
+          label: field.label || null,
+        };
       }
     }
     return best;
@@ -10157,6 +10724,11 @@
               { text: entry.subtitle, weight: 2 },
               { text: entry.summary, weight: 2 },
               ...entry.tags.map((tag) => ({ text: tag, weight: 2 })),
+              ...entry.aliases.map((alias) => ({
+                text: alias,
+                weight: 2,
+                label: 'alias',
+              })),
               { text: entry.notes, weight: 1 },
             ],
             query
@@ -10164,10 +10736,12 @@
           if (!match) continue;
 
           const titleHighlight = match.text === entry.title ? match.index : null;
+          const badgeLabel =
+            match.label === 'alias' ? ` · 别名：${match.text}` : '';
           matches.push({
             score: match.weight,
             time: timeValue(entry.updatedAt),
-            badge: `${novel.title} · ${SECTIONS[key].label}`,
+            badge: `${novel.title} · ${SECTIONS[key].label}${badgeLabel}`,
             title: entry.title,
             titleHighlight,
             excerpt:
@@ -11566,6 +12140,37 @@
       case 'export-novel-markdown':
         event.preventDefault();
         if (novelId) exportNovelMarkdown(novelId);
+        break;
+      case 'export-library':
+        event.preventDefault();
+        exportLibrary();
+        break;
+      case 'outline-status-filter':
+        event.preventDefault();
+        state.outlineStatusFilter = actionEl.dataset.value || 'all';
+        refreshCurrentView();
+        break;
+      case 'comment-status-filter':
+        event.preventDefault();
+        state.commentDirectory.status = actionEl.dataset.commentStatus || 'open';
+        renderComments();
+        break;
+      case 'comment-status':
+        event.preventDefault();
+        setCommentStatus(
+          actionEl.dataset.commentId,
+          actionEl.dataset.statusValue === 'resolved' ? 'open' : 'resolved'
+        );
+        break;
+      case 'continue-last':
+        event.preventDefault();
+        if (actionEl.dataset.continueHash) {
+          window.location.hash = actionEl.dataset.continueHash;
+        }
+        break;
+      case 'dismiss-continue':
+        event.preventDefault();
+        dismissContinueBanner();
         break;
       case 'edit-map':
         event.preventDefault();

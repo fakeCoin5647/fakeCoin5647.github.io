@@ -17,10 +17,11 @@
   --glass-rim: linear-gradient(
     145deg,
     rgba(255, 255, 255, 1) 0%,
-    rgba(255, 255, 255, 0.92) 10%,
-    rgba(197, 209, 230, 0.62) 34%,
-    rgba(138, 154, 187, 0.62) 60%,
-    rgba(246, 249, 255, 0.85) 82%,
+    rgba(255, 255, 255, 0.9) 8%,
+    rgba(186, 200, 226, 0.5) 30%,
+    rgba(120, 138, 176, 0.52) 58%,
+    rgba(214, 228, 250, 0.6) 76%,
+    rgba(255, 255, 255, 0.95) 88%,
     rgba(255, 255, 255, 1) 100%
   );
   --rule: rgba(38, 42, 51, 0.12);
@@ -696,6 +697,10 @@ button.nav-item {
 
 .appearance-preset[data-preset="clear"] .preset-dot {
   background: linear-gradient(135deg, #d8f4f0, #4aa9a1);
+}
+
+.appearance-preset[data-preset="liquid"] .preset-dot {
+  background: linear-gradient(135deg, #f2f7ff, #8fb0f8 52%, #4f6df5);
 }
 
 .appearance-swatches {
@@ -6028,6 +6033,7 @@ html.is-sheer .sidebar {
   --lg-top-light: calc(0.9 * var(--rim-strength));
   --lg-bottom-light: calc(0.38 * var(--rim-strength));
   --lg-radius: 20px;
+  --lg-pill: 999px;
   --lg-ease: cubic-bezier(0.32, 0.72, 0.3, 1);
 }
 
@@ -6042,6 +6048,8 @@ html.is-sheer .sidebar {
       rgba(206, 220, 244, 0.16) 100%
     ),
     var(--glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
   box-shadow:
     0 26px 74px -24px rgba(15, 25, 60, 0.46),
     0 4px 14px rgba(15, 25, 60, 0.1),
@@ -6068,8 +6076,8 @@ html.is-sheer .sidebar {
     inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light)),
     inset 1px 0 0 rgba(255, 255, 255, calc(var(--lg-bottom-light) * 0.8)),
     inset -1px 0 0 rgba(255, 255, 255, calc(var(--lg-bottom-light) * 0.8));
-  backdrop-filter: blur(calc(var(--glass-blur) * 0.7)) saturate(1.55);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.7)) saturate(1.55);
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.7)) saturate(1.7);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.7)) saturate(1.7);
   transition:
     transform 0.24s var(--lg-ease),
     box-shadow 0.24s ease,
@@ -6102,8 +6110,8 @@ html.is-sheer .sidebar {
     0 16px 36px -22px rgba(18, 28, 65, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
     inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light));
-  backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(1.5);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(1.5);
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(1.65);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(1.65);
 }
 
 .entry-card:hover {
@@ -6126,8 +6134,8 @@ html.is-sheer .sidebar {
     0 14px 34px -22px rgba(18, 28, 65, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
     inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light));
-  backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(1.45);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(1.45);
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(1.6);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(1.6);
 }
 
 /* 弹窗与浮层：更通透的玻璃板 */
@@ -6157,10 +6165,12 @@ html.is-sheer .sidebar {
   background:
     linear-gradient(
       172deg,
-      rgba(255, 255, 255, 0.92),
-      rgba(240, 245, 253, 0.88) 62%,
-      rgba(232, 238, 250, 0.9)
+      rgba(255, 255, 255, 0.9),
+      rgba(240, 245, 253, 0.84) 62%,
+      rgba(232, 238, 250, 0.86)
     );
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
   box-shadow:
     0 26px 64px -22px rgba(15, 25, 60, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
@@ -6179,6 +6189,8 @@ html.is-sheer .sidebar {
       rgba(243, 247, 253, calc(var(--glass-alpha))) 55%,
       rgba(233, 239, 251, calc(var(--glass-alpha) + 0.02))
     );
+  backdrop-filter: blur(calc(var(--glass-blur) + 2px)) saturate(1.55);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 2px)) saturate(1.55);
   box-shadow:
     26px 0 80px -30px rgba(15, 25, 60, 0.5),
     inset -1px 0 0 rgba(255, 255, 255, calc(0.5 * var(--rim-strength)));
@@ -6232,6 +6244,54 @@ html.is-sheer .sidebar {
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
     inset 0 -1px 0 rgba(var(--accent-rgb), 0.12),
     0 6px 16px -8px rgba(var(--accent-rgb), 0.4);
+}
+
+/* 控件胶囊化：按钮、搜索框与侧栏导航改为 iOS 胶囊 */
+.btn,
+.icon-btn,
+.side-action,
+.nav-item,
+.side-novel-link,
+.sidebar .workspace-nav-link,
+.search-box,
+.sort-control,
+.appearance-preset,
+.filter-pill {
+  border-radius: var(--lg-pill);
+}
+
+.btn.ghost,
+.side-action,
+.search-box,
+.sort-control,
+.filter-pill {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.5 * var(--rim-strength)));
+}
+
+/* 评论悬浮按钮：更透的活玻璃 */
+.comment-fab {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.74),
+    rgba(238, 244, 255, 0.56)
+  );
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+}
+
+/* 折射浮层：小面积玻璃件叠加 SVG 位移折射，
+   Chromium 系生效；不支持的浏览器整条忽略，保持原磨砂。 */
+.dialog::before,
+.search-dialog::before,
+.appearance-panel::before,
+.comment-fab::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  backdrop-filter: url(#lg-refract) saturate(1.35);
+  pointer-events: none;
 }
 
 /* 地图工坊为全屏工作台：使用近实心底色，减轻合成层负担 */
