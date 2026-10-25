@@ -71,7 +71,16 @@
     mountain: { fill: '#9ba1b0', stroke: '#858c9d' },
     water: { fill: '#8fb8d5', stroke: '#78a5c6' },
     desert: { fill: '#e1c993', stroke: '#cbb27c' },
+    snow: { fill: '#e9eef6', stroke: '#cdd8e8' },
+    swamp: { fill: '#8fa383', stroke: '#79906e' },
+    volcano: { fill: '#6d6468', stroke: '#585054' },
   };
+  const MAP_PATH_KINDS = {
+    river: { color: '#4d86c7', width: 3.6, dash: '' },
+    road: { color: '#8a6a48', width: 2.4, dash: '7 5' },
+  };
+  const MAP_MAX_PATH_POINTS = 400;
+  const MAP_PATH_LIMIT = 60;
   const MAP_CITY_COLORS = [
     '#4f6df5',
     '#b05a3c',
@@ -323,7 +332,36 @@
       });
     }
 
-    return { cols, rows, tiles, cities };
+    const paths = [];
+    const seenPaths = new Set();
+    const rawPaths = Array.isArray(raw.paths) ? raw.paths : [];
+
+    for (const item of rawPaths) {
+      if (!item || typeof item !== 'object' || paths.length >= MAP_PATH_LIMIT) continue;
+      const kind = MAP_PATH_KINDS[item.kind] ? item.kind : null;
+      if (!kind) continue;
+      const id = cleanText(item.id, 80);
+      if (!id || seenPaths.has(id)) continue;
+      seenPaths.add(id);
+
+      const points = [];
+      const rawPoints = Array.isArray(item.points) ? item.points : [];
+      for (const point of rawPoints) {
+        if (!point || typeof point !== 'object') continue;
+        const col = clampInt(point.col, 0, cols - 1, null);
+        const row = clampInt(point.row, 0, rows - 1, null);
+        if (col === null || row === null) continue;
+        const last = points[points.length - 1];
+        if (last && last.col === col && last.row === row) continue;
+        points.push({ col, row });
+        if (points.length >= MAP_MAX_PATH_POINTS) break;
+      }
+      if (points.length < 2) continue;
+
+      paths.push({ id, kind, points });
+    }
+
+    return { cols, rows, tiles, cities, paths };
   }
 
   function sanitizeEntry(raw) {
@@ -593,6 +631,8 @@
 
   function buildMapMarkup(map) {
     const terrainParts = [];
+    const coastParts = [];
+    const pathParts = [];
     const territoryParts = [];
     const borderParts = [];
     const cityParts = [];
@@ -605,10 +645,13 @@
         terrainParts.push(
           `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${
             terrain.fill
-          }" stroke="${terrain.stroke}" stroke-width=".9"/>`
+          }" stroke="${terrain.stroke}" stroke-opacity=".55" stroke-width=".7"/>`
         );
       }
     }
+
+    coastParts.push(buildMapCoastline(map));
+    pathParts.push(buildMapPathsMarkup(map));
 
     const ownership = computeMapOwnership(map);
     const ownedByCity = new Map();
@@ -681,11 +724,92 @@
 
     return [
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
+      `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
+      `<g class="map-layer map-path-layer">${pathParts.join('')}</g>`,
       `<g class="map-layer map-territory-layer" aria-hidden="true">${territoryParts.join(
         ''
       )}${borderParts.join('')}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
     ].join('');
+  }
+
+  function buildMapCoastline(map) {
+    const segments = [];
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        const center = hexCenter(col, row);
+        const corners = hexCornersAt(center.x, center.y);
+
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          const neighbor =
+            nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows
+              ? 'water'
+              : map.tiles[`${nextCol},${nextRow}`] || 'grass';
+          if (neighbor === 'water') continue;
+          const [start, end] = MAP_EDGE_CORNERS[direction];
+          segments.push(
+            `M${roundMapCoordinate(corners[start].x)} ${roundMapCoordinate(
+              corners[start].y
+            )}L${roundMapCoordinate(corners[end].x)} ${roundMapCoordinate(corners[end].y)}`
+          );
+        }
+      }
+    }
+
+    if (segments.length === 0) return '';
+    return `<path class="map-coastline" d="${segments.join(
+      ''
+    )}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.6" stroke-linecap="round"/>`;
+  }
+
+  function catmullRomToBezierPath(points) {
+    if (points.length < 2) return '';
+
+    const nodes = points.map((point) => hexCenter(point.col, point.row));
+    if (nodes.length === 2) {
+      return `M${roundMapCoordinate(nodes[0].x)} ${roundMapCoordinate(
+        nodes[0].y
+      )}L${roundMapCoordinate(nodes[1].x)} ${roundMapCoordinate(nodes[1].y)}`;
+    }
+
+    let path = `M${roundMapCoordinate(nodes[0].x)} ${roundMapCoordinate(nodes[0].y)}`;
+    for (let i = 0; i < nodes.length - 1; i += 1) {
+      const p0 = nodes[Math.max(0, i - 1)];
+      const p1 = nodes[i];
+      const p2 = nodes[i + 1];
+      const p3 = nodes[Math.min(nodes.length - 1, i + 2)];
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      path += `C${roundMapCoordinate(c1x)} ${roundMapCoordinate(c1y)} ${roundMapCoordinate(
+        c2x
+      )} ${roundMapCoordinate(c2y)} ${roundMapCoordinate(p2.x)} ${roundMapCoordinate(p2.y)}`;
+    }
+    return path;
+  }
+
+  function buildMapPathsMarkup(map) {
+    const parts = [];
+    for (const path of map.paths || []) {
+      const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
+      const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
+      parts.push(
+        `<g class="map-path-item"><path d="${catmullRomToBezierPath(
+          path.points
+        )}" fill="none" stroke="${config.color}" stroke-width="${
+          config.width
+        }"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>${
+          path.kind === 'river'
+            ? `<path d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+            : ''
+        }</g>`
+      );
+    }
+    return parts.join('');
   }
 
   function getMapViewBox(map, padding) {

@@ -382,7 +382,7 @@
           <div class="map-tool-group">
             <p class="map-tool-label">工具</p>
             <div class="map-tool-grid" id="mapTools">
-              <button type="button" class="map-tool" data-map-tool="browse" aria-pressed="true" title="拖动平移，点击城市查看">
+              <button type="button" class="map-tool" data-map-tool="browse" aria-pressed="true" title="拖动平移，点击城市与河流道路查看">
                 <svg class="icon" aria-hidden="true"><use href="#i-hand"></use></svg>
                 <span>浏览</span>
               </button>
@@ -394,9 +394,21 @@
                 <svg class="icon" aria-hidden="true"><use href="#i-city"></use></svg>
                 <span>城市</span>
               </button>
+              <button type="button" class="map-tool" data-map-tool="river" aria-pressed="false" title="点击或拖动画出河流">
+                <svg class="icon" aria-hidden="true"><use href="#i-river"></use></svg>
+                <span>河流</span>
+              </button>
+              <button type="button" class="map-tool" data-map-tool="road" aria-pressed="false" title="点击或拖动画出道路">
+                <svg class="icon" aria-hidden="true"><use href="#i-road"></use></svg>
+                <span>道路</span>
+              </button>
               <button type="button" class="map-tool" data-map-tool="erase" aria-pressed="false" title="拖动恢复草原">
                 <svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg>
                 <span>擦除</span>
+              </button>
+              <button type="button" class="map-tool" data-map-tool="eyedropper" aria-pressed="false" title="点击格子取用它的地形">
+                <svg class="icon" aria-hidden="true"><use href="#i-dropper"></use></svg>
+                <span>吸管</span>
               </button>
             </div>
           </div>
@@ -404,6 +416,33 @@
           <div class="map-tool-group">
             <p class="map-tool-label">地形</p>
             <div class="terrain-palette" id="mapTerrainPalette" role="radiogroup" aria-label="选择要绘制的地形"></div>
+          </div>
+
+          <div class="map-tool-group">
+            <p class="map-tool-label">笔刷大小</p>
+            <div class="map-brush-row" id="mapBrushRow" role="group" aria-label="笔刷大小">
+              <button type="button" data-brush="1" aria-pressed="true" title="单格笔刷">1 格</button>
+              <button type="button" data-brush="2" aria-pressed="false" title="两格笔刷">2 格</button>
+              <button type="button" data-brush="3" aria-pressed="false" title="三格笔刷">3 格</button>
+            </div>
+          </div>
+
+          <div class="map-tool-group">
+            <p class="map-tool-label">画布大小</p>
+            <div class="map-size-row">
+              <div class="map-size-field">
+                <span class="map-size-name">列</span>
+                <button type="button" class="map-size-btn" id="mapSizeColsMinus" aria-label="减少一列">−</button>
+                <span class="map-size-value" id="mapSizeColsValue">22</span>
+                <button type="button" class="map-size-btn" id="mapSizeColsPlus" aria-label="增加一列">＋</button>
+              </div>
+              <div class="map-size-field">
+                <span class="map-size-name">行</span>
+                <button type="button" class="map-size-btn" id="mapSizeRowsMinus" aria-label="减少一行">−</button>
+                <span class="map-size-value" id="mapSizeRowsValue">14</span>
+                <button type="button" class="map-size-btn" id="mapSizeRowsPlus" aria-label="增加一行">＋</button>
+              </div>
+            </div>
           </div>
 
           <div class="map-tool-group map-view-group">
@@ -428,14 +467,22 @@
           </div>
 
           <div class="map-tool-group">
-            <p class="map-tool-label">整理</p>
+            <p class="map-tool-label">灵感与整理</p>
+            <button type="button" class="map-action-btn" id="mapGenerateBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-wand"></use></svg>
+              生成灵感大陆
+            </button>
+            <button type="button" class="map-action-btn" id="mapExportBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+              导出 PNG
+            </button>
             <button type="button" class="map-clear-btn" id="mapClearBtn">
               <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
               清空地图
             </button>
           </div>
 
-          <p class="map-hint">滚轮缩放 · 拖动空白处平移 · Shift + 拖动随时平移 · Ctrl + Z 撤销</p>
+          <p class="map-hint">滚轮缩放 · Shift + 拖动随时平移 · 河流与道路点击同一点结束 · Ctrl + Z 撤销 · Esc 取消</p>
         </aside>
 
         <section class="map-stage" id="mapStage" aria-label="六边形地图画布">
@@ -471,6 +518,17 @@
           </div>
 
           <div class="map-city-list" id="mapCityList"></div>
+
+          <div class="map-path-section">
+            <div class="map-inspector-head map-path-head">
+              <div>
+                <p class="map-tool-label">RIVERS &amp; ROADS</p>
+                <h3>河流与道路</h3>
+              </div>
+              <span class="map-city-count" id="mapPathCount">0 条</span>
+            </div>
+            <div class="map-path-list" id="mapPathList" hidden></div>
+          </div>
 
           <div class="map-city-editor" id="mapCityEditor" hidden>
             <label class="map-field" for="mapCityNameInput">
@@ -531,12 +589,6 @@
     </header>
 
     <div class="search-results" id="searchResults" role="listbox" aria-label="搜索结果"></div>
-
-    <footer class="search-dialog-foot">
-      <span><kbd>↑</kbd><kbd>↓</kbd> 选择</span>
-      <span><kbd>Enter</kbd> 打开</span>
-      <span><kbd>Esc</kbd> 关闭</span>
-    </footer>
   </dialog>
 
   <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>

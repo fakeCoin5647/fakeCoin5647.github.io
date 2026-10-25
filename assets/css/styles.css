@@ -2075,13 +2075,40 @@ button {
   padding: 22px 30px 4px;
 }
 
-/* ---------- Global search dialog ---------- */
+/* ---------- Global search：侧边滑出面板 ---------- */
 
 .search-dialog {
-  width: min(560px, calc(100vw - 32px));
+  position: fixed;
+  inset: 0 auto 0 0;
+  margin: 0;
+  width: min(384px, 92vw);
+  max-width: none;
+  max-height: none;
+  height: 100dvh;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.search-dialog[open] {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  animation: search-slide-in 0.3s cubic-bezier(0.32, 0.72, 0.3, 1);
+}
+
+@keyframes search-slide-in {
+  from {
+    transform: translateX(-36px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.search-dialog::backdrop {
+  background: rgba(16, 24, 46, 0.28);
+  backdrop-filter: blur(2px);
 }
 
 .search-dialog-head {
@@ -2127,8 +2154,8 @@ button {
 }
 
 .search-results {
+  flex: 1 1 auto;
   min-height: 120px;
-  max-height: min(46vh, 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 10px;
@@ -2225,31 +2252,6 @@ button {
   color: var(--faint);
   font-size: 0.76rem;
   line-height: 1.6;
-}
-
-.search-dialog-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.1rem;
-  padding: 10px 16px 12px;
-  border-top: 1px dashed var(--line);
-  color: var(--faint);
-  font-size: 0.7rem;
-}
-
-.search-dialog-foot kbd {
-  display: inline-block;
-  min-width: 1.1rem;
-  margin-right: 3px;
-  padding: 0.05rem 0.32rem;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.6);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.64rem;
-  line-height: 1.5;
-  text-align: center;
 }
 
 .field {

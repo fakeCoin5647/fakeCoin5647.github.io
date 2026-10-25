@@ -270,7 +270,18 @@
     mountain: { label: '山脉', fill: '#9ba1b0', stroke: '#858c9d' },
     water: { label: '水域', fill: '#8fb8d5', stroke: '#78a5c6' },
     desert: { label: '沙漠', fill: '#e1c993', stroke: '#cbb27c' },
+    snow: { label: '雪原', fill: '#e9eef6', stroke: '#cdd8e8' },
+    swamp: { label: '沼泽', fill: '#8fa383', stroke: '#79906e' },
+    volcano: { label: '火山', fill: '#6d6468', stroke: '#585054' },
   };
+
+  const MAP_PATH_KINDS = {
+    river: { label: '河流', color: '#4d86c7', width: 3.6, dash: '' },
+    road: { label: '道路', color: '#8a6a48', width: 2.4, dash: '7 5' },
+  };
+
+  const MAP_MAX_PATH_POINTS = 400;
+  const MAP_PATH_LIMIT = 60;
   const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
 
   const MAP_CITY_COLORS = [
@@ -567,6 +578,17 @@
     mapCityCoord: $('#mapCityCoord'),
     mapDeleteCityBtn: $('#mapDeleteCityBtn'),
     mapInspectorEmpty: $('#mapInspectorEmpty'),
+    mapBrushRow: $('#mapBrushRow'),
+    mapSizeColsMinus: $('#mapSizeColsMinus'),
+    mapSizeColsPlus: $('#mapSizeColsPlus'),
+    mapSizeRowsMinus: $('#mapSizeRowsMinus'),
+    mapSizeRowsPlus: $('#mapSizeRowsPlus'),
+    mapSizeColsValue: $('#mapSizeColsValue'),
+    mapSizeRowsValue: $('#mapSizeRowsValue'),
+    mapGenerateBtn: $('#mapGenerateBtn'),
+    mapExportBtn: $('#mapExportBtn'),
+    mapPathList: $('#mapPathList'),
+    mapPathCount: $('#mapPathCount'),
 
     searchDialog: $('#searchDialog'),
     searchInput: $('#searchInput'),
@@ -1246,7 +1268,38 @@
       });
     }
 
-    return { cols, rows, tiles, cities };
+    const paths = [];
+    const seenPaths = new Set();
+    const rawPaths = Array.isArray(raw.paths) ? raw.paths : [];
+
+    for (const item of rawPaths) {
+      if (!item || typeof item !== 'object' || paths.length >= MAP_PATH_LIMIT) continue;
+      const kind = MAP_PATH_KINDS[item.kind] ? item.kind : null;
+      if (!kind) continue;
+
+      const id =
+        typeof item.id === 'string' && item.id.trim() ? item.id.trim() : makeId();
+      if (seenPaths.has(id)) continue;
+      seenPaths.add(id);
+
+      const points = [];
+      const rawPoints = Array.isArray(item.points) ? item.points : [];
+      for (const point of rawPoints) {
+        if (!point || typeof point !== 'object') continue;
+        const col = clampInt(point.col, 0, cols - 1, null);
+        const row = clampInt(point.row, 0, rows - 1, null);
+        if (col === null || row === null) continue;
+        const last = points[points.length - 1];
+        if (last && last.col === col && last.row === row) continue;
+        points.push({ col, row });
+        if (points.length >= MAP_MAX_PATH_POINTS) break;
+      }
+      if (points.length < 2) continue;
+
+      paths.push({ id, kind, points });
+    }
+
+    return { cols, rows, tiles, cities, paths };
   }
 
   function normalizeCityColor(value, index) {
@@ -5545,13 +5598,15 @@
   /* ---------- Map workshop ---------- */
 
   function defaultMap() {
-    return { cols: MAP_DEFAULT_COLS, rows: MAP_DEFAULT_ROWS, tiles: {}, cities: [] };
+    return { cols: MAP_DEFAULT_COLS, rows: MAP_DEFAULT_ROWS, tiles: {}, cities: [], paths: [] };
   }
 
   function mapHasContent(map) {
     return Boolean(
       map &&
-        (map.cities.length > 0 || Object.keys(map.tiles).length > 0)
+        (map.cities.length > 0 ||
+          Object.keys(map.tiles).length > 0 ||
+          (map.paths && map.paths.length > 0))
     );
   }
 
@@ -5728,8 +5783,10 @@
     return ownership;
   }
 
-  function buildMapMarkup(map, { selectedCityId = null } = {}) {
+  function buildMapMarkup(map, { selectedCityId = null, selectedPathId = null, pendingPath = null } = {}) {
     const terrainParts = [];
+    const coastParts = [];
+    const pathParts = [];
     const territoryParts = [];
     const borderParts = [];
     const cityParts = [];
@@ -5739,6 +5796,9 @@
         terrainParts.push(buildMapHex(col, row, map.tiles[`${col},${row}`] || 'grass'));
       }
     }
+
+    coastParts.push(buildMapCoastline(map));
+    pathParts.push(buildMapPathsMarkup(map, { selectedPathId, pendingPath }));
 
     const ownership = computeMapOwnership(map);
     const ownedByCity = new Map();
@@ -5790,12 +5850,115 @@
     }
 
     return [
+      `<defs><filter id="mapCityShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="rgba(20,28,52,.42)"/></filter></defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
+      `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
+      `<g class="map-layer map-path-layer">${pathParts.join('')}</g>`,
       `<g class="map-layer map-territory-layer" aria-hidden="true">${territoryParts.join(
         ''
       )}${borderParts.join('')}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
     ].join('');
+  }
+
+  function buildMapCoastline(map) {
+    const segments = [];
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        const center = hexCenter(col, row);
+        const corners = hexCornersAt(center.x, center.y);
+
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          const neighbor =
+            nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows
+              ? 'water'
+              : map.tiles[`${nextCol},${nextRow}`] || 'grass';
+          if (neighbor === 'water') continue;
+          const [start, end] = MAP_EDGE_CORNERS[direction];
+          segments.push(
+            `M${roundMapCoordinate(corners[start].x)} ${roundMapCoordinate(
+              corners[start].y
+            )}L${roundMapCoordinate(corners[end].x)} ${roundMapCoordinate(corners[end].y)}`
+          );
+        }
+      }
+    }
+
+    if (segments.length === 0) return '';
+    return `<path class="map-coastline" d="${segments.join(
+      ''
+    )}" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.6" stroke-linecap="round"/>`;
+  }
+
+  function catmullRomToBezierPath(points) {
+    if (points.length < 2) return '';
+
+    const nodes = points.map((point) => hexCenter(point.col, point.row));
+    if (nodes.length === 2) {
+      return `M${roundMapCoordinate(nodes[0].x)} ${roundMapCoordinate(
+        nodes[0].y
+      )}L${roundMapCoordinate(nodes[1].x)} ${roundMapCoordinate(nodes[1].y)}`;
+    }
+
+    let path = `M${roundMapCoordinate(nodes[0].x)} ${roundMapCoordinate(nodes[0].y)}`;
+    for (let i = 0; i < nodes.length - 1; i += 1) {
+      const p0 = nodes[Math.max(0, i - 1)];
+      const p1 = nodes[i];
+      const p2 = nodes[i + 1];
+      const p3 = nodes[Math.min(nodes.length - 1, i + 2)];
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      path += `C${roundMapCoordinate(c1x)} ${roundMapCoordinate(c1y)} ${roundMapCoordinate(
+        c2x
+      )} ${roundMapCoordinate(c2y)} ${roundMapCoordinate(p2.x)} ${roundMapCoordinate(p2.y)}`;
+    }
+    return path;
+  }
+
+  function buildMapPathMarkup(path, selected) {
+    const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
+    const data = selected ? ' is-selected' : '';
+    const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
+    return `<g class="map-path-item${data}" data-path-id="${escapeXml(path.id)}">
+      <path class="map-path-hit" d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="14"/>
+      <path class="map-path-line" d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="${config.color}" stroke-width="${config.width}"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
+      ${
+        path.kind === 'river'
+          ? `<path class="map-path-glow" d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+          : ''
+      }
+      <title>${config.label}</title>
+    </g>`;
+  }
+
+  function buildMapPathsMarkup(map, { selectedPathId = null, pendingPath = null } = {}) {
+    const parts = [];
+    for (const path of map.paths || []) {
+      parts.push(buildMapPathMarkup(path, path.id === selectedPathId));
+    }
+    if (pendingPath && pendingPath.points.length >= 1) {
+      const config = MAP_PATH_KINDS[pendingPath.kind] || MAP_PATH_KINDS.river;
+      const points = pendingPath.points;
+      const preview =
+        points.length >= 2
+          ? `<path d="${catmullRomToBezierPath(points)}" fill="none" stroke="${config.color}" stroke-width="${config.width}" stroke-linecap="round" opacity=".55"/>`
+          : '';
+      const dots = points
+        .map(
+          (point) =>
+            `<circle cx="${roundMapCoordinate(hexCenter(point.col, point.row).x)}" cy="${roundMapCoordinate(
+              hexCenter(point.col, point.row).y
+            )}" r="3" fill="${config.color}" opacity=".7"/>`
+        )
+        .join('');
+      parts.push(`<g class="map-path-pending">${preview}${dots}</g>`);
+    }
+    return parts.join('');
   }
 
   function buildMapHex(col, row, terrainKey) {
@@ -5811,7 +5974,7 @@
     const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
     return `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${
       terrain.fill
-    }" stroke="${terrain.stroke}" stroke-width=".9"/>${buildMapDecor(
+    }" stroke="${terrain.stroke}" stroke-opacity=".55" stroke-width=".7"/>${buildMapDecor(
       terrainKey,
       center.x,
       center.y,
@@ -5855,6 +6018,20 @@
       return `${open}<circle cx="9" cy="-8" r="3.2" fill="rgba(255,241,192,.9)"/><path d="M-16 6c4-8 10-8 14 0M-1 11c4-7 10-7 14 0" fill="none" stroke="rgba(153,112,49,.4)" stroke-width="2" stroke-linecap="round"/>${close}`;
     }
 
+    if (terrainKey === 'snow') {
+      const flake = (x, y, s) =>
+        `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 -5V5M-4.3 -2.5L4.3 2.5M-4.3 2.5L4.3 -2.5" stroke="rgba(148,170,200,.75)" stroke-width="1.4" stroke-linecap="round"/></g>`;
+      return `${open}${flake(-7, -2, 1)}${flake(8, 5, 0.72)}${flake(4, -8, 0.55)}${close}`;
+    }
+
+    if (terrainKey === 'swamp') {
+      return `${open}<path d="M-14 6c3-3 7-3 10 0s7 3 10 0" fill="none" stroke="rgba(46,74,66,.42)" stroke-width="2.1" stroke-linecap="round"/><path d="M-6 -2v-8M-6 -8l-3.4-3M-6 -8l3.4-3" fill="none" stroke="rgba(64,96,80,.5)" stroke-width="1.7" stroke-linecap="round"/><path d="M7 1v-6M7 -3l-2.6-2.4M7 -3l2.6-2.4" fill="none" stroke="rgba(64,96,80,.44)" stroke-width="1.5" stroke-linecap="round"/>${close}`;
+    }
+
+    if (terrainKey === 'volcano') {
+      return `${open}<path d="M-16 13 L-5 -9 L7 13 Z" fill="#544b4f"/><path d="M-5 -9 L-2.2 -3 L-8.4 -3 Z" fill="#f0b054"/><path d="M7 13 L14 1 L21 13 Z" fill="#61575b" opacity=".9"/><path d="M-3 -5c2 2.4 4.4 2.4 6.4 0" fill="none" stroke="rgba(255,166,76,.8)" stroke-width="1.8" stroke-linecap="round"/><path d="M2 -12c.5 1.7 1.4 2.3 3 2.7-1.6.4-2.5 1-3 2.7-.5-1.7-1.4-2.3-3-2.7 1.6-.4 2.5-1 3-2.7Z" fill="rgba(240,140,70,.85)"/>${close}`;
+    }
+
     return '';
   }
 
@@ -5872,7 +6049,7 @@
       selected ? ' is-selected' : ''
     }" data-city-id="${escapeXml(city.id)}" transform="translate(${roundMapCoordinate(
       center.x
-    )} ${roundMapCoordinate(center.y)})">
+    )} ${roundMapCoordinate(center.y)})" filter="url(#mapCityShadow)">
       <circle class="map-city-halo" r="${MAP_HEX_SIZE * 0.64}" fill="${
       city.color
     }" opacity=".18"/>
@@ -5924,7 +6101,10 @@
       draft,
       tool: 'browse',
       terrain: 'grass',
+      brushSize: 1,
       selectedCityId: null,
+      selectedPathId: null,
+      pendingPath: null,
       view: { tx: 0, ty: 0, scale: 1 },
       fitScale: 1,
       history: [JSON.stringify(draft)],
@@ -5936,6 +6116,7 @@
 
     els.mapDialogSubtitle.textContent = `${novel.title} · ${entry.title}`;
     els.mapCityNameInput.value = '';
+    syncMapSizeUi();
     renderMapPalette();
     renderMapToolState();
     renderMapCanvas();
@@ -5985,6 +6166,14 @@
       button.setAttribute('aria-checked', String(active));
     });
 
+    if (els.mapBrushRow) {
+      els.mapBrushRow.querySelectorAll('[data-brush]').forEach((button) => {
+        const active = Number(button.dataset.brush) === editor.brushSize;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+    }
+
     updateMapStageCursor();
     syncMapStageTip();
   }
@@ -5992,17 +6181,47 @@
   function updateMapStageCursor() {
     const editor = state.mapEditor;
     if (!editor) return;
-    els.mapStage.classList.toggle('is-city-mode', editor.tool === 'city');
-    els.mapStage.classList.toggle(
+    const stage = els.mapStage;
+    stage.classList.toggle('is-city-mode', editor.tool === 'city');
+    stage.classList.toggle(
       'is-paint-mode',
       editor.tool === 'paint' || editor.tool === 'erase'
     );
+    stage.classList.toggle(
+      'is-path-mode',
+      editor.tool === 'river' || editor.tool === 'road'
+    );
+    stage.classList.toggle('is-dropper-mode', editor.tool === 'eyedropper');
   }
 
   function syncMapStageTip() {
     const editor = state.mapEditor;
     if (!editor) return;
+    const hasPending = Boolean(editor.pendingPath);
+
+    if (hasPending) {
+      const config = MAP_PATH_KINDS[editor.pendingPath.kind];
+      const count = editor.pendingPath.points.length;
+      els.mapStageTip.hidden = false;
+      els.mapStageTip.textContent =
+        count < 2
+          ? `继续点击格子延伸这条${config.label}，点击同一点结束`
+          : `点击同一个格子结束这条${config.label}（当前 ${count} 个点）`;
+      return;
+    }
+
     const empty = editor.draft.cities.length === 0;
+    const hints = {
+      river: '点击格子落下河流起点',
+      road: '点击格子落下道路起点',
+      eyedropper: '点击一个格子，取用它的地形',
+    };
+    if (hints[editor.tool]) {
+      els.mapStageTip.hidden = false;
+      els.mapStageTip.textContent = hints[editor.tool];
+      return;
+    }
+
     els.mapStageTip.hidden = !empty;
     if (!empty) return;
     els.mapStageTip.textContent =
@@ -6016,6 +6235,8 @@
     if (!editor) return;
     els.mapSvg.innerHTML = `<g class="map-viewport">${buildMapMarkup(editor.draft, {
       selectedCityId: editor.selectedCityId,
+      selectedPathId: editor.selectedPathId,
+      pendingPath: editor.pendingPath,
     })}</g>`;
     applyMapView();
   }
@@ -6138,6 +6359,16 @@
     const selected = cities.find((city) => city.id === editor.selectedCityId) || null;
 
     els.mapCityCount.textContent = `${cities.length} 座`;
+    if (els.mapPathCount) {
+      const paths = editor.draft.paths || [];
+      const riverCount = paths.filter((path) => path.kind === 'river').length;
+      const roadCount = paths.filter((path) => path.kind === 'road').length;
+      const parts = [];
+      if (riverCount) parts.push(`河流 ${riverCount}`);
+      if (roadCount) parts.push(`道路 ${roadCount}`);
+      els.mapPathCount.textContent = parts.length ? parts.join(' · ') : '0 条';
+    }
+    renderMapPathList();
 
     const list = document.createDocumentFragment();
     if (cities.length === 0) {
@@ -6188,6 +6419,126 @@
     } 列 · 半径 ${selected.radius} 格`;
     renderMapColorRow(selected);
     syncMapRadiusButtons(selected);
+    syncMapStageTip();
+  }
+
+  function renderMapPathList() {
+    if (!els.mapPathList) return;
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    const paths = editor.draft.paths || [];
+    if (!paths.length) {
+      els.mapPathList.hidden = true;
+      els.mapPathList.replaceChildren();
+      return;
+    }
+
+    els.mapPathList.hidden = false;
+    const list = document.createDocumentFragment();
+    for (const path of paths) {
+      const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
+      const item = el('div', 'map-path-item');
+      item.dataset.pathId = path.id;
+      item.classList.toggle('is-selected', path.id === editor.selectedPathId);
+
+      const dot = el('span', 'map-path-dot');
+      dot.style.setProperty('--path-color', config.color);
+      item.append(
+        dot,
+        el('span', 'map-path-name', config.label),
+        el('span', 'map-path-meta', `${path.points.length} 点`)
+      );
+
+      const removeBtn = el('button', 'map-path-remove');
+      removeBtn.type = 'button';
+      removeBtn.dataset.removePathId = path.id;
+      removeBtn.setAttribute('aria-label', `移除这条${config.label}`);
+      removeBtn.setAttribute('title', '移除');
+      removeBtn.append(icon('i-close'));
+      item.appendChild(removeBtn);
+      list.appendChild(item);
+    }
+    els.mapPathList.replaceChildren(list);
+  }
+
+  function selectMapPath(pathId) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const nextId =
+      pathId && (editor.draft.paths || []).some((path) => path.id === pathId)
+        ? pathId
+        : null;
+    editor.selectedPathId = nextId;
+    renderMapCanvas();
+    renderMapPathList();
+  }
+
+  function deleteMapPath(pathId) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const before = (editor.draft.paths || []).length;
+    editor.draft.paths = (editor.draft.paths || []).filter(
+      (path) => path.id !== pathId
+    );
+    if (editor.draft.paths.length === before) return;
+    if (editor.selectedPathId === pathId) editor.selectedPathId = null;
+    pushMapHistory();
+    renderMapCanvas();
+    renderMapInspector();
+  }
+
+  function commitPendingMapPath() {
+    const editor = state.mapEditor;
+    if (!editor || !editor.pendingPath) return;
+    const pending = editor.pendingPath;
+    editor.pendingPath = null;
+    if (pending.points.length >= 2) {
+      editor.draft.paths = editor.draft.paths || [];
+      editor.draft.paths.push({
+        id: makeId(),
+        kind: pending.kind,
+        points: pending.points,
+      });
+      editor.selectedPathId = null;
+      pushMapHistory();
+      renderMapCanvas();
+      renderMapInspector();
+    } else {
+      renderMapCanvas();
+      syncMapStageTip();
+    }
+  }
+
+  function cancelPendingMapPath() {
+    const editor = state.mapEditor;
+    if (!editor || !editor.pendingPath) return;
+    editor.pendingPath = null;
+    renderMapCanvas();
+    syncMapStageTip();
+  }
+
+  function appendPendingMapPathPoint(cell) {
+    const editor = state.mapEditor;
+    if (!editor || !cell) return;
+    const kind = editor.tool === 'road' ? 'road' : 'river';
+    const pending = editor.pendingPath;
+
+    if (pending && pending.kind !== kind) commitPendingMapPath();
+
+    if (!editor.pendingPath) {
+      editor.pendingPath = { kind, points: [cell] };
+    } else {
+      const last = editor.pendingPath.points[editor.pendingPath.points.length - 1];
+      if (last.col === cell.col && last.row === cell.row) {
+        commitPendingMapPath();
+        return;
+      }
+      if (editor.pendingPath.points.length >= MAP_MAX_PATH_POINTS) return;
+      editor.pendingPath.points.push(cell);
+    }
+
+    renderMapCanvas();
     syncMapStageTip();
   }
 
@@ -6361,7 +6712,33 @@
     const key = `${cell.col},${cell.row}`;
     if (pointer.lastPaintKey === key) return;
     pointer.lastPaintKey = key;
-    paintMapCell(cell.col, cell.row);
+
+    const editor = state.mapEditor;
+    const size = editor ? editor.brushSize : 1;
+    if (size <= 1) {
+      paintMapCell(cell.col, cell.row);
+      return;
+    }
+
+    const reach = size - 1;
+    for (let row = cell.row - reach; row <= cell.row + reach; row += 1) {
+      if (row < 0) continue;
+      for (let col = cell.col - reach; col <= cell.col + reach; col += 1) {
+        if (col < 0) continue;
+        if (mapHexDistance(col, row, cell.col, cell.row) > reach) continue;
+        paintMapCell(col, row);
+      }
+    }
+  }
+
+  function pickTerrainAtCell(cell) {
+    const editor = state.mapEditor;
+    if (!editor || !cell) return;
+    const terrainKey = editor.draft.tiles[`${cell.col},${cell.row}`] || 'grass';
+    editor.terrain = terrainKey;
+    editor.tool = 'paint';
+    renderMapToolState();
+    showToast(`已取用「${MAP_TERRAINS[terrainKey].label}」，继续绘制`);
   }
 
   function pushMapHistory(snapshot) {
@@ -6403,11 +6780,18 @@
     editor.historyIndex = index;
     editor.draft = JSON.parse(editor.history[index]);
     editor.namePending = false;
+    editor.pendingPath = null;
     if (
       editor.selectedCityId &&
       !editor.draft.cities.some((city) => city.id === editor.selectedCityId)
     ) {
       editor.selectedCityId = null;
+    }
+    if (
+      editor.selectedPathId &&
+      !(editor.draft.paths || []).some((path) => path.id === editor.selectedPathId)
+    ) {
+      editor.selectedPathId = null;
     }
     renderMapCanvas();
     renderMapInspector();
@@ -6446,6 +6830,230 @@
     }
   }
 
+  function syncMapSizeUi() {
+    const editor = state.mapEditor;
+    if (!editor || !els.mapSizeColsValue) return;
+    els.mapSizeColsValue.textContent = `${editor.draft.cols}`;
+    els.mapSizeRowsValue.textContent = `${editor.draft.rows}`;
+  }
+
+  function resizeMapCanvas(deltaCols, deltaRows) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    const cols = clampInt(
+      editor.draft.cols + deltaCols,
+      6,
+      40,
+      editor.draft.cols
+    );
+    const rows = clampInt(
+      editor.draft.rows + deltaRows,
+      6,
+      30,
+      editor.draft.rows
+    );
+    if (cols === editor.draft.cols && rows === editor.draft.rows) return;
+
+    editor.draft.cols = cols;
+    editor.draft.rows = rows;
+
+    for (const key of Object.keys(editor.draft.tiles)) {
+      const [col, row] = key.split(',').map(Number);
+      if (col >= cols || row >= rows) delete editor.draft.tiles[key];
+    }
+    editor.draft.cities = editor.draft.cities.filter(
+      (city) => city.col < cols && city.row < rows
+    );
+    editor.draft.paths = (editor.draft.paths || [])
+      .map((path) => ({
+        ...path,
+        points: path.points.filter(
+          (point) => point.col < cols && point.row < rows
+        ),
+      }))
+      .filter((path) => path.points.length >= 2);
+    if (
+      editor.selectedCityId &&
+      !editor.draft.cities.some((city) => city.id === editor.selectedCityId)
+    ) {
+      editor.selectedCityId = null;
+    }
+
+    pushMapHistory();
+    syncMapSizeUi();
+    renderMapCanvas();
+    renderMapInspector();
+    fitMapView();
+  }
+
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function makeValueNoise(cols, rows, cell, rand) {
+    const gw = Math.ceil(cols / cell) + 2;
+    const gh = Math.ceil(rows / cell) + 2;
+    const grid = Array.from({ length: gh }, () =>
+      Array.from({ length: gw }, () => rand())
+    );
+    const smooth = (t) => t * t * (3 - 2 * t);
+
+    return (x, y) => {
+      const fx = x / cell;
+      const fy = y / cell;
+      const x0 = Math.floor(fx);
+      const y0 = Math.floor(fy);
+      const tx = smooth(fx - x0);
+      const ty = smooth(fy - y0);
+      const a = grid[y0][x0];
+      const b = grid[y0][x0 + 1];
+      const c = grid[y0 + 1][x0];
+      const d = grid[y0 + 1][x0 + 1];
+      return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty;
+    };
+  }
+
+  function generateMapTerrainDraft(map) {
+    const rand = mulberry32(Date.now() & 0xffffffff);
+    const n1 = makeValueNoise(map.cols, map.rows, 6.5, rand);
+    const n2 = makeValueNoise(map.cols, map.rows, 3.2, rand);
+    const n3 = makeValueNoise(map.cols, map.rows, 1.8, rand);
+    const m = makeValueNoise(map.cols, map.rows, 4.4, rand);
+
+    const tiles = {};
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const nx = col + 0.5 * (row & 1);
+        const h =
+          0.58 * n1(nx, row) +
+          0.27 * n2(nx, row) +
+          0.15 * n3(nx, row);
+        const moisture = m(nx, row);
+        const polar = row < map.rows * 0.12 || row > map.rows * 0.88;
+
+        let key;
+        if (h < 0.34) key = 'water';
+        else if (h < 0.385) key = 'desert';
+        else if (h < 0.5) key = 'grass';
+        else if (h < 0.58) key = moisture > 0.52 ? 'forest' : 'plains';
+        else if (h < 0.66) key = moisture > 0.42 ? 'forest' : 'plains';
+        else if (h < 0.73) key = moisture > 0.5 ? 'forest' : 'hills';
+        else if (h < 0.8) key = 'hills';
+        else if (h < 0.865) key = 'mountain';
+        else key = moisture > 0.72 ? 'volcano' : 'mountain';
+
+        if (polar && h >= 0.44) key = 'snow';
+        if (h >= 0.34 && h < 0.4 && moisture > 0.68) key = 'swamp';
+        if (key !== 'water') tiles[`${col},${row}`] = key;
+      }
+    }
+
+    for (const city of map.cities) {
+      const key = `${city.col},${city.row}`;
+      if (!tiles[key]) tiles[key] = 'grass';
+    }
+
+    return tiles;
+  }
+
+  function generateMapTerrain() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    openConfirm({
+      title: '生成一片灵感大陆？',
+      message:
+        '会按随机地形覆盖当前的地貌（河流、道路与城市保留，城市落点自动铺上草地），可以用撤销找回。',
+      okLabel: '生成地形',
+      onConfirm: () => {
+        const editorNow = state.mapEditor;
+        if (!editorNow) return;
+        editorNow.draft.tiles = generateMapTerrainDraft(editorNow.draft);
+        pushMapHistory();
+        renderMapCanvas();
+        syncMapDirtyUi();
+        showToast('已生成灵感大陆，继续调整或撤销');
+      },
+    });
+  }
+
+  function exportMapPng() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    const novel = findNovel(editor.novelId);
+    const entries = novel && novel.entries[editor.sectionKey];
+    const entry = entries
+      ? entries.find((item) => item.id === editor.entryId)
+      : null;
+    const baseName = (entry ? entry.title : '地图')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .slice(0, 40) || '地图';
+
+    const bounds = getMapWorldBounds(editor.draft);
+    const padding = 28;
+    const scale = 2;
+    const width = Math.round((bounds.width + padding * 2) * scale);
+    const height = Math.round((bounds.height + padding * 2) * scale);
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.setAttribute('viewBox', getMapViewBox(editor.draft, padding));
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
+    svg.innerHTML =
+      `<style>.map-city-label{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:15px;font-weight:600;paint-order:stroke;stroke:rgba(255,255,255,.86);stroke-width:4px;stroke-linejoin:round}</style>` +
+      `<rect x="${roundMapCoordinate(bounds.minX - padding)}" y="${roundMapCoordinate(
+        bounds.minY - padding
+      )}" width="${roundMapCoordinate(bounds.width + padding * 2)}" height="${roundMapCoordinate(
+        bounds.height + padding * 2
+      )}" fill="#eef2f8"/>` +
+      buildMapMarkup(editor.draft);
+
+    const blob = new Blob([svg.outerHTML], {
+      type: 'image/svg+xml;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#eef2f8';
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+
+      canvas.toBlob((pngBlob) => {
+        if (!pngBlob) {
+          showToast('导出失败，请重试', 'error');
+          return;
+        }
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(pngBlob);
+        link.download = `${baseName}.png`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+        showToast('地图已导出为 PNG');
+      }, 'image/png');
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      showToast('导出失败，请重试', 'error');
+    };
+    image.src = url;
+  }
+
   function attemptCloseMapEditor() {
     const editor = state.mapEditor;
     if (!editor) {
@@ -6472,6 +7080,7 @@
     const editor = state.mapEditor;
     if (!editor) return;
     commitMapCityName();
+    cancelPendingMapPath();
 
     const novel = findNovel(editor.novelId);
     const entries = novel && novel.entries[editor.sectionKey];
@@ -6520,6 +7129,10 @@
     event.preventDefault();
 
     const cityEl = event.target.closest('.map-city-marker');
+    const pathEl =
+      editor.tool === 'browse'
+        ? event.target.closest('.map-path-item')
+        : null;
     const cell = eventToMapCell(event);
     const pointer = {
       id: event.pointerId,
@@ -6529,14 +7142,22 @@
       lastY: event.clientY,
       cell,
       cityId: cityEl ? cityEl.dataset.cityId : null,
+      pathId: pathEl ? pathEl.dataset.pathId : null,
       mode: 'idle',
       lastPaintKey: null,
     };
 
     const wantsPan =
-      event.button === 1 || event.shiftKey || editor.tool === 'browse' || editor.tool === 'city';
+      event.button === 1 ||
+      event.shiftKey ||
+      editor.tool === 'browse' ||
+      editor.tool === 'city';
 
     if (wantsPan || cityEl) {
+      pointer.mode = 'pending';
+    } else if (editor.tool === 'river' || editor.tool === 'road') {
+      pointer.mode = 'pending';
+    } else if (editor.tool === 'eyedropper') {
       pointer.mode = 'pending';
     } else {
       pointer.mode = 'paint';
@@ -6560,8 +7181,13 @@
 
     if (pointer.mode === 'pending') {
       if (Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 5) {
-        pointer.mode = 'pan';
-        els.mapStage.classList.add('is-panning');
+        if (editor.tool === 'river' || editor.tool === 'road') {
+          pointer.mode = 'path-draw';
+          appendPendingMapPathPoint(pointer.cell);
+        } else {
+          pointer.mode = 'pan';
+          els.mapStage.classList.add('is-panning');
+        }
       }
     }
 
@@ -6571,6 +7197,13 @@
       applyMapView();
     } else if (pointer.mode === 'paint') {
       paintMapCellAt(eventToMapCell(event), pointer);
+    } else if (pointer.mode === 'path-draw') {
+      const cell = eventToMapCell(event);
+      if (!cell) return;
+      const key = `${cell.col},${cell.row}`;
+      if (pointer.lastPaintKey === key) return;
+      pointer.lastPaintKey = key;
+      appendPendingMapPathPoint(cell);
     }
   }
 
@@ -6587,10 +7220,17 @@
     } else if (pointer.mode === 'pending') {
       if (pointer.cityId) {
         selectMapCity(pointer.cityId);
+      } else if (pointer.pathId) {
+        selectMapPath(pointer.pathId);
       } else if (editor.tool === 'city') {
         addMapCityAtCell(pointer.cell);
+      } else if (editor.tool === 'river' || editor.tool === 'road') {
+        appendPendingMapPathPoint(pointer.cell);
+      } else if (editor.tool === 'eyedropper') {
+        pickTerrainAtCell(pointer.cell);
       } else if (editor.tool === 'browse') {
         selectMapCity(null);
+        selectMapPath(null);
       }
     }
 
@@ -9836,6 +10476,7 @@
       const button = event.target.closest('[data-map-tool]');
       const editor = state.mapEditor;
       if (!button || !editor) return;
+      if (editor.pendingPath) commitPendingMapPath();
       editor.tool = button.dataset.mapTool;
       renderMapToolState();
     });
@@ -9846,8 +10487,45 @@
       if (!button || !editor) return;
       editor.terrain = button.dataset.terrain;
       editor.tool = 'paint';
+      if (editor.pendingPath) commitPendingMapPath();
       renderMapToolState();
     });
+
+    if (els.mapBrushRow) {
+      els.mapBrushRow.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-brush]');
+        const editor = state.mapEditor;
+        if (!button || !editor) return;
+        editor.brushSize = clampInt(button.dataset.brush, 1, 3, 1);
+        renderMapToolState();
+      });
+    }
+
+    if (els.mapSizeColsMinus) {
+      els.mapSizeColsMinus.addEventListener('click', () => resizeMapCanvas(-1, 0));
+      els.mapSizeColsPlus.addEventListener('click', () => resizeMapCanvas(1, 0));
+      els.mapSizeRowsMinus.addEventListener('click', () => resizeMapCanvas(0, -1));
+      els.mapSizeRowsPlus.addEventListener('click', () => resizeMapCanvas(0, 1));
+    }
+
+    if (els.mapGenerateBtn) {
+      els.mapGenerateBtn.addEventListener('click', generateMapTerrain);
+    }
+    if (els.mapExportBtn) {
+      els.mapExportBtn.addEventListener('click', exportMapPng);
+    }
+
+    if (els.mapPathList) {
+      els.mapPathList.addEventListener('click', (event) => {
+        const removeBtn = event.target.closest('[data-remove-path-id]');
+        if (removeBtn) {
+          deleteMapPath(removeBtn.dataset.removePathId);
+          return;
+        }
+        const item = event.target.closest('.map-path-item');
+        if (item) selectMapPath(item.dataset.pathId);
+      });
+    }
 
     els.mapZoomInBtn.addEventListener('click', () => zoomMapBy(1.22));
     els.mapZoomOutBtn.addEventListener('click', () => zoomMapBy(1 / 1.22));
@@ -9985,9 +10663,20 @@
         return;
       }
 
-      if ((event.key === 'Delete' || event.key === 'Backspace') && editor.selectedCityId) {
+      if (event.key === 'Escape' && editor.pendingPath) {
         event.preventDefault();
-        deleteSelectedMapCity();
+        cancelPendingMapPath();
+        return;
+      }
+
+      if ((event.key === 'Delete' || event.key === 'Backspace')) {
+        if (editor.selectedCityId) {
+          event.preventDefault();
+          deleteSelectedMapCity();
+        } else if (editor.selectedPathId) {
+          event.preventDefault();
+          deleteMapPath(editor.selectedPathId);
+        }
       }
     });
 
