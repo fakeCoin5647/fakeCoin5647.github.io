@@ -144,6 +144,17 @@
   };
   const ALIAS_MAX_COUNT = 5;
   const ALIAS_MAX_LENGTH = 12;
+  const DRILL_MAX_COUNT = 200;
+  const DRILL_KINDS = {
+    imitation: { label: '仿写' },
+    senses: { label: '五感' },
+    scene: { label: '场景' },
+    dialogue: { label: '对话' },
+    emotion: { label: '情绪' },
+    free: { label: '自由' },
+  };
+  const DRILL_TEXT_LIMIT = 8000;
+  const DRILL_MAX_LINKS = 4;
   const BACKLINK_LIMIT = 20;
   const BACKLINK_BATCH_SIZE = 100;
   const BACKLINK_IDLE_DELAY = 200;
@@ -340,7 +351,6 @@
     wonderSea: { label: '沉没神殿' },
   };
 
-  const MAP_FEATURE_KEYS = ['none', ...Object.keys(MAP_FEATURES)];
   const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
 
   const MAP_RESOURCES = {
@@ -369,8 +379,6 @@
     stone: { label: '石料', civ: 'RESOURCE_STONE' },
     amber: { label: '琥珀', civ: 'RESOURCE_AMBER' },
   };
-  const MAP_RESOURCE_KEYS = ['none', ...Object.keys(MAP_RESOURCES)];
-
   const MAP_CONTINENT_GROUPS = {
     auto: { label: '自动', civ: '' },
     c1: { label: '大陆一', civ: 'CONTINENT_AFRICA' },
@@ -868,8 +876,6 @@
   let pendingSidebarReveal = false;
   let pageFrameAnimation = null;
 
-  init();
-
   function init() {
     const library = loadLibrary();
     state.novels = library.novels;
@@ -928,9 +934,9 @@
     try {
       raw = localStorage.getItem(STORAGE_KEY);
     } catch (error) {
-      return { novels: [], trash: [], comments: [] };
+      return { novels: [], trash: [], comments: [], drills: [] };
     }
-    if (!raw) return { novels: [], trash: [], comments: [] };
+    if (!raw) return { novels: [], trash: [], comments: [], drills: [] };
 
     try {
       const parsed = JSON.parse(raw);
@@ -1336,7 +1342,7 @@
       summary: cleanText(raw.summary, 160),
       notes: typeof raw.notes === 'string' ? raw.notes.trim() : '',
       tags: normalizeTags(Array.isArray(raw.tags) ? raw.tags : []),
-      aliases: normalizeAliases(raw.aliases),
+      aliases: normalizeAliases(raw.aliases, title),
       status: normalizeEntryStatus(raw.status),
       pinned: raw.pinned === true,
       visibility: normalizeEntryVisibility(raw.visibility),
@@ -1348,14 +1354,16 @@
     };
   }
 
-  function normalizeAliases(raw) {
+  function normalizeAliases(raw, title = '') {
     if (!Array.isArray(raw)) return [];
+    const titleKey = typeof title === 'string' ? title.trim().toLowerCase() : '';
     const seen = new Set();
     const list = [];
     for (const item of raw) {
       if (typeof item !== 'string') continue;
       const alias = item.trim().slice(0, ALIAS_MAX_LENGTH);
       if (!alias) continue;
+      if (titleKey && alias.toLowerCase() === titleKey) continue;
       const key = alias.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -5524,7 +5532,7 @@
       visibility: normalizeEntryVisibility(visibility),
     };
     // aliases / status 未传时保持原值（saveEntry 与大纲编辑器之外的调用方不受影响）
-    if (aliases !== undefined) fields.aliases = normalizeAliases(aliases);
+    if (aliases !== undefined) fields.aliases = normalizeAliases(aliases, fields.title);
     if (status !== undefined) fields.status = normalizeEntryStatus(status);
     let nextEntries;
 
@@ -9518,7 +9526,6 @@
 
   const CIV6_TEMPLATE_URL = 'assets/civ6/template.Civ6Map';
   const CIV6_SQLJS_URL = 'assets/js/sql-wasm.js';
-  const CIV6_WASM_URL = 'assets/js/sql-wasm.wasm';
   const CIV6_CONTINENTS = [
     'CONTINENT_AFRICA',
     'CONTINENT_ASIA',
@@ -12807,18 +12814,6 @@
 
   /* ---------- 练笔房 ---------- */
 
-  const DRILL_MAX_COUNT = 200;
-  const DRILL_KINDS = {
-    imitation: { label: '仿写' },
-    senses: { label: '五感' },
-    scene: { label: '场景' },
-    dialogue: { label: '对话' },
-    emotion: { label: '情绪' },
-    free: { label: '自由' },
-  };
-  const DRILL_TEXT_LIMIT = 8000;
-  const DRILL_MAX_LINKS = 4;
-
   const DRILL_PROMPTS = [
     { kind: 'senses', text: '写 {who} 在 {where} 闻到的三种气味，其中一种必须勾起一段回忆。' },
     { kind: 'senses', text: '只用听觉写 {where} 的清晨：五种声音，由远到近。' },
@@ -13702,6 +13697,8 @@
             summary: entry.summary,
             notes: entry.notes,
             tags: [...entry.tags],
+            aliases: Array.isArray(entry.aliases) ? [...entry.aliases] : [],
+            status: entry.status || '',
             createdAt: entry.createdAt,
             updatedAt: entry.updatedAt,
           };
@@ -16122,4 +16119,6 @@
         break;
     }
   }
+
+  init();
 })();

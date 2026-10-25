@@ -408,11 +408,6 @@ a.public-relation-person:hover {
   text-decoration: none;
 }
 
-.public-relation-person.is-missing {
-  color: var(--faint);
-  font-weight: 500;
-}
-
 .public-relation-arrow {
   color: var(--accent);
   font-family: var(--mono);
@@ -431,12 +426,6 @@ a.public-relation-person:hover {
   color: var(--faint);
   font-size: 0.62rem;
   white-space: nowrap;
-}
-
-.public-relation-empty {
-  margin: 0.9rem 0 0;
-  color: var(--faint);
-  font-size: 0.78rem;
 }
 
 /* ---------- 缺失页与页脚 ---------- */

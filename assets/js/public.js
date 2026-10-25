@@ -499,10 +499,13 @@
         ? raw.tags.map((tag) => cleanText(tag, 20)).filter(Boolean).slice(0, 12)
         : [],
       aliases: Array.isArray(raw.aliases)
-        ? raw.aliases
-            .map((alias) => cleanText(alias, 12))
-            .filter(Boolean)
-            .slice(0, 5)
+        ? [
+            ...new Set(
+              raw.aliases
+                .map((alias) => cleanText(alias, 12))
+                .filter((alias) => alias && alias.toLowerCase() !== title.toLowerCase())
+            ),
+          ].slice(0, 5)
         : [],
       status:
         raw.status === 'planning' || raw.status === 'drafting' || raw.status === 'done'
@@ -1469,7 +1472,13 @@
     const parts = [novel.title, novel.genre, novel.summary, novel.description];
     for (const key of SECTION_KEYS) {
       for (const entry of sectionEntries(novel, key)) {
-        parts.push(entry.title, entry.subtitle, entry.summary, entry.tags.join(' '));
+        parts.push(
+          entry.title,
+          entry.subtitle,
+          entry.summary,
+          entry.tags.join(' '),
+          entry.aliases.join(' ')
+        );
       }
     }
     return parts.join(' ').toLowerCase();

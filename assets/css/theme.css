@@ -877,9 +877,7 @@ html.is-sheer .trash-summary,
 html.is-sheer .novel-card-summary,
 html.is-sheer .entry-card-excerpt,
 html.is-sheer .brand-text,
-html.is-sheer .side-nav .nav-link,
 html.is-sheer .section-head,
-html.is-sheer .shelf-meta,
 html.is-sheer .panel-title,
 html.is-sheer .entry-notes {
   text-shadow: none;
@@ -893,8 +891,7 @@ html.is-sheer .side-note,
 html.is-sheer .empty-state p,
 html.is-sheer .trash-summary,
 html.is-sheer .novel-card-summary,
-html.is-sheer .entry-card-excerpt,
-html.is-sheer .shelf-meta {
+html.is-sheer .entry-card-excerpt {
   color: var(--ink-soft);
 }
 
@@ -1288,10 +1285,6 @@ html.is-sheer .footer-link {
   height: 24px;
 }
 
-.novel-grid {
-  gap: 0.9rem;
-}
-
 .novel-card {
   border-color: var(--rule);
   border-radius: 15px;
@@ -1647,10 +1640,6 @@ html.is-sheer .footer-link {
   font-size: 0.82rem;
 }
 
-.entry-grid {
-  gap: 0.8rem;
-}
-
 .entry-card {
   border-color: var(--rule);
   border-radius: 14px;
@@ -1987,13 +1976,6 @@ html.is-sheer .footer-link {
 }
 
 /* ---------- 对话框与表单 ---------- */
-
-.dialog {
-  border-color: rgba(255, 255, 255, 0.6);
-  border-radius: 18px;
-  background: #fbfcff;
-  box-shadow: 0 30px 90px -20px rgba(15, 25, 60, 0.5);
-}
 
 .dialog::backdrop {
   background: rgba(16, 24, 46, 0.45);
@@ -3506,6 +3488,10 @@ html.is-sheer .footer-link {
     padding: 1.15rem 1.15rem 1.15rem 1.3rem;
   }
 
+  .novel-stats-panel {
+    padding: 1.15rem 1.15rem 1.15rem 1.3rem;
+  }
+
   .section-card-grid {
     gap: 0.55rem;
   }
@@ -3878,7 +3864,6 @@ html.is-sheer .footer-link {
     justify-content: center;
   }
 }
-
 
 /* ---------- 角色关系图 ---------- */
 
@@ -4689,10 +4674,6 @@ html.is-sheer .footer-link {
   transform: translateY(-2px);
   background: #fff;
   box-shadow: 0 22px 46px -16px rgba(18, 28, 65, 0.6), 0 2px 6px rgba(18, 28, 65, 0.1);
-}
-
-.comment-fab:active {
-  transform: translateY(0);
 }
 
 .comment-fab .icon {
@@ -6185,46 +6166,9 @@ html.is-sheer .footer-link {
 }
 
 /* 玻璃卡片：词条卡与通用面板 */
-.entry-card {
-  border: 1px solid rgba(255, 255, 255, var(--lg-edge));
-  border-radius: var(--lg-radius);
-  background: linear-gradient(
-    165deg,
-    rgba(255, 255, 255, calc(var(--card-alpha) + 0.16)),
-    rgba(255, 255, 255, calc(var(--card-alpha) - 0.05)) 55%,
-    rgba(234, 240, 251, calc(var(--card-alpha) + 0.05))
-  );
-  box-shadow:
-    0 2px 6px rgba(18, 28, 65, 0.04),
-    0 16px 36px -22px rgba(18, 28, 65, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
-    inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light));
-  backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(1.65);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(1.65);
-}
 
 .entry-card:hover {
   border-color: rgba(255, 255, 255, calc(0.85 * var(--rim-strength)));
-}
-
-.panel,
-.shelf-toolbar {
-  border: 1px solid rgba(255, 255, 255, var(--lg-edge));
-  border-radius: var(--lg-radius);
-  background:
-    linear-gradient(
-      170deg,
-      rgba(255, 255, 255, calc(var(--card-alpha) + 0.14)),
-      rgba(255, 255, 255, calc(var(--card-alpha) - 0.04)) 58%,
-      rgba(235, 241, 251, calc(var(--card-alpha) + 0.05))
-    );
-  box-shadow:
-    0 2px 6px rgba(18, 28, 65, 0.03),
-    0 14px 34px -22px rgba(18, 28, 65, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
-    inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light));
-  backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(1.6);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(1.6);
 }
 
 /* 弹窗与浮层：更通透的玻璃板（大圆角分级参考 Lens panel token） */
@@ -6325,10 +6269,6 @@ html.is-sheer .footer-link {
 .side-action,
 .icon-btn {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.55 * var(--rim-strength)));
-}
-
-.side-action {
-  border-radius: 12px;
 }
 
 /* 小玻璃件：导航与工具芯片 */
