@@ -6279,20 +6279,9 @@ html.is-sheer .sidebar {
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
 }
 
-/* 折射浮层：小面积玻璃件叠加 SVG 位移折射，
-   Chromium 系生效；不支持的浏览器整条忽略，保持原磨砂。 */
-.dialog::before,
-.search-dialog::before,
-.appearance-panel::before,
-.comment-fab::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  backdrop-filter: url(#lg-refract) saturate(1.35);
-  pointer-events: none;
-}
+/* 边缘折射由 assets/js/liquid-glass.js 按元素尺寸生成
+   （改编自 shuding/liquid-glass，MIT）：SDF 位移图 + feDisplacementMap，
+   仅 Chromium 生效，其余浏览器保持上方普通磨砂。 */
 
 /* 地图工坊为全屏工作台：使用近实心底色，减轻合成层负担 */
 .map-dialog {
@@ -6314,6 +6303,22 @@ html.is-sheer .sidebar {
     border-right: none;
     box-shadow: none;
   }
+}
+
+/* 城址推荐标记 */
+.map-suggest-layer {
+  pointer-events: none;
+}
+
+.map-suggest-rank {
+  fill: #a8791b;
+  font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.map-city-type-row button {
+  min-width: 52px;
 }
 
 @media (prefers-reduced-motion: reduce) {

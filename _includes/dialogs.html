@@ -184,6 +184,12 @@
           <datalist id="entryTagSuggestions"></datalist>
           <p class="field-hint" id="entryTagHint">最多 8 个，回车或逗号确认</p>
         </div>
+
+        <div class="field">
+          <label for="entryAliasesInput">别名 / 称谓 <span class="field-optional">选填</span></label>
+          <input type="text" id="entryAliasesInput" name="aliases" maxlength="80" autocomplete="off" aria-describedby="entryAliasesHint">
+          <p class="field-hint" id="entryAliasesHint">这个名字的其他叫法，最多 5 个、用逗号分隔；搜索与反向链接也会认得它们</p>
+        </div>
       </div>
 
       <footer class="dialog-actions">
@@ -475,6 +481,10 @@
 
           <div class="map-tool-group">
             <p class="map-tool-label">灵感与整理</p>
+            <button type="button" class="map-action-btn" id="mapSuggestBtn" aria-pressed="false" title="按肥沃度推荐几处城址">
+              <svg class="icon" aria-hidden="true"><use href="#i-spark"></use></svg>
+              推荐城址
+            </button>
             <button type="button" class="map-action-btn" id="mapGenerateBtn">
               <svg class="icon" aria-hidden="true"><use href="#i-wand"></use></svg>
               生成灵感大陆
@@ -542,6 +552,15 @@
               <span>城市名称</span>
               <input type="text" id="mapCityNameInput" maxlength="40" autocomplete="off" spellcheck="false">
             </label>
+
+            <div class="map-field">
+              <span>城市类型</span>
+              <div class="map-radius-row map-city-type-row" id="mapCityTypeRow" role="group" aria-label="城市类型">
+                <button type="button" data-city-type="city" aria-pressed="true">城市</button>
+                <button type="button" data-city-type="capital" aria-pressed="false">都城</button>
+                <button type="button" data-city-type="fort" aria-pressed="false">堡垒</button>
+              </div>
+            </div>
 
             <div class="map-field">
               <span>势力范围</span>

@@ -70,6 +70,7 @@
     hills: { fill: '#cba75f', stroke: '#ad8a48', fills: ['#d2ae68', '#c39e54', '#dab772'] },
     mountain: { fill: '#9298a8', stroke: '#767c8c', fills: ['#98a0b2', '#8b91a1', '#a3aab9'] },
     water: { fill: '#8db8d6', stroke: '#75a3c4', fills: ['#93bedb', '#87b0cf', '#9cc6e2'] },
+    lake: { fill: '#9ec9e2', stroke: '#7fb0cd', fills: ['#a5cfe6', '#98c2dd', '#b0d6ea'] },
     desert: { fill: '#e6c67f', stroke: '#c9a95e', fills: ['#ecd08c', '#dfbc72', '#f2d998'] },
     snow: { fill: '#ecf1f7', stroke: '#ccd7e7', fills: ['#f1f5fa', '#e7edf5', '#f7f9fc'] },
     swamp: { fill: '#89a37a', stroke: '#6f8a62', fills: ['#8fab7d', '#7f9a70', '#98b488'] },
@@ -98,7 +99,19 @@
     'camp',
     'stones',
     'danger',
+    'wonderMountain',
+    'wonderSpring',
+    'wonderTree',
+    'wonderSea',
   ];
+
+  const MAP_CITY_TYPES = {
+    city: { label: '城市' },
+    capital: { label: '都城' },
+    fort: { label: '堡垒' },
+  };
+
+  let mapShallowCells = null;
   const MAP_CITY_COLORS = [
     '#4f6df5',
     '#b05a3c',
@@ -375,6 +388,7 @@
         name: cleanText(item.name, 40) || '未命名城市',
         col,
         row,
+        type: MAP_CITY_TYPES[item.type] ? item.type : 'city',
         color: /^#[0-9a-f]{6}$/i.test(item.color)
           ? item.color
           : MAP_CITY_COLORS[cities.length % MAP_CITY_COLORS.length],
@@ -430,6 +444,16 @@
       tags: Array.isArray(raw.tags)
         ? raw.tags.map((tag) => cleanText(tag, 20)).filter(Boolean).slice(0, 12)
         : [],
+      aliases: Array.isArray(raw.aliases)
+        ? raw.aliases
+            .map((alias) => cleanText(alias, 12))
+            .filter(Boolean)
+            .slice(0, 5)
+        : [],
+      status:
+        raw.status === 'planning' || raw.status === 'drafting' || raw.status === 'done'
+          ? raw.status
+          : '',
       createdAt: cleanText(raw.createdAt, 40),
       updatedAt: cleanText(raw.updatedAt, 40),
       map: sanitizeMap(raw.map),
@@ -711,6 +735,22 @@
       return `${open}<path d="M-6 -8a6.5 6.2 0 1 1 12 0V-4h-12Z" fill="#e8e2d2" stroke="#8d8776" stroke-width="1.1"/><circle cx="-2.8" cy="-6.6" r="1.7" fill="#3a3630"/><circle cx="2.8" cy="-6.6" r="1.7" fill="#3a3630"/><path d="M-4 -4h8v3h-2v-2h-1.6v2h-1.8v-2H-3v2h-1Z" fill="#3a3630"/><path d="M-9 11c2.2-5 5.4-7.5 9-7.5s6.8 2.5 9 7.5" fill="none" stroke="rgba(176,74,60,.55)" stroke-width="1.8" stroke-linecap="round"/>${close}`;
     }
 
+    if (featureKey === 'wonderMountain') {
+      return `${open}<circle r="17" fill="rgba(255,214,120,.16)"/><circle r="17" fill="none" stroke="rgba(240,180,60,.5)" stroke-width="1.1"/><path d="M-13 9 L-4 -10 L0 -3 L5 -12 L13 9 Z" fill="#8b91a1" stroke="#6e7484" stroke-width="1.2" stroke-linejoin="round"/><path d="M-4 -10 L-1.5 -5 L-6.5 -5 Z M5 -12 L8 -7 L2.5 -7 Z" fill="#f4f8fc"/><path d="M-13 9h26" stroke="#6e7484" stroke-width="1.4" stroke-linecap="round"/><circle cy="-15.5" r="2" fill="rgba(240,180,60,.9)"/>${close}`;
+    }
+
+    if (featureKey === 'wonderSpring') {
+      return `${open}<circle r="17" fill="rgba(140,220,255,.15)"/><circle r="17" fill="none" stroke="rgba(90,180,230,.5)" stroke-width="1.1"/><ellipse cx="0" cy="6" rx="11" ry="4.4" fill="#a7d8ee" stroke="#6fa9c9" stroke-width="1.2"/><path d="M0 6V-3" stroke="#5f9ec4" stroke-width="1.8" stroke-linecap="round"/><circle cx="0" cy="-7" r="2" fill="#8fd0ef"/><circle cx="-5" cy="-11" r="1.5" fill="#a5dcf5"/><circle cx="5.5" cy="-12.5" r="1.2" fill="#a5dcf5"/><circle cx="2.5" cy="-15" r="1" fill="#c2e9fa"/>${close}`;
+    }
+
+    if (featureKey === 'wonderTree') {
+      return `${open}<circle r="17" fill="rgba(150,230,150,.15)"/><circle r="17" fill="none" stroke="rgba(90,180,110,.5)" stroke-width="1.1"/><path d="M-2 11h4l-1 -13h-2Z" fill="#6d5743" stroke="#59462f" stroke-width="1"/><path d="M0 -12c-8 0-11 5-10 8 1 2.6 5 4 10 4s9-1.4 10-4c1-3-2-8-10-8Z" fill="#5d8f61" stroke="#47744e" stroke-width="1.1"/><path d="M0 -15c-3 0-5 1.6-5 3.6 0 2.2 2.4 3.4 5 3.4s5-1.2 5-3.4c0-2-2-3.6-5-3.6Z" fill="#6fa06e"/><circle cx="-6" cy="-6" r="1.4" fill="rgba(255,250,200,.85)"/><circle cx="5" cy="-9" r="1.3" fill="rgba(255,250,200,.75)"/><circle cx="0" cy="-2" r="1.2" fill="rgba(255,250,200,.8)"/>${close}`;
+    }
+
+    if (featureKey === 'wonderSea') {
+      return `${open}<circle r="17" fill="rgba(150,190,235,.16)"/><circle r="17" fill="none" stroke="rgba(110,160,210,.5)" stroke-width="1.1"/><path d="M-9 6V-6M-3 6V-8M3 6V-7M9 6V-5" stroke="#d8d2be" stroke-width="2.6" stroke-linecap="round"/><path d="M-12 -6h24" stroke="#c4bda6" stroke-width="2.2" stroke-linecap="round"/><path d="M-13 9c3-2.4 6-2.4 9 0s6 2.4 9 0" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+    }
+
     return '';
   }
 
@@ -731,7 +771,27 @@
     });
   }
 
+  function collectMapShallowWater(map) {
+    const shallow = new Set();
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+          const neighbor = map.tiles[`${nextCol},${nextRow}`] || 'grass';
+          if (neighbor !== 'water' && neighbor !== 'lake') {
+            shallow.add(`${col},${row}`);
+            break;
+          }
+        }
+      }
+    }
+    return shallow;
+  }
+
   function buildMapMarkup(map) {
+    mapShallowCells = collectMapShallowWater(map);
     const terrainParts = [];
     const coastParts = [];
     const pathParts = [];
@@ -745,10 +805,14 @@
         const terrainKey = map.tiles[`${col},${row}`] || 'grass';
         const center = hexCenter(col, row);
         const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
-        const fill =
-          terrainKey === 'water'
-            ? 'url(#mapWaterGrad)'
-            : pickMapTerrainFill(terrainKey, col, row);
+        let fill;
+        if (terrainKey === 'lake') fill = 'url(#mapLakeGrad)';
+        else if (terrainKey === 'water')
+          fill =
+            mapShallowCells && mapShallowCells.has(`${col},${row}`)
+              ? 'url(#mapShallowGrad)'
+              : 'url(#mapWaterGrad)';
+        else fill = pickMapTerrainFill(terrainKey, col, row);
         const strongShade = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(
           terrainKey
         );
@@ -835,9 +899,29 @@
     for (const city of map.cities) {
       const center = hexCenter(city.col, city.row);
       const label = city.name.length > 8 ? `${city.name.slice(0, 8)}…` : city.name;
+      const cityType = MAP_CITY_TYPES[city.type] ? city.type : 'city';
+      const radius =
+        cityType === 'capital'
+          ? MAP_HEX_SIZE * 0.44
+          : cityType === 'fort'
+            ? MAP_HEX_SIZE * 0.34
+            : MAP_HEX_SIZE * 0.4;
+      const cityGlyph =
+        cityType === 'fort'
+          ? `<path class="map-city-glyph" d="M-5.5 6.5V-3.5h11V6.5Z M-5.5 -3.5v-3h2.6v3M-1.3 -3.5v-3h2.6v3M2.9 -3.5v-3h2.6v3" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linejoin="round" opacity=".92"/>`
+          : cityType === 'capital'
+            ? `<path class="map-city-glyph" d="M0 -9 L2.6 -3 L9 -3 L4 1.4 L6 8 L0 4 L-6 8 L-4 1.4 L-9 -3 L-2.6 -3 Z" fill="#ffffff" opacity=".95"/><circle cx="0" cy="-12.4" r="1.7" fill="#ffffff" opacity=".9"/>`
+            : `<path class="map-city-glyph" d="M0 -8 L2.3 -2.5 L8.2 -2.5 L3.4 1.2 L5.2 7 L0 3.5 L-5.2 7 L-3.4 1.2 L-8.2 -2.5 L-2.3 -2.5 Z" fill="#ffffff" opacity=".92"/>`;
+      const capitalRing =
+        cityType === 'capital'
+          ? `<circle r="${MAP_HEX_SIZE * 0.56}" fill="none" stroke="${city.color}" stroke-width="1.5" opacity=".55"/>`
+          : '';
       const charWidth = 14.5;
-      const bannerWidth = Math.max(64, Math.round(label.length * charWidth + 34));
-      const bannerHeight = 26;
+      const bannerWidth = Math.max(
+        cityType === 'capital' ? 72 : 64,
+        Math.round(label.length * charWidth + (cityType === 'capital' ? 40 : 34))
+      );
+      const bannerHeight = cityType === 'capital' ? 28 : 26;
       const bannerY = MAP_HEX_SIZE * 0.72;
       const halfW = bannerWidth / 2;
       const r = 7;
@@ -860,11 +944,10 @@
           <circle class="map-city-halo" r="${MAP_HEX_SIZE * 0.64}" fill="${
           city.color
         }" opacity=".18"/>
-          <circle class="map-city-disc" r="${MAP_HEX_SIZE * 0.4}" fill="${city.color}"/>
-          <circle class="map-city-ring" r="${
-            MAP_HEX_SIZE * 0.4
-          }" fill="none" stroke="#ffffff" stroke-width="2.4"/>
-          <path class="map-city-glyph" d="M0 -8 L2.3 -2.5 L8.2 -2.5 L3.4 1.2 L5.2 7 L0 3.5 L-5.2 7 L-3.4 1.2 L-8.2 -2.5 L-2.3 -2.5 Z" fill="#ffffff" opacity=".92"/>
+          <circle class="map-city-disc" r="${radius}" fill="${city.color}"/>
+          ${capitalRing}
+          <circle class="map-city-ring" r="${radius}" fill="none" stroke="#ffffff" stroke-width="2.4"/>
+          ${cityGlyph}
           <g class="map-city-banner" transform="translate(0 ${bannerY})">
             <path d="${bannerPath}" fill="rgba(252,253,255,.94)" stroke="${city.color}" stroke-width="1.6"/>
             <path d="${stripePath}" fill="${city.color}" opacity=".92"/>
@@ -892,6 +975,14 @@
         <linearGradient id="mapWaterGrad" x1="0" y1="0" x2="0.3" y2="1">
           <stop offset="0" stop-color="#a9cde6"/>
           <stop offset="1" stop-color="#79a6c9"/>
+        </linearGradient>
+        <linearGradient id="mapShallowGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#c9e4f2"/>
+          <stop offset="1" stop-color="#a8d0e5"/>
+        </linearGradient>
+        <linearGradient id="mapLakeGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#bce0f2"/>
+          <stop offset="1" stop-color="#92c3de"/>
         </linearGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
@@ -948,6 +1039,13 @@
 
     if (terrainKey === 'mountain') {
       return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(28,38,58,.18)"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="#7b8293"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="url(#mapShade)" opacity=".55"/><path d="M-3 -13 L0.5 -5.5 L-7.5 -5.5 Z" fill="#f2f6fb"/><path d="M2 12 L11 -2 L20 12 Z" fill="#959baa" opacity=".92"/><path d="M11 -2 L13 2 L9 2 Z" fill="#eef2f8" opacity=".9"/>${close}`;
+    }
+
+    if (terrainKey === 'lake') {
+      if (hash % 2 === 0) {
+        return `${open}<path d="M-10 4c3-2.4 6-2.4 9 0" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5" stroke-linecap="round"/><path d="M-2 -5c2.4-2 4.8-2 7.2 0" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1.3" stroke-linecap="round"/>${close}`;
+      }
+      return `${open}<path d="M-8 -2c3-2.4 6-2.4 9 0" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.4" stroke-linecap="round"/>${close}`;
     }
 
     if (terrainKey === 'water') {
@@ -1048,26 +1146,89 @@
     return path;
   }
 
+  function catmullRomSegments(points) {
+    const nodes = points.map((point) => hexCenter(point.col, point.row));
+    const segments = [];
+    for (let i = 0; i < nodes.length - 1; i += 1) {
+      const p0 = nodes[Math.max(0, i - 1)];
+      const p1 = nodes[i];
+      const p2 = nodes[i + 1];
+      const p3 = nodes[Math.min(nodes.length - 1, i + 2)];
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      segments.push({
+        d: `M${roundMapCoordinate(p1.x)} ${roundMapCoordinate(p1.y)}C${roundMapCoordinate(
+          c1x
+        )} ${roundMapCoordinate(c1y)} ${roundMapCoordinate(c2x)} ${roundMapCoordinate(
+          c2y
+        )} ${roundMapCoordinate(p2.x)} ${roundMapCoordinate(p2.y)}`,
+      });
+    }
+    return segments;
+  }
+
+  function buildRiverSegmentPaths(points) {
+    // Azgaar 式渐宽：源头细、入海口粗
+    const segments = catmullRomSegments(points);
+    const startWidth = 1.5;
+    const endWidth = 5.4;
+    const total = segments.length;
+    segments.forEach((segment, index) => {
+      const t = total > 1 ? index / (total - 1) : 1;
+      segment.width =
+        Math.round((startWidth + (endWidth - startWidth) * t) * 100) / 100;
+    });
+    return segments;
+  }
+
   function buildMapPathsMarkup(map) {
     const parts = [];
     for (const path of map.paths || []) {
       const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
       const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
       const d = catmullRomToBezierPath(path.points);
-      const bank =
-        path.kind === 'river'
-          ? `<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
-              config.width + 3
-            }" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
-          : '';
-      parts.push(
-        `<g class="map-path-item">${bank}<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
+      let bank = '';
+      let line = '';
+      let glow = '';
+      if (path.kind === 'river' && path.points.length >= 2) {
+        const segments = buildRiverSegmentPaths(path.points);
+        bank = segments
+          .map(
+            (segment) =>
+              `<path d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width + 2.6}" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>`
+          )
+          .join('');
+        line = segments
+          .map(
+            (segment) =>
+              `<path d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width}" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`
+          )
+          .join('');
+        glow = segments
+          .map(
+            (segment) =>
+              `<path d="${segment.d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="${Math.max(0.9, segment.width * 0.34)}" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+          )
+          .join('');
+      } else {
+        bank =
+          path.kind === 'river'
+            ? `<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
+                config.width + 3
+              }" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
+            : '';
+        line = `<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
           config.width
-        }"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>${
+        }"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`;
+        glow =
           path.kind === 'river'
             ? `<path d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
-            : ''
-        }</g>`
+            : '';
+      }
+      parts.push(
+        `<g class="map-path-item">${bank}${line}${glow}</g>`
       );
     }
     return parts.join('');

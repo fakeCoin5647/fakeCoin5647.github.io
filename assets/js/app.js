@@ -5,6 +5,9 @@
   const APPEARANCE_KEY = 'gushibu.appearance.v1';
   const PUBLIC_PREVIEW_KEY = 'gushibu.public.preview.v1';
   const LIBRARY_VERSION = 1;
+  // 版本迁移链：数据结构变更时在这里加 `版本号: (data) => 升级后的data`，
+  // loadLibrary 会从旧版本逐级升到当前版本；高于当前版本的数据只读保护。
+  const LIBRARY_MIGRATIONS = {};
   const SITE_NAME = "Coin's Creative Cabin";
   const MAX_TAGS = 8;
   const MAX_TAG_LENGTH = 16;
@@ -293,6 +296,7 @@
     hills: { label: '丘陵', fill: '#cba75f', stroke: '#ad8a48', fills: ['#d2ae68', '#c39e54', '#dab772'] },
     mountain: { label: '山脉', fill: '#9298a8', stroke: '#767c8c', fills: ['#98a0b2', '#8b91a1', '#a3aab9'] },
     water: { label: '水域', fill: '#8db8d6', stroke: '#75a3c4', fills: ['#93bedb', '#87b0cf', '#9cc6e2'] },
+    lake: { label: '湖泊', fill: '#9ec9e2', stroke: '#7fb0cd', fills: ['#a5cfe6', '#98c2dd', '#b0d6ea'] },
     desert: { label: '沙漠', fill: '#e6c67f', stroke: '#c9a95e', fills: ['#ecd08c', '#dfbc72', '#f2d998'] },
     snow: { label: '雪原', fill: '#ecf1f7', stroke: '#ccd7e7', fills: ['#f1f5fa', '#e7edf5', '#f7f9fc'] },
     swamp: { label: '沼泽', fill: '#89a37a', stroke: '#6f8a62', fills: ['#8fab7d', '#7f9a70', '#98b488'] },
@@ -323,10 +327,22 @@
     camp: { label: '营地' },
     stones: { label: '石阵' },
     danger: { label: '凶地' },
+    wonderMountain: { label: '圣山' },
+    wonderSpring: { label: '魔泉' },
+    wonderTree: { label: '世界树' },
+    wonderSea: { label: '沉没神殿' },
   };
 
   const MAP_FEATURE_KEYS = ['none', ...Object.keys(MAP_FEATURES)];
   const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
+
+  let mapShallowCells = null;
+
+  const MAP_CITY_TYPES = {
+    city: { label: '城市' },
+    capital: { label: '都城' },
+    fort: { label: '堡垒' },
+  };
 
   const MAP_CITY_COLORS = [
     '#4f6df5',
@@ -443,6 +459,8 @@
 
     importBtn: $('#importBtn'),
     exportBtn: $('#exportBtn'),
+    backupReminder: $('#backupReminder'),
+    sideCapacity: $('#sideCapacity'),
     footerExportBtn: $('#footerExportBtn'),
     importFile: $('#importFile'),
 
@@ -639,6 +657,8 @@
     mapSizeRowsValue: $('#mapSizeRowsValue'),
     mapGenerateBtn: $('#mapGenerateBtn'),
     mapExportBtn: $('#mapExportBtn'),
+    mapSuggestBtn: $('#mapSuggestBtn'),
+    mapCityTypeRow: $('#mapCityTypeRow'),
     mapPathList: $('#mapPathList'),
     mapPathCount: $('#mapPathCount'),
 
@@ -656,6 +676,7 @@
     novels: [],
     trash: [],
     comments: [],
+    libraryReadOnly: false,
     appearance: { ...DEFAULT_APPEARANCE },
     route: null,
     shelf: { query: '', status: 'all', sort: 'updated' },
@@ -708,9 +729,12 @@
     bindEvents();
     renderRoute();
     syncShelfSearchBox();
+    refreshDataSafetyPanel();
 
     if (!isStorageAvailable()) {
       showToast('浏览器禁用了本地存储，内容将无法持久保存', 'error');
+    } else if (state.libraryReadOnly) {
+      showToast('本地数据比当前页面更新，请刷新页面后再修改', 'error');
     }
   }
 
@@ -727,6 +751,23 @@
     }
   }
 
+  function migrateLibrary(parsed) {
+    if (!parsed || typeof parsed !== 'object') {
+      return { data: parsed, readOnly: false };
+    }
+    const version =
+      typeof parsed.version === 'number' ? parsed.version : LIBRARY_VERSION;
+    if (version > LIBRARY_VERSION) {
+      return { data: parsed, readOnly: true };
+    }
+    let data = parsed;
+    for (let v = version; v < LIBRARY_VERSION; v += 1) {
+      const step = LIBRARY_MIGRATIONS[v];
+      if (typeof step === 'function') data = step(data);
+    }
+    return { data, readOnly: false };
+  }
+
   function loadLibrary() {
     let raw;
     try {
@@ -738,18 +779,20 @@
 
     try {
       const parsed = JSON.parse(raw);
-      const list = Array.isArray(parsed)
-        ? parsed
-        : parsed && Array.isArray(parsed.novels)
-          ? parsed.novels
+      const migrated = migrateLibrary(parsed);
+      state.libraryReadOnly = migrated.readOnly;
+      const list = Array.isArray(migrated.data)
+        ? migrated.data
+        : migrated.data && Array.isArray(migrated.data.novels)
+          ? migrated.data.novels
           : [];
       const rawTrash =
-        parsed && !Array.isArray(parsed) && Array.isArray(parsed.trash)
-          ? parsed.trash
+        migrated.data && !Array.isArray(migrated.data) && Array.isArray(migrated.data.trash)
+          ? migrated.data.trash
           : [];
       const rawComments =
-        parsed && !Array.isArray(parsed) && Array.isArray(parsed.comments)
-          ? parsed.comments
+        migrated.data && !Array.isArray(migrated.data) && Array.isArray(migrated.data.comments)
+          ? migrated.data.comments
           : [];
       const seen = new Set();
       const trash = [];
@@ -785,6 +828,10 @@
   }
 
   function persist() {
+    if (state.libraryReadOnly) {
+      showToast('本地数据比当前页面更新，请刷新页面后再修改', 'error');
+      return false;
+    }
     try {
       localStorage.setItem(
         STORAGE_KEY,
@@ -1379,6 +1426,7 @@
         name: cleanText(item.name, 40) || '未命名城市',
         col,
         row,
+        type: MAP_CITY_TYPES[item.type] ? item.type : 'city',
         color: normalizeCityColor(item.color, cities.length),
         radius: clampInt(item.radius, 1, 3, 2),
         ...(customArea ? { customArea: true, cells } : {}),
@@ -1884,8 +1932,93 @@
 
   /* ---------- Shelf ---------- */
 
+  /* ---------- Continue last visit ---------- */
+
+  function recordLastVisit(novel, sectionKey, entry) {
+    if (!novel || !entry || !SECTIONS[sectionKey]) return;
+    try {
+      localStorage.setItem(
+        LAST_VISIT_KEY,
+        JSON.stringify({
+          novelId: novel.id,
+          sectionKey,
+          entryId: entry.id,
+          at: new Date().toISOString(),
+        })
+      );
+    } catch (error) {
+      /* 记录失败不影响使用 */
+    }
+  }
+
+  function resolveLastVisit() {
+    let data = null;
+    try {
+      data = JSON.parse(localStorage.getItem(LAST_VISIT_KEY) || 'null');
+    } catch (error) {
+      return null;
+    }
+    if (!data || typeof data !== 'object' || !data.novelId || !data.entryId) {
+      return null;
+    }
+    const novel = findNovel(data.novelId);
+    if (!novel) return null;
+    const list = novel.entries[data.sectionKey];
+    const entry = list
+      ? list.find((item) => item.id === data.entryId)
+      : null;
+    if (!entry) return null;
+    return {
+      hash: entryHash(novel.id, data.sectionKey, entry.id),
+      novelTitle: novel.title,
+      entryTitle: entry.title,
+      sectionLabel: SECTIONS[data.sectionKey].label,
+      at: data.at,
+    };
+  }
+
+  function continueBannerDismissed() {
+    try {
+      return sessionStorage.getItem('gushibu.continueDismissed') === '1';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function dismissContinueBanner() {
+    try {
+      sessionStorage.setItem('gushibu.continueDismissed', '1');
+    } catch (error) {
+      /* 无痕模式下忽略 */
+    }
+    if (els.continueBanner) els.continueBanner.hidden = true;
+  }
+
+  function syncContinueBanner() {
+    const banner = els.continueBanner;
+    if (!banner) return;
+    const target = continueBannerDismissed() ? null : resolveLastVisit();
+    if (!target) {
+      banner.hidden = true;
+      // 目标已经不存在：清掉过期记录，避免下次还解析它
+      if (!continueBannerDismissed()) {
+        try {
+          localStorage.removeItem(LAST_VISIT_KEY);
+        } catch (error) {
+          /* 忽略 */
+        }
+      }
+      return;
+    }
+    els.continueBannerText.textContent = `继续：《${target.novelTitle}》· ${target.entryTitle}`;
+    els.continueBannerTime.textContent = ` · ${relativeDate(new Date(target.at))}`;
+    els.continueBannerBtn.dataset.continueHash = target.hash;
+    banner.hidden = false;
+  }
+
   function renderShelf() {
     syncShelfStatusFilters();
+    syncContinueBanner();
 
     const visible = getVisibleNovels();
     const hasNovels = state.novels.length > 0;
@@ -2450,12 +2583,16 @@
     editSynopsisBtn.type = 'button';
     editSynopsisBtn.dataset.action = 'edit-novel';
     const synopsisActions = el('div', 'panel-head-actions');
+    const exportBackupBtn = el('button', 'link-btn', '导出备份');
+    exportBackupBtn.type = 'button';
+    exportBackupBtn.dataset.action = 'export-library';
+    exportBackupBtn.title = '把全部小说与词条导出为 JSON 备份文件';
     const exportMarkdownBtn = el('button', 'link-btn', '导出 Markdown');
     exportMarkdownBtn.type = 'button';
     exportMarkdownBtn.dataset.action = 'export-novel-markdown';
     exportMarkdownBtn.dataset.novelId = novel.id;
     exportMarkdownBtn.title = '把这本小说的档案导出为 Markdown 文件';
-    synopsisActions.append(exportMarkdownBtn, editSynopsisBtn);
+    synopsisActions.append(exportBackupBtn, exportMarkdownBtn, editSynopsisBtn);
     synopsisHead.append(synopsisHeadText, synopsisActions);
 
     const synopsisBody = el(
@@ -2830,6 +2967,7 @@
 
   function renderEntryDetail(novel, sectionKey, entry) {
     const config = SECTIONS[sectionKey];
+    recordLastVisit(novel, sectionKey, entry);
     const fragment = document.createDocumentFragment();
 
     const back = document.createElement('a');
@@ -5609,7 +5747,7 @@
     const node = els.outlineEditorTemplate.content.firstElementChild.cloneNode(true);
     const find = (selector) => $(selector, node);
     const isNew = !entry;
-
+    if (entry) recordLastVisit(novel, 'outline', entry);
     state.outlineDraft = {
       novelId: novel.id,
       id: entry ? entry.id : null,
@@ -6165,7 +6303,30 @@
     return ownership;
   }
 
-  function buildMapMarkup(map, { selectedCityId = null, selectedPathId = null, pendingPath = null } = {}) {
+  function collectMapShallowWater(map) {
+    const shallow = new Set();
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+          const neighbor = map.tiles[`${nextCol},${nextRow}`] || 'grass';
+          if (neighbor !== 'water' && neighbor !== 'lake') {
+            shallow.add(`${col},${row}`);
+            break;
+          }
+        }
+      }
+    }
+    return shallow;
+  }
+
+  function buildMapMarkup(
+    map,
+    { selectedCityId = null, selectedPathId = null, pendingPath = null, suggestions = null } = {}
+  ) {
+    mapShallowCells = collectMapShallowWater(map);
     const terrainParts = [];
     const coastParts = [];
     const pathParts = [];
@@ -6260,6 +6421,14 @@
           <stop offset="0" stop-color="#a9cde6"/>
           <stop offset="1" stop-color="#79a6c9"/>
         </linearGradient>
+        <linearGradient id="mapShallowGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#c9e4f2"/>
+          <stop offset="1" stop-color="#a8d0e5"/>
+        </linearGradient>
+        <linearGradient id="mapLakeGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#bce0f2"/>
+          <stop offset="1" stop-color="#92c3de"/>
+        </linearGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
       `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
@@ -6269,6 +6438,16 @@
       )}${borderParts.join('')}</g>`,
       `<g class="map-layer map-feature-layer">${featureParts.join('')}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
+      suggestions && suggestions.length
+        ? `<g class="map-layer map-suggest-layer">${suggestions
+            .map((item, index) => {
+              const center = hexCenter(item.col, item.row);
+              return `<g class="map-suggest-marker" transform="translate(${roundMapCoordinate(
+                center.x
+              )} ${roundMapCoordinate(center.y)})"><circle r="16.5" fill="rgba(240,180,60,.18)"/><circle r="16.5" fill="none" stroke="rgba(196,138,26,.85)" stroke-width="1.6" stroke-dasharray="4 3"/><path d="M0 -9 L2.6 -3 L9 -3 L4 1.4 L6 8 L0 4 L-6 8 L-4 1.4 L-9 -3 L-2.6 -3 Z" fill="#e9b23c" stroke="#a8791b" stroke-width="1"/><text y="22" text-anchor="middle" class="map-suggest-rank">${index + 1}</text></g>`;
+            })
+            .join('')}</g>`
+        : '',
     ].join('');
   }
 
@@ -6331,24 +6510,90 @@
     return path;
   }
 
+  function catmullRomSegments(points) {
+    // 与整条 Catmull-Rom 路径完全一致，拆成相邻中心点之间的段，供渐宽描边使用
+    const nodes = points.map((point) => hexCenter(point.col, point.row));
+    const segments = [];
+    for (let i = 0; i < nodes.length - 1; i += 1) {
+      const p0 = nodes[Math.max(0, i - 1)];
+      const p1 = nodes[i];
+      const p2 = nodes[i + 1];
+      const p3 = nodes[Math.min(nodes.length - 1, i + 2)];
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      segments.push({
+        d: `M${roundMapCoordinate(p1.x)} ${roundMapCoordinate(p1.y)}C${roundMapCoordinate(
+          c1x
+        )} ${roundMapCoordinate(c1y)} ${roundMapCoordinate(c2x)} ${roundMapCoordinate(
+          c2y
+        )} ${roundMapCoordinate(p2.x)} ${roundMapCoordinate(p2.y)}`,
+      });
+    }
+    return segments;
+  }
+
+  function buildRiverSegmentPaths(points) {
+    // Azgaar 式渐宽：源头细、入海口粗
+    const segments = catmullRomSegments(points);
+    const startWidth = 1.5;
+    const endWidth = 5.4;
+    const total = segments.length;
+    segments.forEach((segment, index) => {
+      const t = total > 1 ? index / (total - 1) : 1;
+      segment.width =
+        Math.round((startWidth + (endWidth - startWidth) * t) * 100) / 100;
+    });
+    return segments;
+  }
+
   function buildMapPathMarkup(path, selected) {
     const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
     const data = selected ? ' is-selected' : '';
     const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
     const d = catmullRomToBezierPath(path.points);
-    const bank =
-      path.kind === 'river'
-        ? `<path class="map-path-bank" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width + 3}" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
-        : '';
+
+    let bank = '';
+    let line = '';
+    let glow = '';
+    if (path.kind === 'river' && path.points.length >= 2) {
+      const segments = buildRiverSegmentPaths(path.points);
+      bank = segments
+        .map(
+          (segment) =>
+            `<path d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width + 2.6}" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>`
+        )
+        .join('');
+      line = segments
+        .map(
+          (segment) =>
+            `<path class="map-path-line" d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width}" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`
+        )
+        .join('');
+      glow = segments
+        .map(
+          (segment) =>
+            `<path d="${segment.d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="${Math.max(0.9, segment.width * 0.34)}" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+        )
+        .join('');
+    } else {
+      bank =
+        path.kind === 'river'
+          ? `<path class="map-path-bank" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width + 3}" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
+          : '';
+      line = `<path class="map-path-line" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width}"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`;
+      glow =
+        path.kind === 'river'
+          ? `<path class="map-path-glow" d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+          : '';
+    }
+
     return `<g class="map-path-item${data}" data-path-id="${escapeXml(path.id)}">
       <path class="map-path-hit" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="14"/>
       ${bank}
-      <path class="map-path-line" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width}"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
-      ${
-        path.kind === 'river'
-          ? `<path class="map-path-glow" d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
-          : ''
-      }
+      ${line}
+      ${glow}
       <title>${config.label}</title>
     </g>`;
   }
@@ -6389,8 +6634,14 @@
   function buildMapHexInner(col, row, terrainKey) {
     const center = hexCenter(col, row);
     const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
-    const fill =
-      terrainKey === 'water' ? 'url(#mapWaterGrad)' : pickMapTerrainFill(terrainKey, col, row);
+    let fill;
+    if (terrainKey === 'lake') fill = 'url(#mapLakeGrad)';
+    else if (terrainKey === 'water')
+      fill =
+        mapShallowCells && mapShallowCells.has(`${col},${row}`)
+          ? 'url(#mapShallowGrad)'
+          : 'url(#mapWaterGrad)';
+    else fill = pickMapTerrainFill(terrainKey, col, row);
     const strongShade = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
     const softShade = ['grass', 'plains', 'desert'].includes(terrainKey);
     const shadeLayer = strongShade
@@ -6452,6 +6703,13 @@
 
     if (terrainKey === 'mountain') {
       return `${open}<ellipse cx="1" cy="13" rx="17" ry="2.6" fill="rgba(28,38,58,.18)"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="#7b8293"/><path d="M-17 12 L-3 -13 L11 12 Z" fill="url(#mapShade)" opacity=".55"/><path d="M-3 -13 L0.5 -5.5 L-7.5 -5.5 Z" fill="#f2f6fb"/><path d="M2 12 L11 -2 L20 12 Z" fill="#959baa" opacity=".92"/><path d="M11 -2 L13 2 L9 2 Z" fill="#eef2f8" opacity=".9"/>${close}`;
+    }
+
+    if (terrainKey === 'lake') {
+      if (hash % 2 === 0) {
+        return `${open}<path d="M-10 4c3-2.4 6-2.4 9 0" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5" stroke-linecap="round"/><path d="M-2 -5c2.4-2 4.8-2 7.2 0" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1.3" stroke-linecap="round"/>${close}`;
+      }
+      return `${open}<path d="M-8 -2c3-2.4 6-2.4 9 0" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.4" stroke-linecap="round"/>${close}`;
     }
 
     if (terrainKey === 'water') {
@@ -6529,22 +6787,57 @@
       return `${open}<path d="M-6 -8a6.5 6.2 0 1 1 12 0V-4h-12Z" fill="#e8e2d2" stroke="#8d8776" stroke-width="1.1"/><circle cx="-2.8" cy="-6.6" r="1.7" fill="#3a3630"/><circle cx="2.8" cy="-6.6" r="1.7" fill="#3a3630"/><path d="M-4 -4h8v3h-2v-2h-1.6v2h-1.8v-2H-3v2h-1Z" fill="#3a3630"/><path d="M-9 11c2.2-5 5.4-7.5 9-7.5s6.8 2.5 9 7.5" fill="none" stroke="rgba(176,74,60,.55)" stroke-width="1.8" stroke-linecap="round"/>${close}`;
     }
 
+    if (featureKey === 'wonderMountain') {
+      return `${open}<circle r="17" fill="rgba(255,214,120,.16)"/><circle r="17" fill="none" stroke="rgba(240,180,60,.5)" stroke-width="1.1"/><path d="M-13 9 L-4 -10 L0 -3 L5 -12 L13 9 Z" fill="#8b91a1" stroke="#6e7484" stroke-width="1.2" stroke-linejoin="round"/><path d="M-4 -10 L-1.5 -5 L-6.5 -5 Z M5 -12 L8 -7 L2.5 -7 Z" fill="#f4f8fc"/><path d="M-13 9h26" stroke="#6e7484" stroke-width="1.4" stroke-linecap="round"/><circle cy="-15.5" r="2" fill="rgba(240,180,60,.9)"/>${close}`;
+    }
+
+    if (featureKey === 'wonderSpring') {
+      return `${open}<circle r="17" fill="rgba(140,220,255,.15)"/><circle r="17" fill="none" stroke="rgba(90,180,230,.5)" stroke-width="1.1"/><ellipse cx="0" cy="6" rx="11" ry="4.4" fill="#a7d8ee" stroke="#6fa9c9" stroke-width="1.2"/><path d="M0 6V-3" stroke="#5f9ec4" stroke-width="1.8" stroke-linecap="round"/><circle cx="0" cy="-7" r="2" fill="#8fd0ef"/><circle cx="-5" cy="-11" r="1.5" fill="#a5dcf5"/><circle cx="5.5" cy="-12.5" r="1.2" fill="#a5dcf5"/><circle cx="2.5" cy="-15" r="1" fill="#c2e9fa"/>${close}`;
+    }
+
+    if (featureKey === 'wonderTree') {
+      return `${open}<circle r="17" fill="rgba(150,230,150,.15)"/><circle r="17" fill="none" stroke="rgba(90,180,110,.5)" stroke-width="1.1"/><path d="M-2 11h4l-1 -13h-2Z" fill="#6d5743" stroke="#59462f" stroke-width="1"/><path d="M0 -12c-8 0-11 5-10 8 1 2.6 5 4 10 4s9-1.4 10-4c1-3-2-8-10-8Z" fill="#5d8f61" stroke="#47744e" stroke-width="1.1"/><path d="M0 -15c-3 0-5 1.6-5 3.6 0 2.2 2.4 3.4 5 3.4s5-1.2 5-3.4c0-2-2-3.6-5-3.6Z" fill="#6fa06e"/><circle cx="-6" cy="-6" r="1.4" fill="rgba(255,250,200,.85)"/><circle cx="5" cy="-9" r="1.3" fill="rgba(255,250,200,.75)"/><circle cx="0" cy="-2" r="1.2" fill="rgba(255,250,200,.8)"/>${close}`;
+    }
+
+    if (featureKey === 'wonderSea') {
+      return `${open}<circle r="17" fill="rgba(150,190,235,.16)"/><circle r="17" fill="none" stroke="rgba(110,160,210,.5)" stroke-width="1.1"/><path d="M-9 6V-6M-3 6V-8M3 6V-7M9 6V-5" stroke="#d8d2be" stroke-width="2.6" stroke-linecap="round"/><path d="M-12 -6h24" stroke="#c4bda6" stroke-width="2.2" stroke-linecap="round"/><path d="M-13 9c3-2.4 6-2.4 9 0s6 2.4 9 0" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+    }
+
     return '';
   }
 
   function buildMapCityMarker(city, selected) {
     const center = hexCenter(city.col, city.row);
+    const cityType = MAP_CITY_TYPES[city.type] ? city.type : 'city';
     const label = city.name.length > 8 ? `${city.name.slice(0, 8)}…` : city.name;
-    const radius = MAP_HEX_SIZE * 0.4;
+    const radius =
+      cityType === 'capital'
+        ? MAP_HEX_SIZE * 0.44
+        : cityType === 'fort'
+          ? MAP_HEX_SIZE * 0.34
+          : MAP_HEX_SIZE * 0.4;
     const selectRing = selected
       ? `<circle class="map-city-select-ring" r="${
           MAP_HEX_SIZE * 0.62
         }" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-dasharray="5 4"/>`
       : '';
 
+    const cityGlyph =
+      cityType === 'fort'
+        ? `<path class="map-city-glyph" d="M-5.5 6.5V-3.5h11V6.5Z M-5.5 -3.5v-3h2.6v3M-1.3 -3.5v-3h2.6v3M2.9 -3.5v-3h2.6v3" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linejoin="round" opacity=".92"/>`
+        : cityType === 'capital'
+          ? `<path class="map-city-glyph" d="M0 -9 L2.6 -3 L9 -3 L4 1.4 L6 8 L0 4 L-6 8 L-4 1.4 L-9 -3 L-2.6 -3 Z" fill="#ffffff" opacity=".95"/><circle cx="0" cy="-12.4" r="1.7" fill="#ffffff" opacity=".9"/>`
+          : `<path class="map-city-glyph" d="M0 -8 L2.3 -2.5 L8.2 -2.5 L3.4 1.2 L5.2 7 L0 3.5 L-5.2 7 L-3.4 1.2 L-8.2 -2.5 L-2.3 -2.5 Z" fill="#ffffff" opacity=".92"/>`;
+    const capitalRing =
+      cityType === 'capital'
+        ? `<circle r="${MAP_HEX_SIZE * 0.56}" fill="none" stroke="${city.color}" stroke-width="1.5" opacity=".55"/>`
+        : '';
     const charWidth = 14.5;
-    const bannerWidth = Math.max(64, Math.round(label.length * charWidth + 34));
-    const bannerHeight = 26;
+    const bannerWidth = Math.max(
+      cityType === 'capital' ? 72 : 64,
+      Math.round(label.length * charWidth + (cityType === 'capital' ? 40 : 34))
+    );
+    const bannerHeight = cityType === 'capital' ? 28 : 26;
     const bannerY = MAP_HEX_SIZE * 0.72;
     const halfW = bannerWidth / 2;
     const r = 7;
@@ -6571,8 +6864,9 @@
     }" opacity=".18"/>
       ${selectRing}
       <circle class="map-city-disc" r="${radius}" fill="${city.color}"/>
+      ${capitalRing}
       <circle class="map-city-ring" r="${radius}" fill="none" stroke="#ffffff" stroke-width="2.4"/>
-      <path class="map-city-glyph" d="M0 -8 L2.3 -2.5 L8.2 -2.5 L3.4 1.2 L5.2 7 L0 3.5 L-5.2 7 L-3.4 1.2 L-8.2 -2.5 L-2.3 -2.5 Z" fill="#ffffff" opacity=".92"/>
+      ${cityGlyph}
       <g class="map-city-banner" transform="translate(0 ${bannerY})">
         <path d="${bannerPath}" fill="rgba(252,253,255,.94)" stroke="${city.color}" stroke-width="1.6"/>
         <path d="${stripePath}" fill="${city.color}" opacity=".92"/>
@@ -6622,6 +6916,7 @@
       feature: 'grove',
       brushSize: 1,
       showGrid: false,
+      suggestions: null,
       selectedCityId: null,
       selectedPathId: null,
       pendingPath: null,
@@ -6848,8 +7143,98 @@
       selectedCityId: editor.selectedCityId,
       selectedPathId: editor.selectedPathId,
       pendingPath: editor.pendingPath,
+      suggestions: editor.suggestions,
     })}</g>`;
     applyMapView();
+  }
+
+  function toggleMapSuggestions() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    if (editor.suggestions) {
+      editor.suggestions = null;
+      syncMapSuggestUi();
+      renderMapCanvas();
+      return;
+    }
+
+    const map = editor.draft;
+    const riverCells = new Set();
+    for (const path of map.paths || []) {
+      if (path.kind !== 'river') continue;
+      for (const point of path.points) riverCells.add(`${point.col},${point.row}`);
+    }
+
+    // Unciv 肥沃度思路：临河临海加分，地形定基础分，抱团减分
+    const terrainScores = {
+      grass: 3,
+      plains: 2.4,
+      forest: 2,
+      swamp: 1.4,
+      hills: 1.2,
+      desert: 0.6,
+      snow: 0.5,
+      mountain: 0.1,
+      volcano: 0,
+    };
+    const scored = [];
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const key = `${col},${row}`;
+        const terrain = map.tiles[key] || 'grass';
+        if (terrain === 'water' || terrain === 'lake') continue;
+        let score = terrainScores[terrain] || 1;
+        let hasRiver = false;
+        let hasCoast = false;
+        let hasLake = false;
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+          const neighbor = map.tiles[`${nextCol},${nextRow}`] || 'grass';
+          if (riverCells.has(`${nextCol},${nextRow}`)) hasRiver = true;
+          if (neighbor === 'water') hasCoast = true;
+          if (neighbor === 'lake') hasLake = true;
+        }
+        if (hasRiver) score += 2.4;
+        if (hasCoast) score += 1.8;
+        if (hasLake) score += 1.2;
+        if (
+          map.cities.some((city) => mapHexDistance(city.col, city.row, col, row) <= 2)
+        )
+          score -= 2.5;
+        scored.push({ col, row, score });
+      }
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    const picked = [];
+    for (const candidate of scored) {
+      if (picked.length >= 3) break;
+      const tooClose = picked.some(
+        (item) => mapHexDistance(item.col, item.row, candidate.col, candidate.row) < 4
+      );
+      if (!tooClose) picked.push(candidate);
+    }
+
+    editor.suggestions = picked;
+    syncMapSuggestUi();
+    renderMapCanvas();
+    showToast(
+      picked.length
+        ? '金色星标是肥沃度最高的几处城址，仅供参考'
+        : '这片土地还不太适合定居'
+    );
+  }
+
+  function syncMapSuggestUi() {
+    const editor = state.mapEditor;
+    const active = Boolean(editor && editor.suggestions);
+    if (els.mapSuggestBtn) {
+      els.mapSuggestBtn.setAttribute('aria-pressed', String(active));
+      els.mapSuggestBtn.classList.toggle('is-active', active);
+    }
   }
 
   function applyMapView() {
@@ -7036,7 +7421,16 @@
     } 列 · 半径 ${selected.radius} 格`;
     renderMapColorRow(selected);
     syncMapRadiusButtons(selected);
+    if (els.mapCityTypeRow) syncMapCityTypeButtons(selected);
     syncMapStageTip();
+  }
+
+  function syncMapCityTypeButtons(city) {
+    els.mapCityTypeRow.querySelectorAll('[data-city-type]').forEach((button) => {
+      const active = (MAP_CITY_TYPES[city.type] ? city.type : 'city') === button.dataset.cityType;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
   }
 
   function renderMapPathList() {
@@ -7634,7 +8028,8 @@
 
     for (let row = 0; row < map.rows; row += 1) {
       for (let col = 0; col < map.cols; col += 1) {
-        if ((tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        const seedTerrain = tiles[`${col},${row}`] || 'grass';
+        if (seedTerrain !== 'water' && seedTerrain !== 'lake') continue;
         dist.set(`${col},${row}`, 0);
         queue.push([col, row]);
       }
@@ -7756,8 +8151,14 @@
       }
     }
 
+    carveGeneratedLakes(map, heights, tiles, rand);
     const riverPaths = buildGeneratedRivers(map, heights, tiles, rand);
     const features = placeGeneratedFeatures(map, tiles, rand);
+    const riverCells = new Set();
+    for (const river of riverPaths) {
+      for (const point of river.points) riverCells.add(`${point.col},${point.row}`);
+    }
+    Object.assign(features, placeGeneratedWonders(map, tiles, rand, riverCells));
 
     for (const city of map.cities) {
       for (let row = city.row - 1; row <= city.row + 1; row += 1) {
@@ -7774,6 +8175,146 @@
     return { tiles, riverPaths, features };
   }
 
+  function carveGeneratedLakes(map, heights, tiles, rand) {
+    // 内陆洼地成湖：找四周都是高地且不临海的局部低点，洪泛出一小片平静水面
+    const candidates = [];
+
+    for (let row = 1; row < map.rows - 1; row += 1) {
+      for (let col = 1; col < map.cols - 1; col += 1) {
+        const key = `${col},${row}`;
+        if ((tiles[key] || 'grass') === 'water') continue;
+        let touchesOcean = false;
+        let lowerNeighbors = 0;
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+          if ((tiles[`${nextCol},${nextRow}`] || 'grass') === 'water') touchesOcean = true;
+          if (heights[nextRow][nextCol] < heights[row][col]) lowerNeighbors += 1;
+        }
+        if (touchesOcean || lowerNeighbors > 0) continue;
+        candidates.push({ col, row, h: heights[row][col] });
+      }
+    }
+    if (candidates.length === 0) return;
+
+    candidates.sort((a, b) => a.h - b.h);
+    const targetLakes = rand() < 0.5 ? 2 : 1;
+    const lakes = [];
+
+    for (const candidate of candidates) {
+      if (lakes.length >= targetLakes) break;
+      if (
+        lakes.some((lake) => mapHexDistance(lake.col, lake.row, candidate.col, candidate.row) < 5)
+      )
+        continue;
+
+      const blob = [candidate];
+      const seen = new Set([`${candidate.col},${candidate.row}`]);
+      const size = 3 + Math.floor(rand() * 5);
+      let guard = 24;
+      while (blob.length < size && guard > 0) {
+        guard -= 1;
+        const from = blob[Math.floor(rand() * blob.length)];
+        const direction = MAP_DIRECTIONS[Math.floor(rand() * MAP_DIRECTIONS.length)];
+        const [nextCol, nextRow] = mapNeighborCell(from.col, from.row, direction);
+        const key = `${nextCol},${nextRow}`;
+        if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+        if (seen.has(key)) continue;
+        if ((tiles[key] || 'grass') === 'water') continue;
+        seen.add(key);
+        blob.push({ col: nextCol, row: nextRow });
+      }
+      if (blob.length < 3) continue;
+      for (const cell of blob) tiles[`${cell.col},${cell.row}`] = 'lake';
+      lakes.push(candidate);
+    }
+  }
+
+  const MAP_WONDER_PLANS = [
+    // Unciv NaturalWonderGenerator 思路：奇观按权重挑类型，按地形找候选格，落位后屏蔽周边
+    { key: 'wonderMountain', terrains: ['mountain'], weight: 3 },
+    { key: 'wonderTree', terrains: ['forest'], minForestNeighbors: 3, weight: 3 },
+    { key: 'wonderSpring', terrains: ['grass', 'plains', 'forest'], needRiver: true, weight: 2.4 },
+    { key: 'wonderSea', terrains: ['water'], needCoast: true, weight: 1.4 },
+  ];
+
+  function placeGeneratedWonders(map, tiles, rand, riverCells) {
+    const features = {};
+    const blocked = new Set();
+
+    for (const city of map.cities) {
+      for (let row = city.row - 2; row <= city.row + 2; row += 1) {
+        for (let col = city.col - 2; col <= city.col + 2; col += 1) {
+          if (col < 0 || row < 0 || col >= map.cols || row >= map.rows) continue;
+          if (mapHexDistance(col, row, city.col, city.row) <= 2) blocked.add(`${col},${row}`);
+        }
+      }
+    }
+
+    const pool = [];
+    for (const plan of MAP_WONDER_PLANS) {
+      const cells = [];
+      for (let row = 0; row < map.rows; row += 1) {
+        for (let col = 0; col < map.cols; col += 1) {
+          const key = `${col},${row}`;
+          if (blocked.has(key)) continue;
+          const terrain = tiles[key] || 'grass';
+          if (!plan.terrains.includes(terrain)) continue;
+          if (plan.minForestNeighbors) {
+            let forestNeighbors = 0;
+            for (const direction of MAP_DIRECTIONS) {
+              const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+              if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+              if ((tiles[`${nextCol},${nextRow}`] || 'grass') === 'forest') forestNeighbors += 1;
+            }
+            if (forestNeighbors < plan.minForestNeighbors) continue;
+          }
+          if (plan.needRiver && !riverCells.has(key)) continue;
+          if (plan.needCoast) {
+            let touchesLand = false;
+            for (const direction of MAP_DIRECTIONS) {
+              const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+              if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) continue;
+              const neighbor = tiles[`${nextCol},${nextRow}`] || 'grass';
+              if (neighbor !== 'water' && neighbor !== 'lake') touchesLand = true;
+            }
+            if (!touchesLand) continue;
+          }
+          cells.push({ col, row });
+        }
+      }
+      if (cells.length > 0) pool.push({ plan, cells });
+    }
+
+    const target = rand() < 0.55 ? 2 : 1;
+    const placed = [];
+
+    while (placed.length < target && pool.length > 0) {
+      const total = pool.reduce((sum, entry) => sum + entry.plan.weight, 0);
+      let roll = rand() * total;
+      let pickIndex = 0;
+      for (let i = 0; i < pool.length; i += 1) {
+        roll -= pool[i].plan.weight;
+        if (roll <= 0) {
+          pickIndex = i;
+          break;
+        }
+      }
+      const entry = pool.splice(pickIndex, 1)[0];
+      const cell = entry.cells[Math.floor(rand() * entry.cells.length)];
+      features[`${cell.col},${cell.row}`] = entry.plan.key;
+      placed.push(cell);
+      for (let row = cell.row - 4; row <= cell.row + 4; row += 1) {
+        for (let col = cell.col - 4; col <= cell.col + 4; col += 1) {
+          if (col < 0 || row < 0 || col >= map.cols || row >= map.rows) continue;
+          if (mapHexDistance(col, row, cell.col, cell.row) <= 4) blocked.add(`${col},${row}`);
+        }
+      }
+    }
+
+    return features;
+  }
+
   function buildGeneratedRivers(map, heights, tiles, rand) {
     const waterDist = buildMapWaterDistance(map, tiles);
     let landCount = 0;
@@ -7783,7 +8324,7 @@
       for (let col = 1; col < map.cols - 1; col += 1) {
         const key = `${col},${row}`;
         const terrain = tiles[key] || 'grass';
-        if (terrain === 'water') continue;
+        if (terrain === 'water' || terrain === 'lake') continue;
         landCount += 1;
         // Unciv RiverGenerator：源头优先高地，且离水足够远，河流才有长度
         if (terrain !== 'mountain' && terrain !== 'volcano' && terrain !== 'hills')
@@ -7816,7 +8357,8 @@
       let ended = false;
 
       for (let step = 0; step < 56 && !ended; step += 1) {
-        if ((tiles[`${current.col},${current.row}`] || 'grass') === 'water') {
+        const currentTerrain = tiles[`${current.col},${current.row}`] || 'grass';
+        if (currentTerrain === 'water' || currentTerrain === 'lake') {
           ended = true;
           break;
         }
@@ -7834,7 +8376,10 @@
             col: nextCol,
             row: nextRow,
             h: heights[nextRow][nextCol],
-            join: (tiles[key] || 'grass') === 'water' || usedCells.has(key),
+            join:
+              (tiles[key] || 'grass') === 'water' ||
+              (tiles[key] || 'grass') === 'lake' ||
+              usedCells.has(key),
           };
           // 优先汇入海洋或既有河流（Unciv 式支流汇合），否则走最低梯度
           if (candidate.join) {
@@ -7958,7 +8503,7 @@
     openConfirm({
       title: '生成一片灵感大陆？',
       message:
-        '会按大陆轮廓、气候与湿度随机重绘地形，自动校准海陆比例，让河流从高地汇流入海，并按地貌布置少量地标（会覆盖手动地标，城市保留）。可以用撤销找回。',
+        '会按大陆轮廓、气候与湿度随机重绘地形，自动校准海陆比例，让河流从高地汇流入海或注入湖泊，并随机布置自然奇观与少量地标（会覆盖手动地标，城市保留）。可以用撤销找回。',
       okLabel: '生成地形',
       onConfirm: () => {
         const editorNow = state.mapEditor;
@@ -7979,6 +8524,83 @@
         showToast('已生成大陆、水系与地标，继续调整或撤销');
       },
     });
+  }
+
+  function buildMapExportOverlays(map, title, originX, originY, totalW, totalH) {
+    const parts = [];
+    const panel = 'rgba(252,253,255,.93)';
+    const edge = 'rgba(28,36,64,.2)';
+    const titleText = String(title || '未命名地图').slice(0, 18);
+
+    parts.push(
+      `<g transform="translate(${roundMapCoordinate(originX + 14)} ${roundMapCoordinate(
+        originY + 14
+      )})"><rect width="${titleText.length * 17 + 36}" height="36" rx="10" fill="${panel}" stroke="${edge}"/><text x="18" y="24" class="map-export-title">${escapeXml(
+        titleText
+      )}</text></g>`
+    );
+
+    parts.push(
+      `<g transform="translate(${roundMapCoordinate(originX + totalW - 14)} ${roundMapCoordinate(
+        originY + 14
+      )})"><circle cx="-20" cy="20" r="17" fill="${panel}" stroke="${edge}"/><path d="M-20 7 L-15 24 L-20 20 L-25 24 Z" fill="#b0543c"/><text x="-20" y="49" text-anchor="middle" class="map-export-n">北</text></g>`
+    );
+
+    const legendItems = [];
+    const tileCounts = {};
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const key = map.tiles[`${col},${row}`] || 'grass';
+        tileCounts[key] = (tileCounts[key] || 0) + 1;
+      }
+    }
+    for (const terrainKey of MAP_TERRAIN_KEYS) {
+      if (!tileCounts[terrainKey]) continue;
+      legendItems.push({
+        kind: 'terrain',
+        key: terrainKey,
+        label: MAP_TERRAINS[terrainKey].label,
+      });
+    }
+    const featureCounts = {};
+    for (const featureKey of Object.values(map.features || {})) {
+      featureCounts[featureKey] = (featureCounts[featureKey] || 0) + 1;
+    }
+    for (const [featureKey] of Object.entries(featureCounts)) {
+      if (!MAP_FEATURES[featureKey]) continue;
+      legendItems.push({ kind: 'feature', key: featureKey, label: MAP_FEATURES[featureKey].label });
+    }
+
+    if (legendItems.length > 0) {
+      const perRow = 5;
+      const cellW = 94;
+      const rows = Math.ceil(legendItems.length / perRow);
+      const legendW = Math.min(perRow, legendItems.length) * cellW + 18;
+      const legendH = rows * 26 + 14;
+      const legend = [];
+
+      legendItems.forEach((item, index) => {
+        const lx = 14 + (index % perRow) * cellW;
+        const ly = 14 + Math.floor(index / perRow) * 26;
+        if (item.kind === 'terrain') {
+          legend.push(
+            `<g transform="translate(${lx} ${ly + 6})"><rect x="0" y="-7" width="13" height="13" rx="3" fill="${MAP_TERRAINS[item.key].fill}" stroke="${MAP_TERRAINS[item.key].stroke}" stroke-width="1"/><text x="19" y="4.5" class="map-export-legend">${escapeXml(item.label)}</text></g>`
+          );
+        } else {
+          legend.push(
+            `<g transform="translate(${lx + 9} ${ly + 3}) scale(.5)">${buildMapFeatureDecor(item.key)}</g><text x="${lx + 20}" y="${ly + 8}" class="map-export-legend">${escapeXml(item.label)}</text>`
+          );
+        }
+      });
+
+      parts.push(
+        `<g transform="translate(${roundMapCoordinate(originX + 14)} ${roundMapCoordinate(
+          originY + totalH - 14 - legendH
+        )})"><rect width="${legendW}" height="${legendH}" rx="10" fill="${panel}" stroke="${edge}"/>${legend.join('')}</g>`
+      );
+    }
+
+    return parts.join('');
   }
 
   function exportMapPng() {
@@ -8006,13 +8628,21 @@
     svg.setAttribute('width', String(width));
     svg.setAttribute('height', String(height));
     svg.innerHTML =
-      `<style>.map-city-label{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:15px;font-weight:600;paint-order:stroke;stroke:rgba(255,255,255,.86);stroke-width:4px;stroke-linejoin:round}</style>` +
+      `<style>.map-city-label{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:15px;font-weight:600;paint-order:stroke;stroke:rgba(255,255,255,.86);stroke-width:4px;stroke-linejoin:round}.map-export-title{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:17px;font-weight:700}.map-export-legend{fill:#4a5266;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:12.5px}.map-export-n{fill:#8a6a48;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:12.5px;font-weight:700}</style>` +
       `<rect x="${roundMapCoordinate(bounds.minX - padding)}" y="${roundMapCoordinate(
         bounds.minY - padding
       )}" width="${roundMapCoordinate(bounds.width + padding * 2)}" height="${roundMapCoordinate(
         bounds.height + padding * 2
       )}" fill="#eef2f8"/>` +
-      buildMapMarkup(editor.draft);
+      buildMapMarkup(editor.draft) +
+      buildMapExportOverlays(
+        editor.draft,
+        entry ? entry.title : '未命名地图',
+        bounds.minX - padding,
+        bounds.minY - padding,
+        bounds.width + padding * 2,
+        bounds.height + padding * 2
+      );
 
     const blob = new Blob([svg.outerHTML], {
       type: 'image/svg+xml;charset=utf-8',
@@ -9787,6 +10417,7 @@
       if (commentCounts.updated) parts.push(`更新 ${commentCounts.updated} 条评论`);
       if (skipped) parts.push(`跳过 ${skipped} 条无效内容`);
       showToast(`导入完成：${parts.join('，')}`);
+      refreshDataSafetyPanel();
     } catch (error) {
       console.error('导入失败：', error);
       showToast(
@@ -9957,6 +10588,109 @@
     return { added, updated };
   }
 
+  /* ---------- Backup reminders & capacity ---------- */
+
+  // 上次导出时间存独立键：不进主库、不进备份本身，否则旧备份导入会把计时器拨回去
+  function readBackupMeta() {
+    try {
+      return JSON.parse(localStorage.getItem(BACKUP_META_KEY) || 'null') || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function writeBackupMeta(date) {
+    try {
+      localStorage.setItem(
+        BACKUP_META_KEY,
+        JSON.stringify({ lastExportAt: date.toISOString() })
+      );
+    } catch (error) {
+      /* 忽略 */
+    }
+  }
+
+  function updateBackupReminder() {
+    const el = els.backupReminder;
+    if (!el) return;
+    const hasContent =
+      state.novels.length > 0 || state.trash.length > 0 || state.comments.length > 0;
+    if (!hasContent) {
+      el.hidden = true;
+      return;
+    }
+
+    const meta = readBackupMeta();
+    let anchorMs = meta.lastExportAt ? Date.parse(meta.lastExportAt) : NaN;
+    let prefix = '距上次备份';
+    if (!Number.isFinite(anchorMs)) {
+      // 从未导出过：以最早的内容更新时间起算
+      let oldest = null;
+      for (const novel of state.novels) {
+        const stamp = Date.parse(novel.updatedAt);
+        if (Number.isFinite(stamp) && (oldest === null || stamp < oldest)) {
+          oldest = stamp;
+        }
+      }
+      if (oldest === null) {
+        el.hidden = true;
+        return;
+      }
+      anchorMs = oldest;
+      prefix = '最早内容写下至今';
+    }
+
+    const days = Math.floor((Date.now() - anchorMs) / 86400000);
+    if (days < BACKUP_REMIND_DAYS) {
+      el.hidden = true;
+      return;
+    }
+    const months = Math.max(1, Math.floor(days / 30));
+    el.textContent = `${prefix}已 ${months} 个月 · 建议导出`;
+    el.hidden = false;
+  }
+
+  function updateSideCapacity() {
+    const el = els.sideCapacity;
+    if (!el) return;
+    const empty =
+      state.novels.length === 0 &&
+      state.trash.length === 0 &&
+      state.comments.length === 0;
+    if (empty) {
+      el.hidden = true;
+      return;
+    }
+    let size = 0;
+    try {
+      size = new Blob([localStorage.getItem(STORAGE_KEY) || '']).size;
+    } catch (error) {
+      size = (localStorage.getItem(STORAGE_KEY) || '').length;
+    }
+    const label =
+      size < 1024 * 1024
+        ? `${Math.max(1, Math.round(size / 1024))} KB`
+        : `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    el.textContent = `本机数据约 ${label} · 建议定期导出`;
+    // Gmail 容量条的教训：接近配额时颜色要先行，别等保存失败才出声
+    el.classList.toggle('is-close-to-quota', size > 3.5 * 1024 * 1024);
+    el.hidden = false;
+  }
+
+  function refreshDataSafetyPanel() {
+    // 侧栏两行互不拖累：一行出错只记控制台，另一行照常显示
+    try {
+      updateBackupReminder();
+    } catch (error) {
+      console.error('备份提醒更新失败：', error);
+    }
+    try {
+      updateSideCapacity();
+    } catch (error) {
+      console.error('容量显示更新失败：', error);
+    }
+  }
+
   function exportLibrary() {
     if (
       state.novels.length === 0 &&
@@ -9996,6 +10730,9 @@
     showToast(
       `已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}${commentSuffix}`
     );
+
+    writeBackupMeta(now);
+    refreshDataSafetyPanel();
   }
 
   function fileDate(date) {
@@ -11673,6 +12410,9 @@
       els.mapSizeRowsPlus.addEventListener('click', () => resizeMapCanvas(0, 1));
     }
 
+    if (els.mapSuggestBtn) {
+      els.mapSuggestBtn.addEventListener('click', toggleMapSuggestions);
+    }
     if (els.mapGenerateBtn) {
       els.mapGenerateBtn.addEventListener('click', generateMapTerrain);
     }
@@ -11814,6 +12554,24 @@
       renderMapCanvas();
       syncMapCityControls(city);
     });
+
+    if (els.mapCityTypeRow) {
+      els.mapCityTypeRow.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-city-type]');
+        const editor = state.mapEditor;
+        if (!button || !editor) return;
+        const city = editor.draft.cities.find(
+          (item) => item.id === editor.selectedCityId
+        );
+        if (!city) return;
+        const nextType = MAP_CITY_TYPES[button.dataset.cityType] ? button.dataset.cityType : 'city';
+        if ((MAP_CITY_TYPES[city.type] ? city.type : 'city') === nextType) return;
+        city.type = nextType;
+        pushMapHistory();
+        renderMapCanvas();
+        renderMapInspector();
+      });
+    }
 
     els.mapColorRow.addEventListener('click', (event) => {
       const button = event.target.closest('[data-color]');

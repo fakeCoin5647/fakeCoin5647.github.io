@@ -41,6 +41,12 @@
           <p class="outline-editor-desc" data-outline-desc>整页书写，分卷、章节与分场都可以一次铺开。</p>
         </div>
         <div class="outline-editor-head-actions">
+          <div class="view-switch outline-status-switch" role="group" aria-label="大纲状态" data-outline-status>
+            <button type="button" class="view-switch-btn" data-status-value="">未标记</button>
+            <button type="button" class="view-switch-btn" data-status-value="planning">构思中</button>
+            <button type="button" class="view-switch-btn" data-status-value="drafting">写作中</button>
+            <button type="button" class="view-switch-btn" data-status-value="done">已完成</button>
+          </div>
           <button type="button" class="btn ghost" data-outline-cancel>取消</button>
           <button type="submit" form="outlineEditorForm" class="btn primary">
             <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>

@@ -5,6 +5,20 @@ layout: default
         <section class="shelf-section" id="shelf" aria-labelledby="shelfHeading">
           <h1 class="sr-only" id="shelfHeading">我的书架</h1>
 
+          <div class="continue-banner" id="continueBanner" hidden>
+            <span class="continue-banner-icon" aria-hidden="true">
+              <svg class="icon"><use href="#i-book"></use></svg>
+            </span>
+            <p class="continue-banner-text">
+              <span id="continueBannerText"></span>
+              <span class="continue-banner-time" id="continueBannerTime"></span>
+            </p>
+            <button type="button" class="btn primary continue-banner-btn" id="continueBannerBtn" data-action="continue-last">继续</button>
+            <button type="button" class="icon-btn continue-banner-dismiss" id="continueBannerDismissBtn" data-action="dismiss-continue" aria-label="本次不再显示">
+              <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+            </button>
+          </div>
+
           <div class="shelf-toolbar" id="shelfToolbar">
             <div class="search-sort-row">
               <div class="search-box">
@@ -209,6 +223,12 @@ layout: default
                 <option value="oldest">最早评论</option>
               </select>
             </label>
+          </div>
+
+          <div class="filter-row comments-status-filters" id="commentsStatusFilters" role="group" aria-label="按评论状态筛选" hidden>
+            <button type="button" class="filter-pill is-active" data-action="comment-status-filter" data-comment-status="open" aria-pressed="true">待处理<span class="filter-count">0</span></button>
+            <button type="button" class="filter-pill" data-action="comment-status-filter" data-comment-status="resolved" aria-pressed="false">已解决<span class="filter-count">0</span></button>
+            <button type="button" class="filter-pill" data-action="comment-status-filter" data-comment-status="all" aria-pressed="false">全部<span class="filter-count">0</span></button>
           </div>
 
           <div class="list-meta comments-meta">
