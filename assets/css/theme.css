@@ -911,25 +911,19 @@ html.is-sheer .workspace-breadcrumb {
   color: var(--ink-soft);
 }
 
-/* 页脚：直接坐在壁纸上，给一块 iOS 式轻玻璃底条（不垫白影） */
-.site-footer {
-  margin-top: 2.8rem;
-  padding: 0.9rem 1.1rem;
-  border: 1px solid rgba(255, 255, 255, calc(0.5 * var(--rim-strength)));
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.32);
-  color: var(--ink-soft);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, calc(0.5 * var(--rim-strength))),
-    0 10px 26px -18px rgba(18, 28, 65, 0.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+/* 页脚不做任何底垫：保持原有细线分隔，直接透在壁纸上；
+   可读性只靠文字颜色加深到近黑（小字号 + 纹理壁纸需要更强对比） */
+html.is-sheer .site-footer,
+html.is-sheer .footer-brand,
+html.is-sheer .footer-note,
+html.is-sheer .footer-year,
+html.is-sheer .footer-moon {
+  color: var(--ink);
 }
 
-html.is-sheer .site-footer {
-  background: rgba(255, 255, 255, 0.4);
-  /* 基础样式在文件后部用 --faint 覆盖容器色，这里拉回深色 */
-  color: var(--ink-soft);
+html.is-sheer .site-footer a,
+html.is-sheer .footer-link {
+  color: var(--accent-deep);
 }
 
 .side-note {
