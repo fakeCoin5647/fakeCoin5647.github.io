@@ -622,3 +622,16 @@ a.public-relation-person:hover {
     animation: none;
   }
 }
+
+/* 地图城市横幅名牌 */
+.public-map .map-city-label,
+.map-canvas .map-city-label {
+  fill: #293044;
+  font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}

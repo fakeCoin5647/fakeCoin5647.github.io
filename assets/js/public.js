@@ -81,6 +81,17 @@
   };
   const MAP_MAX_PATH_POINTS = 400;
   const MAP_PATH_LIMIT = 60;
+
+  const MAP_FEATURES = [
+    'grove',
+    'ruins',
+    'temple',
+    'fortress',
+    'port',
+    'camp',
+    'stones',
+    'danger',
+  ];
   const MAP_CITY_COLORS = [
     '#4f6df5',
     '#b05a3c',
@@ -308,6 +319,21 @@
       tiles[`${col},${row}`] = value;
     }
 
+    const features = {};
+    const rawFeatures =
+      raw.features && typeof raw.features === 'object' ? raw.features : {};
+
+    for (const [key, value] of Object.entries(rawFeatures)) {
+      if (typeof value !== 'string') continue;
+      if (!MAP_FEATURES.includes(value)) continue;
+      const match = /^(\d{1,2}),(\d{1,2})$/.exec(key);
+      if (!match) continue;
+      const col = Number(match[1]);
+      const row = Number(match[2]);
+      if (col >= cols || row >= rows) continue;
+      features[`${col},${row}`] = value;
+    }
+
     const cities = [];
     const seen = new Set();
     const rawCities = Array.isArray(raw.cities) ? raw.cities : [];
@@ -379,7 +405,7 @@
       paths.push({ id, kind, points });
     }
 
-    return { cols, rows, tiles, cities, paths };
+    return { cols, rows, tiles, features, cities, paths };
   }
 
   function sanitizeEntry(raw) {
@@ -642,6 +668,45 @@
     return ownership;
   }
 
+  function buildMapFeatureDecor(featureKey) {
+    const open = `<g class="map-feature-decor" aria-hidden="true">`;
+    const close = '</g>';
+
+    if (featureKey === 'grove') {
+      return `${open}<g transform="translate(-6 2) scale(.78)"><path d="M0 -11 L-5 2 H5 Z" fill="#4f7a54"/><path d="M0 -4 L-7 10 H7 Z" fill="#5d8a60"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g><g transform="translate(7 -3) scale(.6)"><path d="M0 -11 L-5 2 H5 Z" fill="#4b7350"/><path d="M0 -4 L-7 10 H7 Z" fill="#5b8760"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g>${close}`;
+    }
+
+    if (featureKey === 'ruins') {
+      return `${open}<path d="M-11 10v-13h4v13" fill="#c9c2b2" stroke="#9a927f" stroke-width="1"/><path d="M-11 -3h4M-11 2h4" stroke="#a89f8c" stroke-width="1"/><path d="M2 10v-9h4v9" fill="#c9c2b2" stroke="#9a927f" stroke-width="1"/><path d="M9 10l-2-11 3-1 3 12" fill="#bdb5a2" stroke="#948c79" stroke-width="1"/><path d="M-14 10h22" stroke="#8f876f" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'temple') {
+      return `${open}<path d="M-12 9h24" stroke="#948c79" stroke-width="1.6" stroke-linecap="round"/><path d="M-10 9V-2h20V9" fill="#e4dcc8" stroke="#9a927f" stroke-width="1.1"/><path d="M-12 -2L0 -11l12 9" fill="#d8cfb8" stroke="#9a927f" stroke-width="1.1"/><path d="M-6.5 9V0M-1 9V0M4.5 9V0" stroke="#b0a78f" stroke-width="2.2"/><circle cx="0" cy="-4.5" r="2.2" fill="rgba(240,196,92,.9)"/>${close}`;
+    }
+
+    if (featureKey === 'fortress') {
+      return `${open}<path d="M-10 10V-4h20V10" fill="#a9adb8" stroke="#7e828e" stroke-width="1.1"/><path d="M-10 -4v-4h4v4M-4 -4v-4h4v4M2 -4v-4h4v4M8 -4v-4h4v4" fill="#a9adb8" stroke="#7e828e" stroke-width="1.1"/><path d="M-3 10V1h6v9" fill="#5c606b"/><path d="M-13 10h26" stroke="#767a86" stroke-width="1.6" stroke-linecap="round"/><path d="M0 -8v-4M0 -12l4 2-4 2" fill="none" stroke="#b04a3c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>${close}`;
+    }
+
+    if (featureKey === 'port') {
+      return `${open}<path d="M0 -10v14" stroke="#6b4a2e" stroke-width="2" stroke-linecap="round"/><path d="M0 4c-5 0-8-3-8.5-7" fill="none" stroke="#4c4a45" stroke-width="2" stroke-linecap="round"/><path d="M0 4c5 0 8-3 8.5-7" fill="none" stroke="#4c4a45" stroke-width="2" stroke-linecap="round"/><path d="M-5 -6h10" stroke="#4c4a45" stroke-width="2" stroke-linecap="round"/><circle cx="0" cy="-10" r="1.8" fill="none" stroke="#4c4a45" stroke-width="1.6"/><path d="M-13 9c3.5-3 7-3 10.5 0s7 3 10.5 0" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.8" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'camp') {
+      return `${open}<path d="M-11 10  -4 -3  3 10Z" fill="#c2a06b" stroke="#94764a" stroke-width="1.1" stroke-linejoin="round"/><path d="M-4 -3V10" stroke="#94764a" stroke-width="1"/><path d="M5 10  10 3  15 10Z" fill="#c2a06b" stroke="#94764a" stroke-width="1.1" stroke-linejoin="round"/><path d="M8.5 12c0-2 1.6-2 1.6 0s1.6 2 1.6 0" fill="none" stroke="rgba(216,110,52,.85)" stroke-width="1.7" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'stones') {
+      return `${open}<path d="M-10 9  -12 -4 -7 -6 -5 9Z" fill="#9aa0ac" stroke="#7d828d" stroke-width="1"/><path d="M-2 9  -2 -9  3 -10  4 9Z" fill="#aab0bb" stroke="#7d828d" stroke-width="1"/><path d="M8 9  10 0  14 -2  15 9Z" fill="#9aa0ac" stroke="#7d828d" stroke-width="1"/><path d="M-13 9h30" stroke="#848a94" stroke-width="1.5" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'danger') {
+      return `${open}<path d="M-6 -8a6.5 6.2 0 1 1 12 0V-4h-12Z" fill="#e8e2d2" stroke="#8d8776" stroke-width="1.1"/><circle cx="-2.8" cy="-6.6" r="1.7" fill="#3a3630"/><circle cx="2.8" cy="-6.6" r="1.7" fill="#3a3630"/><path d="M-4 -4h8v3h-2v-2h-1.6v2h-1.8v-2H-3v2h-1Z" fill="#3a3630"/><path d="M-9 11c2.2-5 5.4-7.5 9-7.5s6.8 2.5 9 7.5" fill="none" stroke="rgba(176,74,60,.55)" stroke-width="1.8" stroke-linecap="round"/>${close}`;
+    }
+
+    return '';
+  }
+
   function escapeXml(value) {
     return String(value).replace(/[&<>"']/g, (character) => {
       switch (character) {
@@ -663,6 +728,7 @@
     const terrainParts = [];
     const coastParts = [];
     const pathParts = [];
+    const featureParts = [];
     const territoryParts = [];
     const borderParts = [];
     const cityParts = [];
@@ -672,16 +738,35 @@
         const terrainKey = map.tiles[`${col},${row}`] || 'grass';
         const center = hexCenter(col, row);
         const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
+        const fill = terrainKey === 'water' ? 'url(#mapWaterGrad)' : terrain.fill;
+        const shaded = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(
+          terrainKey
+        );
         terrainParts.push(
-          `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${
-            terrain.fill
-          }" stroke="${terrain.stroke}" stroke-opacity=".55" stroke-width=".7"/>`
+          `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${fill}" stroke="${
+            terrain.stroke
+          }" stroke-opacity=".55" stroke-width=".7"/>${
+            shaded
+              ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
+              : ''
+          }`
         );
       }
     }
 
     coastParts.push(buildMapCoastline(map));
     pathParts.push(buildMapPathsMarkup(map));
+
+    for (const [key, featureKey] of Object.entries(map.features || {})) {
+      const [col, row] = key.split(',').map(Number);
+      if (col >= map.cols || row >= map.rows) continue;
+      const center = hexCenter(col, row);
+      featureParts.push(
+        `<g class="map-feature" transform="translate(${roundMapCoordinate(
+          center.x
+        )} ${roundMapCoordinate(center.y)})">${buildMapFeatureDecor(featureKey)}</g>`
+      );
+    }
 
     const ownership = computeMapOwnership(map);
     const ownedByCity = new Map();
@@ -732,6 +817,24 @@
     for (const city of map.cities) {
       const center = hexCenter(city.col, city.row);
       const label = city.name.length > 8 ? `${city.name.slice(0, 8)}…` : city.name;
+      const charWidth = 14.5;
+      const bannerWidth = Math.max(64, Math.round(label.length * charWidth + 34));
+      const bannerHeight = 26;
+      const bannerY = MAP_HEX_SIZE * 0.72;
+      const halfW = bannerWidth / 2;
+      const r = 7;
+      const tipW = 7;
+      const tipH = 9;
+      const bannerPath =
+        `M${-halfW + r} 0 L${halfW - r} 0 Q${halfW} 0 ${halfW} ${r} ` +
+        `L${halfW} ${bannerHeight - r} Q${halfW} ${bannerHeight} ${halfW - r} ${bannerHeight} ` +
+        `L${tipW} ${bannerHeight} L0 ${bannerHeight + tipH} L-${tipW} ${bannerHeight} ` +
+        `L${-halfW + r} ${bannerHeight} Q${-halfW} ${bannerHeight} ${-halfW} ${bannerHeight - r} ` +
+        `L${-halfW} ${r} Q${-halfW} 0 ${-halfW + r} 0 Z`;
+      const stripePath =
+        `M${-halfW + r} 0 L${-halfW + 16} 0 L${-halfW + 16} ${bannerHeight} ` +
+        `L${-halfW + r} ${bannerHeight} Q${-halfW} ${bannerHeight} ${-halfW} ${bannerHeight - r} ` +
+        `L${-halfW} ${r} Q${-halfW} 0 ${-halfW + r} 0 Z`;
       cityParts.push(
         `<g class="map-city-marker" transform="translate(${roundMapCoordinate(
           center.x
@@ -744,21 +847,37 @@
             MAP_HEX_SIZE * 0.4
           }" fill="none" stroke="#ffffff" stroke-width="2.4"/>
           <path class="map-city-glyph" d="M0 -8 L2.3 -2.5 L8.2 -2.5 L3.4 1.2 L5.2 7 L0 3.5 L-5.2 7 L-3.4 1.2 L-8.2 -2.5 L-2.3 -2.5 Z" fill="#ffffff" opacity=".92"/>
-          <text class="map-city-label" y="${
-            MAP_HEX_SIZE + 4
-          }" text-anchor="middle">${escapeXml(label)}</text>
-          <title>${escapeXml(city.name)}</title>
+          <g class="map-city-banner" transform="translate(0 ${bannerY})">
+            <path d="${bannerPath}" fill="rgba(252,253,255,.94)" stroke="${city.color}" stroke-width="1.6"/>
+            <path d="${stripePath}" fill="${city.color}" opacity=".92"/>
+            <text class="map-city-label" x="8" y="${
+              bannerHeight / 2 + 5.5
+            }" text-anchor="middle">${escapeXml(label)}</text>
+            <title>${escapeXml(city.name)}</title>
+          </g>
         </g>`
       );
     }
 
     return [
+      `<defs>
+        <linearGradient id="mapShade" x1="0" y1="0" x2="0.55" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".34"/>
+          <stop offset=".42" stop-color="#ffffff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#1c2440" stop-opacity=".2"/>
+        </linearGradient>
+        <linearGradient id="mapWaterGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#a8cbe4"/>
+          <stop offset="1" stop-color="#7fa9cb"/>
+        </linearGradient>
+      </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
       `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
       `<g class="map-layer map-path-layer">${pathParts.join('')}</g>`,
       `<g class="map-layer map-territory-layer" aria-hidden="true">${territoryParts.join(
         ''
       )}${borderParts.join('')}</g>`,
+      `<g class="map-layer map-feature-layer">${featureParts.join('')}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
     ].join('');
   }
@@ -827,14 +946,19 @@
     for (const path of map.paths || []) {
       const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
       const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
+      const d = catmullRomToBezierPath(path.points);
+      const bank =
+        path.kind === 'river'
+          ? `<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
+              config.width + 3
+            }" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
+          : '';
       parts.push(
-        `<g class="map-path-item"><path d="${catmullRomToBezierPath(
-          path.points
-        )}" fill="none" stroke="${config.color}" stroke-width="${
+        `<g class="map-path-item">${bank}<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
           config.width
         }"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>${
           path.kind === 'river'
-            ? `<path d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+            ? `<path d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
             : ''
         }</g>`
       );

@@ -282,6 +282,19 @@
 
   const MAP_MAX_PATH_POINTS = 400;
   const MAP_PATH_LIMIT = 60;
+
+  const MAP_FEATURES = {
+    grove: { label: '树林' },
+    ruins: { label: '遗迹' },
+    temple: { label: '神殿' },
+    fortress: { label: '要塞' },
+    port: { label: '港口' },
+    camp: { label: '营地' },
+    stones: { label: '石阵' },
+    danger: { label: '凶地' },
+  };
+
+  const MAP_FEATURE_KEYS = ['none', ...Object.keys(MAP_FEATURES)];
   const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
 
   const MAP_CITY_COLORS = [
@@ -579,6 +592,8 @@
     mapDeleteCityBtn: $('#mapDeleteCityBtn'),
     mapInspectorEmpty: $('#mapInspectorEmpty'),
     mapBrushRow: $('#mapBrushRow'),
+    mapGridBtn: $('#mapGridBtn'),
+    mapTerrainLabel: $('#mapTerrainLabel'),
     mapSizeColsMinus: $('#mapSizeColsMinus'),
     mapSizeColsPlus: $('#mapSizeColsPlus'),
     mapSizeRowsMinus: $('#mapSizeRowsMinus'),
@@ -1243,6 +1258,21 @@
       tiles[`${col},${row}`] = value;
     }
 
+    const features = {};
+    const rawFeatures =
+      raw.features && typeof raw.features === 'object' ? raw.features : {};
+
+    for (const [key, value] of Object.entries(rawFeatures)) {
+      if (typeof value !== 'string') continue;
+      if (!Object.prototype.hasOwnProperty.call(MAP_FEATURES, value)) continue;
+      const match = /^(\d{1,2}),(\d{1,2})$/.exec(key);
+      if (!match) continue;
+      const col = Number(match[1]);
+      const row = Number(match[2]);
+      if (col >= cols || row >= rows) continue;
+      features[`${col},${row}`] = value;
+    }
+
     const cities = [];
     const seen = new Set();
     const rawCities = Array.isArray(raw.cities) ? raw.cities : [];
@@ -1316,7 +1346,7 @@
       paths.push({ id, kind, points });
     }
 
-    return { cols, rows, tiles, cities, paths };
+    return { cols, rows, tiles, features, cities, paths };
   }
 
   function normalizeCityColor(value, index) {
@@ -5615,7 +5645,14 @@
   /* ---------- Map workshop ---------- */
 
   function defaultMap() {
-    return { cols: MAP_DEFAULT_COLS, rows: MAP_DEFAULT_ROWS, tiles: {}, cities: [], paths: [] };
+    return {
+      cols: MAP_DEFAULT_COLS,
+      rows: MAP_DEFAULT_ROWS,
+      tiles: {},
+      features: {},
+      cities: [],
+      paths: [],
+    };
   }
 
   function mapHasContent(map) {
@@ -5623,6 +5660,7 @@
       map &&
         (map.cities.length > 0 ||
           Object.keys(map.tiles).length > 0 ||
+          Object.keys(map.features || {}).length > 0 ||
           (map.paths && map.paths.length > 0))
     );
   }
@@ -5817,6 +5855,7 @@
     const terrainParts = [];
     const coastParts = [];
     const pathParts = [];
+    const featureParts = [];
     const territoryParts = [];
     const borderParts = [];
     const cityParts = [];
@@ -5829,6 +5868,17 @@
 
     coastParts.push(buildMapCoastline(map));
     pathParts.push(buildMapPathsMarkup(map, { selectedPathId, pendingPath }));
+
+    for (const [key, featureKey] of Object.entries(map.features || {})) {
+      const [col, row] = key.split(',').map(Number);
+      if (col >= map.cols || row >= map.rows) continue;
+      const center = hexCenter(col, row);
+      featureParts.push(
+        `<g class="map-feature" data-col="${col}" data-row="${row}" data-feature="${featureKey}" transform="translate(${roundMapCoordinate(
+          center.x
+        )} ${roundMapCoordinate(center.y)})">${buildMapFeatureDecor(featureKey)}</g>`
+      );
+    }
 
     const ownership = computeMapOwnership(map);
     const ownedByCity = new Map();
@@ -5880,13 +5930,25 @@
     }
 
     return [
-      `<defs><filter id="mapCityShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="rgba(20,28,52,.42)"/></filter></defs>`,
+      `<defs>
+        <filter id="mapCityShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="rgba(20,28,52,.42)"/></filter>
+        <linearGradient id="mapShade" x1="0" y1="0" x2="0.55" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".34"/>
+          <stop offset=".42" stop-color="#ffffff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#1c2440" stop-opacity=".2"/>
+        </linearGradient>
+        <linearGradient id="mapWaterGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#a8cbe4"/>
+          <stop offset="1" stop-color="#7fa9cb"/>
+        </linearGradient>
+      </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
       `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
       `<g class="map-layer map-path-layer">${pathParts.join('')}</g>`,
       `<g class="map-layer map-territory-layer" aria-hidden="true">${territoryParts.join(
         ''
       )}${borderParts.join('')}</g>`,
+      `<g class="map-layer map-feature-layer">${featureParts.join('')}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
     ].join('');
   }
@@ -5954,12 +6016,18 @@
     const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
     const data = selected ? ' is-selected' : '';
     const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
+    const d = catmullRomToBezierPath(path.points);
+    const bank =
+      path.kind === 'river'
+        ? `<path class="map-path-bank" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width + 3}" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
+        : '';
     return `<g class="map-path-item${data}" data-path-id="${escapeXml(path.id)}">
-      <path class="map-path-hit" d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="14"/>
-      <path class="map-path-line" d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="${config.color}" stroke-width="${config.width}"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
+      <path class="map-path-hit" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="14"/>
+      ${bank}
+      <path class="map-path-line" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width}"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
       ${
         path.kind === 'river'
-          ? `<path class="map-path-glow" d="${catmullRomToBezierPath(path.points)}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+          ? `<path class="map-path-glow" d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
           : ''
       }
       <title>${config.label}</title>
@@ -6002,15 +6070,15 @@
   function buildMapHexInner(col, row, terrainKey) {
     const center = hexCenter(col, row);
     const terrain = MAP_TERRAINS[terrainKey] || MAP_TERRAINS.grass;
-    return `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${
-      terrain.fill
-    }" stroke="${terrain.stroke}" stroke-opacity=".55" stroke-width=".7"/>${buildMapDecor(
-      terrainKey,
-      center.x,
-      center.y,
-      col,
-      row
-    )}`;
+    const fill = terrainKey === 'water' ? 'url(#mapWaterGrad)' : terrain.fill;
+    const shaded = ['hills', 'mountain', 'volcano', 'forest', 'swamp'].includes(terrainKey);
+    return `<path class="map-hex-shape" d="${hexPathAt(center.x, center.y)}" fill="${fill}" stroke="${
+      terrain.stroke
+    }" stroke-opacity=".55" stroke-width=".7"/>${
+      shaded
+        ? `<path d="${hexPathAt(center.x, center.y)}" fill="url(#mapShade)"/>`
+        : ''
+    }${buildMapDecor(terrainKey, center.x, center.y, col, row)}`;
   }
 
   function buildMapDecor(terrainKey, x, y, col, row) {
@@ -6065,6 +6133,45 @@
     return '';
   }
 
+  function buildMapFeatureDecor(featureKey) {
+    const open = `<g class="map-feature-decor" aria-hidden="true">`;
+    const close = '</g>';
+
+    if (featureKey === 'grove') {
+      return `${open}<g transform="translate(-6 2) scale(.78)"><path d="M0 -11 L-5 2 H5 Z" fill="#4f7a54"/><path d="M0 -4 L-7 10 H7 Z" fill="#5d8a60"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g><g transform="translate(7 -3) scale(.6)"><path d="M0 -11 L-5 2 H5 Z" fill="#4b7350"/><path d="M0 -4 L-7 10 H7 Z" fill="#5b8760"/><path d="M-1 10h2v4h-2z" fill="#6d5743"/></g>${close}`;
+    }
+
+    if (featureKey === 'ruins') {
+      return `${open}<path d="M-11 10v-13h4v13" fill="#c9c2b2" stroke="#9a927f" stroke-width="1"/><path d="M-11 -3h4M-11 2h4" stroke="#a89f8c" stroke-width="1"/><path d="M2 10v-9h4v9" fill="#c9c2b2" stroke="#9a927f" stroke-width="1"/><path d="M9 10l-2-11 3-1 3 12" fill="#bdb5a2" stroke="#948c79" stroke-width="1"/><path d="M-14 10h22" stroke="#8f876f" stroke-width="1.6" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'temple') {
+      return `${open}<path d="M-12 9h24" stroke="#948c79" stroke-width="1.6" stroke-linecap="round"/><path d="M-10 9V-2h20V9" fill="#e4dcc8" stroke="#9a927f" stroke-width="1.1"/><path d="M-12 -2L0 -11l12 9" fill="#d8cfb8" stroke="#9a927f" stroke-width="1.1"/><path d="M-6.5 9V0M-1 9V0M4.5 9V0" stroke="#b0a78f" stroke-width="2.2"/><circle cx="0" cy="-4.5" r="2.2" fill="rgba(240,196,92,.9)"/>${close}`;
+    }
+
+    if (featureKey === 'fortress') {
+      return `${open}<path d="M-10 10V-4h20V10" fill="#a9adb8" stroke="#7e828e" stroke-width="1.1"/><path d="M-10 -4v-4h4v4M-4 -4v-4h4v4M2 -4v-4h4v4M8 -4v-4h4v4" fill="#a9adb8" stroke="#7e828e" stroke-width="1.1"/><path d="M-3 10V1h6v9" fill="#5c606b"/><path d="M-13 10h26" stroke="#767a86" stroke-width="1.6" stroke-linecap="round"/><path d="M0 -8v-4M0 -12l4 2-4 2" fill="none" stroke="#b04a3c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>${close}`;
+    }
+
+    if (featureKey === 'port') {
+      return `${open}<path d="M0 -10v14" stroke="#6b4a2e" stroke-width="2" stroke-linecap="round"/><path d="M0 4c-5 0-8-3-8.5-7" fill="none" stroke="#4c4a45" stroke-width="2" stroke-linecap="round"/><path d="M0 4c5 0 8-3 8.5-7" fill="none" stroke="#4c4a45" stroke-width="2" stroke-linecap="round"/><path d="M-5 -6h10" stroke="#4c4a45" stroke-width="2" stroke-linecap="round"/><circle cx="0" cy="-10" r="1.8" fill="none" stroke="#4c4a45" stroke-width="1.6"/><path d="M-13 9c3.5-3 7-3 10.5 0s7 3 10.5 0" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.8" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'camp') {
+      return `${open}<path d="M-11 10  -4 -3  3 10Z" fill="#c2a06b" stroke="#94764a" stroke-width="1.1" stroke-linejoin="round"/><path d="M-4 -3V10" stroke="#94764a" stroke-width="1"/><path d="M5 10  10 3  15 10Z" fill="#c2a06b" stroke="#94764a" stroke-width="1.1" stroke-linejoin="round"/><path d="M8.5 12c0-2 1.6-2 1.6 0s1.6 2 1.6 0" fill="none" stroke="rgba(216,110,52,.85)" stroke-width="1.7" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'stones') {
+      return `${open}<path d="M-10 9  -12 -4 -7 -6 -5 9Z" fill="#9aa0ac" stroke="#7d828d" stroke-width="1"/><path d="M-2 9  -2 -9  3 -10  4 9Z" fill="#aab0bb" stroke="#7d828d" stroke-width="1"/><path d="M8 9  10 0  14 -2  15 9Z" fill="#9aa0ac" stroke="#7d828d" stroke-width="1"/><path d="M-13 9h30" stroke="#848a94" stroke-width="1.5" stroke-linecap="round"/>${close}`;
+    }
+
+    if (featureKey === 'danger') {
+      return `${open}<path d="M-6 -8a6.5 6.2 0 1 1 12 0V-4h-12Z" fill="#e8e2d2" stroke="#8d8776" stroke-width="1.1"/><circle cx="-2.8" cy="-6.6" r="1.7" fill="#3a3630"/><circle cx="2.8" cy="-6.6" r="1.7" fill="#3a3630"/><path d="M-4 -4h8v3h-2v-2h-1.6v2h-1.8v-2H-3v2h-1Z" fill="#3a3630"/><path d="M-9 11c2.2-5 5.4-7.5 9-7.5s6.8 2.5 9 7.5" fill="none" stroke="rgba(176,74,60,.55)" stroke-width="1.8" stroke-linecap="round"/>${close}`;
+    }
+
+    return '';
+  }
+
   function buildMapCityMarker(city, selected) {
     const center = hexCenter(city.col, city.row);
     const label = city.name.length > 8 ? `${city.name.slice(0, 8)}…` : city.name;
@@ -6074,6 +6181,25 @@
           MAP_HEX_SIZE * 0.62
         }" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-dasharray="5 4"/>`
       : '';
+
+    const charWidth = 14.5;
+    const bannerWidth = Math.max(64, Math.round(label.length * charWidth + 34));
+    const bannerHeight = 26;
+    const bannerY = MAP_HEX_SIZE * 0.72;
+    const halfW = bannerWidth / 2;
+    const r = 7;
+    const tipW = 7;
+    const tipH = 9;
+    const bannerPath =
+      `M${-halfW + r} 0 L${halfW - r} 0 Q${halfW} 0 ${halfW} ${r} ` +
+      `L${halfW} ${bannerHeight - r} Q${halfW} ${bannerHeight} ${halfW - r} ${bannerHeight} ` +
+      `L${tipW} ${bannerHeight} L0 ${bannerHeight + tipH} L-${tipW} ${bannerHeight} ` +
+      `L${-halfW + r} ${bannerHeight} Q${-halfW} ${bannerHeight} ${-halfW} ${bannerHeight - r} ` +
+      `L${-halfW} ${r} Q${-halfW} 0 ${-halfW + r} 0 Z`;
+    const stripePath =
+      `M${-halfW + r} 0 L${-halfW + 16} 0 L${-halfW + 16} ${bannerHeight} ` +
+      `L${-halfW + r} ${bannerHeight} Q${-halfW} ${bannerHeight} ${-halfW} ${bannerHeight - r} ` +
+      `L${-halfW} ${r} Q${-halfW} 0 ${-halfW + r} 0 Z`;
 
     return `<g class="map-city-marker${
       selected ? ' is-selected' : ''
@@ -6087,10 +6213,12 @@
       <circle class="map-city-disc" r="${radius}" fill="${city.color}"/>
       <circle class="map-city-ring" r="${radius}" fill="none" stroke="#ffffff" stroke-width="2.4"/>
       <path class="map-city-glyph" d="M0 -8 L2.3 -2.5 L8.2 -2.5 L3.4 1.2 L5.2 7 L0 3.5 L-5.2 7 L-3.4 1.2 L-8.2 -2.5 L-2.3 -2.5 Z" fill="#ffffff" opacity=".92"/>
-      <text class="map-city-label" y="${
-        MAP_HEX_SIZE + 4
-      }" text-anchor="middle">${escapeXml(label)}</text>
-      <title>${escapeXml(city.name)}</title>
+      <g class="map-city-banner" transform="translate(0 ${bannerY})">
+        <path d="${bannerPath}" fill="rgba(252,253,255,.94)" stroke="${city.color}" stroke-width="1.6"/>
+        <path d="${stripePath}" fill="${city.color}" opacity=".92"/>
+        <text class="map-city-label" x="8" y="${bannerHeight / 2 + 5.5}" text-anchor="middle">${escapeXml(label)}</text>
+        <title>${escapeXml(city.name)}</title>
+      </g>
     </g>`;
   }
 
@@ -6131,7 +6259,9 @@
       draft,
       tool: 'browse',
       terrain: 'grass',
+      feature: 'grove',
       brushSize: 1,
+      showGrid: false,
       selectedCityId: null,
       selectedPathId: null,
       pendingPath: null,
@@ -6151,6 +6281,7 @@
     renderMapToolState();
     renderMapCanvas();
     renderMapInspector();
+    syncMapGridUi();
     syncMapDirtyUi();
 
     els.mapDialog.showModal();
@@ -6163,6 +6294,42 @@
     if (!editor) return;
 
     const fragment = document.createDocumentFragment();
+
+    if (editor.tool === 'feature') {
+      const noneButton = el('button', 'terrain-option');
+      noneButton.type = 'button';
+      noneButton.dataset.feature = 'none';
+      noneButton.setAttribute('role', 'radio');
+      noneButton.setAttribute('aria-checked', String(editor.feature === 'none'));
+      noneButton.title = '清除地标';
+      noneButton.append(
+        el('span', 'terrain-chip terrain-chip-none'),
+        el('span', 'terrain-name', '清除')
+      );
+      fragment.appendChild(noneButton);
+
+      for (const key of Object.keys(MAP_FEATURES)) {
+        const button = el('button', 'terrain-option');
+        button.type = 'button';
+        button.dataset.feature = key;
+        button.setAttribute('role', 'radio');
+        button.setAttribute('aria-checked', String(editor.feature === key));
+        button.title = `放置${MAP_FEATURES[key].label}`;
+
+        const chip = el('span', 'terrain-chip terrain-chip-feature');
+        const chipSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        chipSvg.setAttribute('viewBox', '-18 -18 36 36');
+        chipSvg.setAttribute('aria-hidden', 'true');
+        chipSvg.innerHTML = buildMapFeatureDecor(key);
+        chip.appendChild(chipSvg);
+        button.append(chip, el('span', 'terrain-name', MAP_FEATURES[key].label));
+        fragment.appendChild(button);
+      }
+
+      els.mapTerrainPalette.replaceChildren(fragment);
+      return;
+    }
+
     for (const key of MAP_TERRAIN_KEYS) {
       const terrain = MAP_TERRAINS[key];
       const button = el('button', 'terrain-option');
@@ -6178,6 +6345,41 @@
       fragment.appendChild(button);
     }
     els.mapTerrainPalette.replaceChildren(fragment);
+  }
+
+  function syncMapPaletteView() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const featureMode = editor.tool === 'feature';
+    if (els.mapTerrainLabel) {
+      els.mapTerrainLabel.textContent = featureMode ? '地标' : '地形';
+    }
+    if (els.mapTerrainPalette) {
+      els.mapTerrainPalette
+        .querySelectorAll('[data-terrain]')
+        .forEach((button) => {
+          const active = button.dataset.terrain === editor.terrain;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-checked', String(active));
+        });
+      els.mapTerrainPalette
+        .querySelectorAll('[data-feature]')
+        .forEach((button) => {
+          const active = button.dataset.feature === editor.feature;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-checked', String(active));
+        });
+    }
+  }
+
+  function syncMapGridUi() {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    els.mapSvg.classList.toggle('no-grid', !editor.showGrid);
+    if (els.mapGridBtn) {
+      els.mapGridBtn.setAttribute('aria-pressed', String(Boolean(editor.showGrid)));
+      els.mapGridBtn.classList.toggle('is-active', Boolean(editor.showGrid));
+    }
   }
 
   function renderMapToolState() {
@@ -6204,6 +6406,8 @@
       });
     }
 
+    syncMapPaletteView();
+
     updateMapStageCursor();
     syncMapStageTip();
   }
@@ -6218,6 +6422,7 @@
       'is-paint-mode',
       editor.tool === 'paint' ||
         editor.tool === 'erase' ||
+        editor.tool === 'feature' ||
         (editor.tool === 'city' && areaMode)
     );
     stage.classList.toggle(
@@ -6257,6 +6462,10 @@
       river: '点击格子落下河流起点',
       road: '点击格子落下道路起点',
       eyedropper: '点击一个格子，取用它的地形',
+      feature:
+        editor.feature === 'none'
+          ? '点击带地标的格子，移除它的地标'
+          : '点击或拖动格子，放置地标（不改变地形）',
     };
     if (hints[editor.tool]) {
       els.mapStageTip.hidden = false;
@@ -6746,12 +6955,19 @@
     const key = `${col},${row}`;
     const current = editor.draft.tiles[key] || 'grass';
     const next = editor.tool === 'erase' ? 'grass' : editor.terrain;
-    if (current === next) return;
+    const featureChanged =
+      editor.tool === 'erase' && editor.draft.features && editor.draft.features[key];
+
+    if (current === next && !featureChanged) return;
 
     if (next === 'grass') {
       delete editor.draft.tiles[key];
     } else {
       editor.draft.tiles[key] = next;
+    }
+
+    if (editor.tool === 'erase' && editor.draft.features) {
+      delete editor.draft.features[key];
     }
 
     const tile = els.mapSvg.querySelector(
@@ -6760,6 +6976,49 @@
     if (tile) {
       tile.dataset.terrain = next;
       tile.innerHTML = buildMapHexInner(col, row, next);
+    }
+    if (featureChanged) {
+      const featureEl = els.mapSvg.querySelector(
+        `.map-feature[data-col="${col}"][data-row="${row}"]`
+      );
+      if (featureEl) featureEl.remove();
+    }
+    syncMapDirtyUi();
+  }
+
+  function applyFeatureAtCell(col, row) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const key = `${col},${row}`;
+    const next = editor.feature === 'none' ? null : editor.feature;
+    const current = editor.draft.features ? editor.draft.features[key] : undefined;
+    if (current === next) return;
+
+    if (!editor.draft.features) editor.draft.features = {};
+    if (next) {
+      editor.draft.features[key] = next;
+    } else {
+      delete editor.draft.features[key];
+    }
+
+    const existing = els.mapSvg.querySelector(
+      `.map-feature[data-col="${col}"][data-row="${row}"]`
+    );
+    if (existing) existing.remove();
+    if (next) {
+      const center = hexCenter(col, row);
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.classList.add('map-feature');
+      group.dataset.col = String(col);
+      group.dataset.row = String(row);
+      group.dataset.feature = next;
+      group.setAttribute(
+        'transform',
+        `translate(${roundMapCoordinate(center.x)} ${roundMapCoordinate(center.y)})`
+      );
+      group.innerHTML = buildMapFeatureDecor(next);
+      const layer = $('.map-feature-layer', els.mapSvg);
+      if (layer) layer.appendChild(group);
     }
     syncMapDirtyUi();
   }
@@ -6771,6 +7030,11 @@
     pointer.lastPaintKey = key;
 
     const editor = state.mapEditor;
+    if (editor && editor.tool === 'feature') {
+      applyFeatureAtCell(cell.col, cell.row);
+      return;
+    }
+
     const size = editor ? editor.brushSize : 1;
     if (size <= 1) {
       paintMapCell(cell.col, cell.row);
@@ -6919,6 +7183,12 @@
       const [col, row] = key.split(',').map(Number);
       if (col >= cols || row >= rows) delete editor.draft.tiles[key];
     }
+    if (editor.draft.features) {
+      for (const key of Object.keys(editor.draft.features)) {
+        const [col, row] = key.split(',').map(Number);
+        if (col >= cols || row >= rows) delete editor.draft.features[key];
+      }
+    }
     editor.draft.cities = editor.draft.cities
       .map((city) => {
         const next = {
@@ -7005,21 +7275,37 @@
     const n3 = makeValueNoise(map.cols, map.rows, 1.8, rand);
     const m = makeValueNoise(map.cols, map.rows, 4.4, rand);
 
+    const heights = [];
     const tiles = {};
+    const centerX = (map.cols - 1) / 2;
+    const centerY = (map.rows - 1) / 2;
+
     for (let row = 0; row < map.rows; row += 1) {
+      heights.push(new Array(map.cols).fill(0));
       for (let col = 0; col < map.cols; col += 1) {
         const nx = col + 0.5 * (row & 1);
-        const h =
+        const raw =
           0.58 * n1(nx, row) +
           0.27 * n2(nx, row) +
           0.15 * n3(nx, row);
+        // 文明式大陆轮廓：离中心越远地势越低，四周自然成海
+        const edge =
+          Math.max(
+            Math.abs(col - centerX) / (centerX + 0.5),
+            Math.abs(row - centerY) / (centerY + 0.5)
+          ) - 0.62;
+        const h = Math.min(raw, raw - Math.max(0, edge) * 0.9);
+        heights[row][col] = h;
         const moisture = m(nx, row);
-        const polar = row < map.rows * 0.12 || row > map.rows * 0.88;
+        const latitude = Math.abs(row - centerY) / (centerY + 0.5);
+        const temperature = 1 - latitude * 0.62 - Math.max(0, h - 0.72) * 0.9;
 
         let key;
         if (h < 0.34) key = 'water';
-        else if (h < 0.385) key = 'desert';
-        else if (h < 0.5) key = 'grass';
+        else if (temperature < 0.3) key = 'snow';
+        else if (temperature < 0.42) key = moisture > 0.5 ? 'swamp' : 'plains';
+        else if (h < 0.39) key = moisture > 0.66 ? 'swamp' : 'desert';
+        else if (h < 0.5) key = moisture > 0.68 ? 'forest' : 'grass';
         else if (h < 0.58) key = moisture > 0.52 ? 'forest' : 'plains';
         else if (h < 0.66) key = moisture > 0.42 ? 'forest' : 'plains';
         else if (h < 0.73) key = moisture > 0.5 ? 'forest' : 'hills';
@@ -7027,18 +7313,99 @@
         else if (h < 0.865) key = 'mountain';
         else key = moisture > 0.72 ? 'volcano' : 'mountain';
 
-        if (polar && h >= 0.44) key = 'snow';
-        if (h >= 0.34 && h < 0.4 && moisture > 0.68) key = 'swamp';
-        if (key !== 'water') tiles[`${col},${row}`] = key;
+        if (h >= 0.34 && h < 0.4 && moisture > 0.68 && temperature >= 0.42) key = 'swamp';
+        tiles[`${col},${row}`] = key;
       }
     }
 
+    const riverPaths = buildGeneratedRivers(map, heights, tiles, rand);
+
     for (const city of map.cities) {
-      const key = `${city.col},${city.row}`;
-      if (!tiles[key]) tiles[key] = 'grass';
+      for (let row = city.row - 1; row <= city.row + 1; row += 1) {
+        for (let col = city.col - 1; col <= city.col + 1; col += 1) {
+          if (col < 0 || row < 0 || col >= map.cols || row >= map.rows) continue;
+          if (mapHexDistance(col, row, city.col, city.row) > 1) continue;
+          if ((tiles[`${col},${row}`] || 'grass') === 'water') {
+            tiles[`${col},${row}`] = 'grass';
+          }
+        }
+      }
     }
 
-    return tiles;
+    return { tiles, riverPaths };
+  }
+
+  function buildGeneratedRivers(map, heights, tiles, rand) {
+    const candidates = [];
+
+    for (let row = 1; row < map.rows - 1; row += 1) {
+      for (let col = 1; col < map.cols - 1; col += 1) {
+        const terrain = tiles[`${col},${row}`] || 'grass';
+        if (terrain !== 'mountain' && terrain !== 'volcano' && terrain !== 'hills') continue;
+        candidates.push({ col, row, h: heights[row][col] });
+      }
+    }
+
+    candidates.sort((a, b) => b.h - a.h);
+    const picked = [];
+    for (const candidate of candidates) {
+      if (picked.length >= 4) break;
+      const tooClose = picked.some(
+        (source) => mapHexDistance(source.col, source.row, candidate.col, candidate.row) < 4
+      );
+      if (!tooClose) picked.push(candidate);
+    }
+
+    const rivers = [];
+
+    for (const source of picked) {
+      const points = [{ col: source.col, row: source.row }];
+      const visited = new Set([`${source.col},${source.row}`]);
+      let current = source;
+      let reachedWater = false;
+
+      for (let step = 0; step < 48; step += 1) {
+        if ((tiles[`${current.col},${current.row}`] || 'grass') === 'water') {
+          reachedWater = true;
+          break;
+        }
+
+        let best = null;
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(current.col, current.row, direction);
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows) {
+            continue;
+          }
+          const key = `${nextCol},${nextRow}`;
+          if (visited.has(key)) continue;
+          const candidate = {
+            col: nextCol,
+            row: nextRow,
+            h: heights[nextRow][nextCol],
+          };
+          if (!best || candidate.h < best.h) best = candidate;
+        }
+        if (!best) break;
+
+        visited.add(`${best.col},${best.row}`);
+        points.push({ col: best.col, row: best.row });
+        current = best;
+        if ((tiles[`${best.col},${best.row}`] || 'grass') === 'water') {
+          reachedWater = true;
+          break;
+        }
+      }
+
+      if (reachedWater && points.length >= 4) {
+        rivers.push({
+          id: makeId(),
+          kind: 'river',
+          points,
+        });
+      }
+    }
+
+    return rivers;
   }
 
   function generateMapTerrain() {
@@ -7047,16 +7414,23 @@
     openConfirm({
       title: '生成一片灵感大陆？',
       message:
-        '会按随机地形覆盖当前的地貌（河流、道路与城市保留，城市落点自动铺上草地），可以用撤销找回。',
+        '会按气候与湿度随机重绘地形，并让河流从山地流向海洋（河流会合并进现有水系；地标会被清空，城市保留）。可以用撤销找回。',
       okLabel: '生成地形',
       onConfirm: () => {
         const editorNow = state.mapEditor;
         if (!editorNow) return;
-        editorNow.draft.tiles = generateMapTerrainDraft(editorNow.draft);
+        const { tiles, riverPaths } = generateMapTerrainDraft(editorNow.draft);
+        editorNow.draft.tiles = tiles;
+        editorNow.draft.features = {};
+        const keptPaths = (editorNow.draft.paths || []).filter(
+          (path) => path.kind !== 'river'
+        );
+        editorNow.draft.paths = keptPaths.concat(riverPaths);
         pushMapHistory();
         renderMapCanvas();
+        renderMapInspector();
         syncMapDirtyUi();
-        showToast('已生成灵感大陆，继续调整或撤销');
+        showToast('已生成灵感大陆与水系，继续调整或撤销');
       },
     });
   }
@@ -10619,19 +10993,41 @@
       const editor = state.mapEditor;
       if (!button || !editor) return;
       if (editor.pendingPath) commitPendingMapPath();
-      editor.tool = button.dataset.mapTool;
+      const nextTool = button.dataset.mapTool;
+      const paletteModeChanged =
+        (nextTool === 'feature') !== (editor.tool === 'feature');
+      editor.tool = nextTool;
+      if (paletteModeChanged) renderMapPalette();
       renderMapToolState();
     });
 
     els.mapTerrainPalette.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-terrain]');
       const editor = state.mapEditor;
-      if (!button || !editor) return;
+      if (!editor) return;
+
+      const featureButton = event.target.closest('[data-feature]');
+      if (featureButton) {
+        editor.feature = featureButton.dataset.feature;
+        renderMapToolState();
+        return;
+      }
+
+      const button = event.target.closest('[data-terrain]');
+      if (!button) return;
       editor.terrain = button.dataset.terrain;
       editor.tool = 'paint';
       if (editor.pendingPath) commitPendingMapPath();
       renderMapToolState();
     });
+
+    if (els.mapGridBtn) {
+      els.mapGridBtn.addEventListener('click', () => {
+        const editor = state.mapEditor;
+        if (!editor) return;
+        editor.showGrid = !editor.showGrid;
+        syncMapGridUi();
+      });
+    }
 
     if (els.mapBrushRow) {
       els.mapBrushRow.addEventListener('click', (event) => {

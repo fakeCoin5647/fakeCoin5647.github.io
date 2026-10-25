@@ -402,9 +402,13 @@
                 <svg class="icon" aria-hidden="true"><use href="#i-road"></use></svg>
                 <span>道路</span>
               </button>
-              <button type="button" class="map-tool" data-map-tool="erase" aria-pressed="false" title="拖动恢复草原">
+              <button type="button" class="map-tool" data-map-tool="erase" aria-pressed="false" title="拖动恢复草原并清除地标">
                 <svg class="icon" aria-hidden="true"><use href="#i-eraser"></use></svg>
                 <span>擦除</span>
+              </button>
+              <button type="button" class="map-tool" data-map-tool="feature" aria-pressed="false" title="放置树林、遗迹、要塞等地标">
+                <svg class="icon" aria-hidden="true"><use href="#i-lore"></use></svg>
+                <span>地标</span>
               </button>
               <button type="button" class="map-tool" data-map-tool="eyedropper" aria-pressed="false" title="点击格子取用它的地形">
                 <svg class="icon" aria-hidden="true"><use href="#i-dropper"></use></svg>
@@ -414,8 +418,8 @@
           </div>
 
           <div class="map-tool-group">
-            <p class="map-tool-label">地形</p>
-            <div class="terrain-palette" id="mapTerrainPalette" role="radiogroup" aria-label="选择要绘制的地形"></div>
+            <p class="map-tool-label" id="mapTerrainLabel">地形</p>
+            <div class="terrain-palette" id="mapTerrainPalette" role="radiogroup" aria-label="选择要绘制的内容"></div>
           </div>
 
           <div class="map-tool-group">
@@ -456,6 +460,9 @@
               </button>
               <button type="button" class="icon-btn" id="mapFitBtn" aria-label="适应画布" title="适应画布">
                 <svg class="icon" aria-hidden="true"><use href="#i-fit"></use></svg>
+              </button>
+              <button type="button" class="icon-btn" id="mapGridBtn" aria-pressed="false" title="显示或隐藏六边形网格">
+                <svg class="icon" aria-hidden="true"><use href="#i-overview"></use></svg>
               </button>
               <button type="button" class="icon-btn" id="mapUndoBtn" aria-label="撤销" title="撤销 (Ctrl+Z)" disabled>
                 <svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg>
