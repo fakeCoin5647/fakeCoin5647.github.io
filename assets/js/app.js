@@ -343,6 +343,69 @@
   const MAP_FEATURE_KEYS = ['none', ...Object.keys(MAP_FEATURES)];
   const MAP_TERRAIN_KEYS = Object.keys(MAP_TERRAINS);
 
+  const MAP_RESOURCES = {
+    iron: { label: '铁', civ: 'RESOURCE_IRON' },
+    horses: { label: '马', civ: 'RESOURCE_HORSES' },
+    niter: { label: '硝石', civ: 'RESOURCE_NITER' },
+    coal: { label: '煤', civ: 'RESOURCE_COAL' },
+    oil: { label: '石油', civ: 'RESOURCE_OIL' },
+    aluminum: { label: '铝', civ: 'RESOURCE_ALUMINUM' },
+    uranium: { label: '铀', civ: 'RESOURCE_URANIUM' },
+    gold: { label: '金矿', civ: 'RESOURCE_GOLD' },
+    silver: { label: '银矿', civ: 'RESOURCE_SILVER' },
+    marble: { label: '大理石', civ: 'RESOURCE_MARBLE' },
+    gems: { label: '宝石', civ: 'RESOURCE_GEMS' },
+    ivory: { label: '象牙', civ: 'RESOURCE_IVORY' },
+    salt: { label: '盐', civ: 'RESOURCE_SALT' },
+    silk: { label: '丝绸', civ: 'RESOURCE_SILK' },
+    spices: { label: '香料', civ: 'RESOURCE_SPICES' },
+    tea: { label: '茶叶', civ: 'RESOURCE_TEA' },
+    wine: { label: '葡萄酒', civ: 'RESOURCE_WINE' },
+    pearls: { label: '珍珠', civ: 'RESOURCE_PEARLS' },
+    fish: { label: '渔场', civ: 'RESOURCE_FISH' },
+    wheat: { label: '小麦', civ: 'RESOURCE_WHEAT' },
+    cattle: { label: '牛', civ: 'RESOURCE_CATTLE' },
+    deer: { label: '鹿', civ: 'RESOURCE_DEER' },
+    stone: { label: '石料', civ: 'RESOURCE_STONE' },
+    amber: { label: '琥珀', civ: 'RESOURCE_AMBER' },
+  };
+  const MAP_RESOURCE_KEYS = ['none', ...Object.keys(MAP_RESOURCES)];
+
+  const MAP_CONTINENT_GROUPS = {
+    auto: { label: '自动', civ: '' },
+    c1: { label: '大陆一', civ: 'CONTINENT_AFRICA' },
+    c2: { label: '大陆二', civ: 'CONTINENT_ASIA' },
+    c3: { label: '大陆三', civ: 'CONTINENT_EUROPE' },
+    c4: { label: '大陆四', civ: 'CONTINENT_AMERICA' },
+  };
+
+  const CIV6_CITY_STATES = [
+    'GENEVA',
+    'HATTUSA',
+    'BRUSSELS',
+    'KABUL',
+    'PRESLAV',
+    'LISBON',
+    'ZANZIBAR',
+    'VILNIUS',
+    'ARMAGH',
+    'AKKAD',
+    'FEZ',
+    'GRANADA',
+    'JERUSALEM',
+    'MOHENJO_DARO',
+    'NAZCA',
+    'LA_VENTA',
+    'SINGAPORE',
+    'VALLETTA',
+    'YEREVAN',
+    'AUCKLAND',
+    'BUENOS_AIRES',
+    'CAHOKIA',
+    'CARDIFF',
+    'CHINGUETTI',
+  ];
+
   let mapWaterDepth = null;
   let mapLod = '2d';
 
@@ -499,6 +562,13 @@
     forgeSaveBtn: $('#forgeSaveBtn'),
     forgeAiInput: $('#forgeAiInput'),
     forgeAiBtn: $('#forgeAiBtn'),
+    forgeFateParams: $('#forgeFateParams'),
+    forgeFateScene: $('#forgeFateScene'),
+    forgeFateCruelty: $('#forgeFateCruelty'),
+    forgeFateRoster: $('#forgeFateRoster'),
+    forgeFateSeal: $('#forgeFateSeal'),
+    forgeFateRollBtn: $('#forgeFateRollBtn'),
+    forgeFateUnsealBtn: $('#forgeFateUnsealBtn'),
     drillsView: $('#drillsView'),
     drillsList: $('#drillsList'),
     drillsCount: $('#drillsCount'),
@@ -733,6 +803,11 @@
     civ6ExportConfirmBtn: $('#civ6ExportConfirmBtn'),
     civ6ExportTarget: $('#civ6ExportTarget'),
     civ6ExportStatus: $('#civ6ExportStatus'),
+    civ6ExportStarts: $('#civ6ExportStarts'),
+    civ6ImportFile: $('#civ6ImportFile'),
+    civ6ImportBtn: $('#civ6ImportBtn'),
+    mapRiverNameField: $('#mapRiverNameField'),
+    mapRiverNameInput: $('#mapRiverNameInput'),
     mapCityTypeRow: $('#mapCityTypeRow'),
     mapPathList: $('#mapPathList'),
     mapPathCount: $('#mapPathCount'),
@@ -1563,10 +1638,45 @@
       }
       if (points.length < 2) continue;
 
-      paths.push({ id, kind, points });
+      const name =
+        typeof item.name === 'string' && item.name.trim()
+          ? item.name.trim().slice(0, 20)
+          : null;
+      paths.push({ id, kind, points, ...(name ? { name } : {}) });
     }
 
-    return { cols, rows, tiles, features, cities, paths };
+    const resources = {};
+    const rawResources =
+      raw.resources && typeof raw.resources === 'object' ? raw.resources : {};
+    for (const [key, value] of Object.entries(rawResources)) {
+      if (
+        typeof value !== 'string' ||
+        !Object.prototype.hasOwnProperty.call(MAP_RESOURCES, value)
+      )
+        continue;
+      const match = /^(\d{1,2}),(\d{1,2})$/.exec(key);
+      if (!match) continue;
+      const col = Number(match[1]);
+      const row = Number(match[2]);
+      if (col >= cols || row >= rows) continue;
+      resources[`${col},${row}`] = value;
+    }
+
+    const continents = {};
+    const rawContinents =
+      raw.continents && typeof raw.continents === 'object' ? raw.continents : {};
+    for (const [key, value] of Object.entries(rawContinents)) {
+      const group = Number(value);
+      if (!Number.isInteger(group) || group < 1 || group > 4) continue;
+      const match = /^(\d{1,2}),(\d{1,2})$/.exec(key);
+      if (!match) continue;
+      const col = Number(match[1]);
+      const row = Number(match[2]);
+      if (col >= cols || row >= rows) continue;
+      continents[`${col},${row}`] = group;
+    }
+
+    return { cols, rows, tiles, features, resources, continents, cities, paths };
   }
 
   function normalizeCityColor(value, index) {
@@ -6698,6 +6808,7 @@
       pendingPath = null,
       suggestions = null,
       lod = '2d',
+      showContinents = false,
     } = {}
   ) {
     mapWaterDepth = collectMapWaterDepth(map);
@@ -6709,6 +6820,51 @@
     const territoryParts = [];
     const borderParts = [];
     const cityParts = [];
+    const resourceParts = [];
+    const continentParts = [];
+
+    if (showContinents) {
+      const autoContinents = buildCiv6Continents(map);
+      const tints = ['#4f6df5', '#e0882e', '#3f9e78', '#9a5fc0'];
+      for (let row = 0; row < map.rows; row += 1) {
+        for (let col = 0; col < map.cols; col += 1) {
+          const key = `${col},${row}`;
+          const terrainKey = map.tiles[key] || 'grass';
+          if (terrainKey === 'water' || terrainKey === 'lake') continue;
+          const manual = (map.continents || {})[key];
+          const index = manual
+            ? manual - 1
+            : Math.max(
+                0,
+                CIV6_CONTINENTS.indexOf(autoContinents.get(key) || '')
+              );
+          if (index < 0) continue;
+          const center = hexCenter(col, row);
+          continentParts.push(
+            `<path class="map-continent-tint" data-col="${col}" data-row="${row}" d="${hexPathAt(
+              center.x,
+              center.y
+            )}" fill="${tints[index % tints.length]}" opacity=".16"/>`
+          );
+        }
+      }
+    }
+
+    for (const [key, resourceKey] of Object.entries(map.resources || {})) {
+      if (!/^\d+,\d+$/.test(key)) continue;
+      const [col, row] = key.split(',').map(Number);
+      if (col >= map.cols || row >= map.rows) continue;
+      const config = MAP_RESOURCES[resourceKey];
+      if (!config) continue;
+      const center = hexCenter(col, row);
+      resourceParts.push(
+        `<g class="map-resource" data-col="${col}" data-row="${row}" data-resource="${resourceKey}" transform="translate(${roundMapCoordinate(
+          center.x
+        )} ${roundMapCoordinate(center.y)})">${buildMapResourceBadge(
+          config.label
+        )}</g>`
+      );
+    }
 
     for (let row = 0; row < map.rows; row += 1) {
       for (let col = 0; col < map.cols; col += 1) {
@@ -6823,6 +6979,11 @@
         </linearGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
+      showContinents
+        ? `<g class="map-layer map-continent-layer" aria-hidden="true">${continentParts.join(
+            ''
+          )}</g>`
+        : '',
       sunBounds,
       `<g class="map-layer map-coast-layer" aria-hidden="true">${coastParts.join('')}</g>`,
       `<g class="map-layer map-path-layer">${pathParts.join('')}</g>`,
@@ -6830,6 +6991,9 @@
         ''
       )}${borderParts.join('')}</g>`,
       `<g class="map-layer map-feature-layer">${featureParts.join('')}</g>`,
+      `<g class="map-layer map-resource-layer" aria-hidden="true">${resourceParts.join(
+        ''
+      )}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
       suggestions && suggestions.length
         ? `<g class="map-layer map-suggest-layer">${suggestions
@@ -7064,6 +7228,12 @@
       col,
       row
     )}`;
+  }
+
+  function buildMapResourceBadge(label) {
+    return `<circle r="6.5" fill="#e9b23c" stroke="#8a6a1e" stroke-width="1.2"/><circle r="2" fill="rgba(255,255,255,.9)"/><text class="map-resource-label" y="17.5" text-anchor="middle">${escapeXml(
+      label
+    )}</text><title>${escapeXml(label)}</title>`;
   }
 
   function buildRaisedHexTop(terrainKey, col, row, center, config) {
@@ -7376,6 +7546,8 @@
       showGrid: false,
       suggestions: null,
       lod: '2d',
+      resource: 'iron',
+      continent: 'c1',
       selectedCityId: null,
       selectedPathId: null,
       pendingPath: null,
@@ -7408,6 +7580,60 @@
     if (!editor) return;
 
     const fragment = document.createDocumentFragment();
+
+    if (editor.tool === 'resource') {
+      const noneButton = el('button', 'terrain-option');
+      noneButton.type = 'button';
+      noneButton.dataset.resource = 'none';
+      noneButton.setAttribute('role', 'radio');
+      noneButton.setAttribute('aria-checked', String(editor.resource === 'none'));
+      noneButton.title = '清除物产';
+      noneButton.append(
+        el('span', 'terrain-chip terrain-chip-none'),
+        el('span', 'terrain-name', '清除')
+      );
+      fragment.appendChild(noneButton);
+
+      for (const [key, config] of Object.entries(MAP_RESOURCES)) {
+        const button = el('button', 'terrain-option');
+        button.type = 'button';
+        button.dataset.resource = key;
+        button.setAttribute('role', 'radio');
+        button.setAttribute('aria-checked', String(editor.resource === key));
+        button.title = `放置物产：${config.label}（导出为 ${config.civ}）`;
+
+        const chip = el('span', 'terrain-chip terrain-chip-resource');
+        chip.textContent = config.label.slice(0, 2);
+        button.append(chip, el('span', 'terrain-name', config.label));
+        fragment.appendChild(button);
+      }
+
+      els.mapTerrainPalette.replaceChildren(fragment);
+      return;
+    }
+
+    if (editor.tool === 'continent') {
+      for (const [key, config] of Object.entries(MAP_CONTINENT_GROUPS)) {
+        const button = el('button', 'terrain-option');
+        button.type = 'button';
+        button.dataset.continent = key;
+        button.setAttribute('role', 'radio');
+        button.setAttribute('aria-checked', String(editor.continent === key));
+        button.title =
+          key === 'auto'
+            ? '恢复自动划分（按连通陆块）'
+            : `把格子划入${config.label}（导出为 ${config.civ}）`;
+
+        const chip = el('span', 'terrain-chip terrain-chip-continent');
+        chip.dataset.continentChip = key;
+        chip.textContent = key === 'auto' ? '自' : config.label.slice(-1);
+        button.append(chip, el('span', 'terrain-name', config.label));
+        fragment.appendChild(button);
+      }
+
+      els.mapTerrainPalette.replaceChildren(fragment);
+      return;
+    }
 
     if (editor.tool === 'feature') {
       const noneButton = el('button', 'terrain-option');
@@ -7464,9 +7690,13 @@
   function syncMapPaletteView() {
     const editor = state.mapEditor;
     if (!editor) return;
-    const featureMode = editor.tool === 'feature';
+    const labels = {
+      feature: '地标',
+      resource: '物产',
+      continent: '大陆',
+    };
     if (els.mapTerrainLabel) {
-      els.mapTerrainLabel.textContent = featureMode ? '地标' : '地形';
+      els.mapTerrainLabel.textContent = labels[editor.tool] || '地形';
     }
     if (els.mapTerrainPalette) {
       els.mapTerrainPalette
@@ -7480,6 +7710,20 @@
         .querySelectorAll('[data-feature]')
         .forEach((button) => {
           const active = button.dataset.feature === editor.feature;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-checked', String(active));
+        });
+      els.mapTerrainPalette
+        .querySelectorAll('[data-resource]')
+        .forEach((button) => {
+          const active = button.dataset.resource === editor.resource;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-checked', String(active));
+        });
+      els.mapTerrainPalette
+        .querySelectorAll('[data-continent]')
+        .forEach((button) => {
+          const active = button.dataset.continent === editor.continent;
           button.classList.toggle('is-active', active);
           button.setAttribute('aria-checked', String(active));
         });
@@ -7604,6 +7848,7 @@
       pendingPath: editor.pendingPath,
       suggestions: editor.suggestions,
       lod: editor.lod || '2d',
+      showContinents: editor.tool === 'continent',
     })}</g>`;
     applyMapView();
   }
@@ -7925,7 +8170,7 @@
       dot.style.setProperty('--path-color', config.color);
       item.append(
         dot,
-        el('span', 'map-path-name', config.label),
+        el('span', 'map-path-name', path.name || config.label),
         el('span', 'map-path-meta', `${path.points.length} 点`)
       );
 
@@ -7939,6 +8184,20 @@
       list.appendChild(item);
     }
     els.mapPathList.replaceChildren(list);
+    syncMapRiverNameField();
+  }
+
+  function syncMapRiverNameField() {
+    const editor = state.mapEditor;
+    if (!editor || !els.mapRiverNameField) return;
+    const path = (editor.draft.paths || []).find(
+      (item) => item.id === editor.selectedPathId
+    );
+    const isRiver = Boolean(path && path.kind === 'river');
+    els.mapRiverNameField.hidden = !isRiver;
+    if (isRiver && document.activeElement !== els.mapRiverNameInput) {
+      els.mapRiverNameInput.value = path.name || '';
+    }
   }
 
   function selectMapPath(pathId) {
@@ -8245,6 +8504,105 @@
     syncMapDirtyUi();
   }
 
+  function applyResourceAtCell(col, row) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const key = `${col},${row}`;
+    const next = editor.resource === 'none' ? null : editor.resource;
+    const current = editor.draft.resources
+      ? editor.draft.resources[key]
+      : undefined;
+    if (current === next) return;
+
+    if (!editor.draft.resources) editor.draft.resources = {};
+    if (next) {
+      editor.draft.resources[key] = next;
+    } else {
+      delete editor.draft.resources[key];
+    }
+
+    const layer = $('.map-resource-layer', els.mapSvg);
+    if (!layer) return;
+    const existing = layer.querySelector(
+      `.map-resource[data-col="${col}"][data-row="${row}"]`
+    );
+    if (existing) existing.remove();
+    if (next) {
+      const center = hexCenter(col, row);
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.classList.add('map-resource');
+      group.dataset.col = String(col);
+      group.dataset.row = String(row);
+      group.dataset.resource = next;
+      group.setAttribute(
+        'transform',
+        `translate(${roundMapCoordinate(center.x)} ${roundMapCoordinate(
+          center.y
+        )})`
+      );
+      group.innerHTML = buildMapResourceBadge(MAP_RESOURCES[next].label);
+      layer.appendChild(group);
+    }
+    syncMapDirtyUi();
+  }
+
+  function applyContinentAtCell(col, row) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    const key = `${col},${row}`;
+    const next = editor.continent === 'auto' ? null : Number(editor.continent.slice(1));
+    const current = editor.draft.continents
+      ? editor.draft.continents[key]
+      : undefined;
+    if (current === next) return;
+
+    if (!editor.draft.continents) editor.draft.continents = {};
+    if (next) {
+      editor.draft.continents[key] = next;
+    } else {
+      delete editor.draft.continents[key];
+    }
+
+    const layer = $('.map-continent-layer', els.mapSvg);
+    if (!layer) return;
+    const tint = layer.querySelector(
+      `.map-continent-tint[data-col="${col}"][data-row="${row}"]`
+    );
+    const center = hexCenter(col, row);
+    const fill = next
+      ? MAP_CONTINENT_TINTS[next - 1]
+      : buildCiv6Continents(editor.draft).get(key)
+        ? MAP_CONTINENT_TINTS[
+            (civ6ContinentIndexOf(key, editor.draft) - 1) %
+              MAP_CONTINENT_TINTS.length
+          ]
+        : null;
+    if (fill) {
+      if (tint) {
+        tint.setAttribute('fill', fill);
+      } else {
+        const rect = document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'path'
+        );
+        rect.classList.add('map-continent-tint');
+        rect.dataset.col = String(col);
+        rect.dataset.row = String(row);
+        rect.setAttribute('d', hexPathAt(center.x, center.y));
+        rect.setAttribute('fill', fill);
+        layer.appendChild(rect);
+      }
+    } else if (tint) {
+      tint.remove();
+    }
+    syncMapDirtyUi();
+  }
+
+  function civ6ContinentIndexOf(key, map) {
+    const name = buildCiv6Continents(map).get(key);
+    return CIV6_CONTINENTS.indexOf(name) + 1 || 1;
+  }
+
   function paintMapCellAt(cell, pointer) {
     if (!cell) return;
     const key = `${cell.col},${cell.row}`;
@@ -8254,6 +8612,14 @@
     const editor = state.mapEditor;
     if (editor && editor.tool === 'feature') {
       applyFeatureAtCell(cell.col, cell.row);
+      return;
+    }
+    if (editor && editor.tool === 'resource') {
+      applyResourceAtCell(cell.col, cell.row);
+      return;
+    }
+    if (editor && editor.tool === 'continent') {
+      applyContinentAtCell(cell.col, cell.row);
       return;
     }
 
@@ -9263,6 +9629,7 @@
   function buildCiv6Rivers(map) {
     // 文明6的河流画在六边形边界上：每格有西/西北/东北三条边标志
     const rivers = new Map();
+    const perPath = [];
     const flagFor = (id) => {
       if (!rivers.has(id)) rivers.set(id, { NE: 0, W: 0, NW: 0 });
       return rivers.get(id);
@@ -9270,6 +9637,11 @@
 
     for (const path of map.paths || []) {
       if (path.kind !== 'river') continue;
+      const edges = [];
+      const mark = (plotId, edgeName) => {
+        flagFor(plotId)[edgeName] = 1;
+        edges.push({ plotId, edge: edgeName });
+      };
       const points = path.points;
       for (let index = 0; index < points.length - 1; index += 1) {
         const from = points[index];
@@ -9277,17 +9649,18 @@
         for (const direction of ['E', 'W', 'NE', 'NW', 'SE', 'SW']) {
           const next = civ6NeighborCell(from.col, from.row, direction);
           if (!next || next[0] !== to.col || next[1] !== to.row) continue;
-          if (direction === 'E') flagFor(to.row * map.cols + to.col).W = 1;
-          else if (direction === 'W') flagFor(from.row * map.cols + from.col).W = 1;
-          else if (direction === 'NE') flagFor(from.row * map.cols + from.col).NE = 1;
-          else if (direction === 'NW') flagFor(from.row * map.cols + from.col).NW = 1;
-          else if (direction === 'SE') flagFor(to.row * map.cols + to.col).NW = 1;
-          else if (direction === 'SW') flagFor(to.row * map.cols + to.col).NE = 1;
+          if (direction === 'E') mark(to.row * map.cols + to.col, 'W');
+          else if (direction === 'W') mark(from.row * map.cols + from.col, 'W');
+          else if (direction === 'NE') mark(from.row * map.cols + from.col, 'NE');
+          else if (direction === 'NW') mark(from.row * map.cols + from.col, 'NW');
+          else if (direction === 'SE') mark(to.row * map.cols + to.col, 'NW');
+          else if (direction === 'SW') mark(to.row * map.cols + to.col, 'NE');
         }
       }
+      if (edges.length > 0) perPath.push({ path, edges });
     }
 
-    return rivers;
+    return { rivers, perPath };
   }
 
   function civ6TerrainOf(terrainKey, depth) {
@@ -9338,8 +9711,10 @@
 
       const map = editor.draft;
       const depthMap = collectMapWaterDepth(map);
-      const continents = buildCiv6Continents(map);
-      const rivers = buildCiv6Rivers(map);
+      const autoContinents = buildCiv6Continents(map);
+      const riverData = buildCiv6Rivers(map);
+      const rivers = riverData.rivers;
+      const manualContinents = map.continents || {};
 
       setCiv6Status('正在生成地块…');
       db.run(
@@ -9360,10 +9735,13 @@
           const key = `${col},${row}`;
           const terrainKey = map.tiles[key] || 'grass';
           const terrain = civ6TerrainOf(terrainKey, depthMap.get(key));
+          const manualContinent = manualContinents[key];
           const continent =
             terrainKey === 'water' || terrainKey === 'lake'
               ? ''
-              : continents.get(key) || 'CONTINENT_AFRICA';
+              : manualContinent
+                ? MAP_CONTINENT_GROUPS[`c${manualContinent}`].civ
+                : autoContinents.get(key) || 'CONTINENT_AFRICA';
           db.run(
             'INSERT INTO Plots (ID, TerrainType, ContinentType, IsImpassable) VALUES (?, ?, ?, 0)',
             [row * map.cols + col, terrain, continent]
@@ -9407,6 +9785,72 @@
         );
       }
 
+      setCiv6Status('正在写入道路与命名河流…');
+
+      // 道路 → PlotRoutes
+      const roadPlots = new Set();
+      for (const path of map.paths || []) {
+        if (path.kind !== 'road') continue;
+        for (const point of path.points) {
+          roadPlots.add(point.row * map.cols + point.col);
+        }
+      }
+      for (const plotId of roadPlots) {
+        db.run(
+          "INSERT INTO PlotRoutes (ID, RouteType, RouteEra, IsRoutePillaged) VALUES (?, 'ROUTE_ROAD', 'ERA_ANCIENT', 0)",
+          [plotId]
+        );
+      }
+
+      // 命名河流 → NamedRiver / NamedRiverPlot
+      db.run('DELETE FROM NamedRiver');
+      db.run('DELETE FROM NamedRiverPlot');
+      let riverNameId = 0;
+      let namedRiverPlotId = 0;
+      for (const { path, edges } of riverData.perPath) {
+        if (!path.name) continue;
+        riverNameId += 1;
+        db.run(
+          'INSERT INTO NamedRiver (ID, Type, DiscoveringCiv, CustomName) VALUES (?, ?, ?, ?)',
+          [riverNameId, 'RIVER_NILE', '', path.name]
+        );
+        for (const edge of edges) {
+          namedRiverPlotId += 1;
+          db.run(
+            'INSERT INTO NamedRiverPlot (ID, PlotIndex, Edge) VALUES (?, ?, ?)',
+            [namedRiverPlotId, edge.plotId, edge.edge === 'W' ? 0 : edge.edge === 'NE' ? 1 : 2]
+          );
+        }
+      }
+
+      // 物产 → PlotResources
+      for (const [key, resourceKey] of Object.entries(map.resources || {})) {
+        if (!/^\d+,\d+$/.test(key)) continue;
+        const [col, row] = key.split(',').map(Number);
+        if (col >= map.cols || row >= map.rows) continue;
+        const config = MAP_RESOURCES[resourceKey];
+        if (!config) continue;
+        db.run(
+          'INSERT INTO PlotResources (ID, ResourceType, ResourceCount) VALUES (?, ?, 1)',
+          [row * map.cols + col, config.civ]
+        );
+      }
+
+      // 城市出生点（可选）
+      if (els.civ6ExportStarts && els.civ6ExportStarts.checked) {
+        let startCount = 0;
+        for (const city of map.cities) {
+          const leader = CIV6_CITY_STATES[
+            startCount % CIV6_CITY_STATES.length
+          ];
+          db.run(
+            'INSERT INTO StartPositions (Plot, Type, Value) VALUES (?, ?, ?)',
+            [city.row * map.cols + city.col, 'LEADER', `LEADER_MINOR_CIV_${leader}`]
+          );
+          startCount += 1;
+        }
+      }
+
       const mapName = entry ? entry.title : '未命名地图';
       const mapDescription = entry && entry.summary
         ? entry.summary.slice(0, 120)
@@ -9419,6 +9863,7 @@
       ]) {
         db.run('UPDATE ModText SET Value=? WHERE ID=?', [value, id]);
       }
+      db.run("UPDATE MetaData SET Value=? WHERE Name='DisplayName'", [mapName]);
 
       setCiv6Status('正在打包文件…');
       const bytes = db.export();
@@ -9439,6 +9884,327 @@
     } finally {
       confirmBtn.disabled = false;
     }
+  }
+
+  function parseCiv6MapBytes(SQL, bytes) {
+    const db = new SQL.Database(bytes);
+    const readAll = (sql) => {
+      const statement = db.prepare(sql);
+      const rows = [];
+      while (statement.step()) rows.push(statement.getAsObject());
+      statement.free();
+      return rows;
+    };
+
+    const mapRow = readAll('SELECT Width, Height FROM Map')[0];
+    if (!mapRow || !Number(mapRow.Width)) throw new Error('不是有效的文明6地图文件');
+    const cols = Math.max(6, Math.min(40, Number(mapRow.Width)));
+    const rows = Math.max(6, Math.min(30, Number(mapRow.Height)));
+
+    const tiles = {};
+    const plotTypes = {};
+    let waterTiles = 0;
+    for (const plot of readAll(
+      'SELECT ID, TerrainType FROM Plots ORDER BY ID'
+    )) {
+      const id = Number(plot.ID);
+      const col = id % cols;
+      const row = Math.floor(id / cols);
+      if (row >= rows) continue;
+      const key = `${col},${row}`;
+      const terrain = String(plot.TerrainType || '');
+      plotTypes[key] = terrain;
+      if (terrain === 'TERRAIN_OCEAN' || terrain === 'TERRAIN_COAST') {
+        tiles[key] = 'water';
+        waterTiles += 1;
+      } else if (terrain.endsWith('_MOUNTAIN')) {
+        tiles[key] = 'mountain';
+      } else if (terrain.endsWith('_HILLS')) {
+        tiles[key] = 'hills';
+      } else if (terrain === 'TERRAIN_DESERT') {
+        tiles[key] = 'desert';
+      } else if (terrain === 'TERRAIN_SNOW' || terrain === 'TERRAIN_TUNDRA') {
+        tiles[key] = 'snow';
+      } else if (terrain === 'TERRAIN_PLAINS') {
+        tiles[key] = 'plains';
+      } else {
+        tiles[key] = 'grass';
+      }
+    }
+
+    // 内陆海岸连通块 = 湖泊
+    const lakeVisited = new Set();
+    for (const [key, terrain] of Object.entries(plotTypes)) {
+      if (terrain !== 'TERRAIN_COAST' || lakeVisited.has(key)) continue;
+      const component = [];
+      const queue = [key];
+      lakeVisited.add(key);
+      let touchesOcean = false;
+      for (let head = 0; head < queue.length; head += 1) {
+        const current = queue[head];
+        component.push(current);
+        const [col, row] = current.split(',').map(Number);
+        for (const direction of MAP_DIRECTIONS) {
+          const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+          if (nextCol < 0 || nextRow < 0 || nextCol >= cols || nextRow >= rows)
+            continue;
+          const nextKey = `${nextCol},${nextRow}`;
+          if (lakeVisited.has(nextKey)) continue;
+          const nextTerrain = plotTypes[nextKey];
+          if (nextTerrain === 'TERRAIN_OCEAN') touchesOcean = true;
+          if (nextTerrain !== 'TERRAIN_COAST') continue;
+          lakeVisited.add(nextKey);
+          queue.push(nextKey);
+        }
+      }
+      if (!touchesOcean) {
+        for (const key of component) tiles[key] = 'lake';
+      }
+    }
+
+    const features = {};
+    const wonderReverse = {
+      FEATURE_KILIMANJARO: 'wonderMountain',
+      FEATURE_FOUNTAIN_YOUTH: 'wonderSpring',
+      FEATURE_PANTANAL: 'wonderTree',
+      FEATURE_BARRIER_REEF: 'wonderSea',
+    };
+    let wonders = 0;
+    for (const plot of readAll('SELECT ID, FeatureType FROM PlotFeatures')) {
+      const id = Number(plot.ID);
+      const col = id % cols;
+      const row = Math.floor(id / cols);
+      if (row >= rows) continue;
+      const key = `${col},${row}`;
+      const feature = String(plot.FeatureType || '');
+      if (feature === 'FEATURE_FOREST') tiles[key] = 'forest';
+      else if (feature === 'FEATURE_MARSH') tiles[key] = 'swamp';
+      else if (feature === 'FEATURE_VOLCANO') tiles[key] = 'volcano';
+      else if (wonderReverse[feature]) {
+        features[key] = wonderReverse[feature];
+        wonders += 1;
+      }
+    }
+
+    // 河流边 → 折线
+    const riverSegments = [];
+    const segmentKey = (a, b) => [a, b].sort((x, y) => x - y).join('-');
+    const seenSegments = new Set();
+    for (const plot of readAll(
+      'SELECT ID, IsNEOfRiver, IsWOfRiver, IsNWOfRiver FROM PlotRivers'
+    )) {
+      const id = Number(plot.ID);
+      const col = id % cols;
+      const row = Math.floor(id / cols);
+      const odd = row & 1;
+      const neighbors = {
+        W: [col - 1, row],
+        NE: [col + odd, row - 1],
+        NW: [col + odd - 1, row - 1],
+      };
+      for (const [edgeName, target] of Object.entries(neighbors)) {
+        if (!Number(plot[`Is${edgeName}OfRiver`])) continue;
+        if (target[0] < 0 || target[1] < 0 || target[0] >= cols || target[1] >= rows)
+          continue;
+        const key = segmentKey(id, target[1] * cols + target[0]);
+        if (seenSegments.has(key)) continue;
+        seenSegments.add(key);
+        riverSegments.push([
+          { col, row },
+          { col: target[0], row: target[1] },
+        ]);
+      }
+    }
+
+    const chainPolyline = (segments) => {
+      const adjacency = new Map();
+      const pointKey = (point) => `${point.col},${point.row}`;
+      for (const [a, b] of segments) {
+        if (!adjacency.has(pointKey(a))) adjacency.set(pointKey(a), []);
+        if (!adjacency.has(pointKey(b))) adjacency.set(pointKey(b), []);
+        adjacency.get(pointKey(a)).push(b);
+        adjacency.get(pointKey(b)).push(a);
+      }
+      const polylines = [];
+      const used = new Set();
+      for (const [a, b] of segments) {
+        const startKey = pointKey(a);
+        if (used.has(`${startKey}|${pointKey(b)}`)) continue;
+        if (adjacency.get(startKey).length !== 1 && polylines.length > 0) {
+          // 从端点开始优先；度>2 时也允许作为链条起点
+        }
+        const line = [a, b];
+        used.add(`${startKey}|${pointKey(b)}`);
+        used.add(`${pointKey(b)}|${startKey}`);
+        let tail = b;
+        let tailKey = pointKey(b);
+        for (;;) {
+          const candidates = (adjacency.get(tailKey) || []).filter(
+            (candidate) =>
+              !used.has(`${tailKey}|${pointKey(candidate)}`) &&
+              !(
+                pointKey(candidate) === pointKey(line[0]) &&
+                line.length > 2
+              )
+          );
+          if (candidates.length !== 1) break;
+          const next = candidates[0];
+          used.add(`${tailKey}|${pointKey(next)}`);
+          used.add(`${pointKey(next)}|${tailKey}`);
+          line.push(next);
+          tailKey = pointKey(next);
+        }
+        if (line.length >= 2) polylines.push(line);
+      }
+      return polylines;
+    };
+
+    const paths = [];
+    for (const line of chainPolyline(riverSegments)) {
+      paths.push({ id: makeId(), kind: 'river', points: line });
+    }
+
+    // 道路：相邻道路格连成折线
+    const roadPlots = new Set();
+    for (const plot of readAll('SELECT ID FROM PlotRoutes')) {
+      const id = Number(plot.ID);
+      const col = id % cols;
+      const row = Math.floor(id / cols);
+      if (row < rows) roadPlots.add(`${col},${row}`);
+    }
+    const roadSegments = [];
+    for (const key of roadPlots) {
+      const [col, row] = key.split(',').map(Number);
+      for (const direction of MAP_DIRECTIONS) {
+        const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
+        if (nextCol < 0 || nextRow < 0 || nextCol >= cols || nextRow >= rows)
+          continue;
+        if (nextCol < col || (nextCol === col && nextRow < row)) continue;
+        if (roadPlots.has(`${nextCol},${nextRow}`)) {
+          roadSegments.push([
+            { col, row },
+            { col: nextCol, row: nextRow },
+          ]);
+        }
+      }
+    }
+    for (const line of chainPolyline(roadSegments)) {
+      paths.push({ id: makeId(), kind: 'road', points: line });
+    }
+
+    // 河流命名
+    const namedRivers = readAll(
+      'SELECT ID, CustomName FROM NamedRiver ORDER BY ID'
+    );
+    const namedPlots = readAll('SELECT PlotIndex FROM NamedRiverPlot');
+    const namedPlotSet = new Set(namedPlots.map((plot) => Number(plot.PlotIndex)));
+    for (const named of namedRivers) {
+      const name = String(named.CustomName || '').trim();
+      if (!name) continue;
+      for (const path of paths) {
+        if (path.kind !== 'river') continue;
+        if (path.name) continue;
+        if (path.points.some((point) => namedPlotSet.has(point.row * cols + point.col))) {
+          path.name = name.slice(0, 20);
+          break;
+        }
+      }
+    }
+
+    // 物产
+    const resources = {};
+    const civReverse = {};
+    for (const [key, config] of Object.entries(MAP_RESOURCES)) {
+      civReverse[config.civ] = key;
+    }
+    let resourceCount = 0;
+    for (const plot of readAll(
+      'SELECT ID, ResourceType FROM PlotResources'
+    )) {
+      const id = Number(plot.ID);
+      const col = id % cols;
+      const row = Math.floor(id / cols);
+      if (row >= rows) continue;
+      const preset = civReverse[String(plot.ResourceType || '')];
+      if (!preset) continue;
+      resources[`${col},${row}`] = preset;
+      resourceCount += 1;
+    }
+
+    // 大陆归属
+    const continents = {};
+    const continentReverse = {
+      CONTINENT_AFRICA: 1,
+      CONTINENT_ASIA: 2,
+      CONTINENT_EUROPE: 3,
+      CONTINENT_AMERICA: 4,
+    };
+    for (const plot of readAll('SELECT ID, ContinentType FROM Plots')) {
+      const id = Number(plot.ID);
+      const col = id % cols;
+      const row = Math.floor(id / cols);
+      if (row >= rows) continue;
+      const group = continentReverse[String(plot.ContinentType || '')];
+      if (group) continents[`${col},${row}`] = group;
+    }
+
+    db.close();
+
+    let landTiles = 0;
+    for (const key of Object.keys(tiles)) {
+      if (tiles[key] !== 'water' && tiles[key] !== 'lake') landTiles += 1;
+    }
+
+    return {
+      cols,
+      rows,
+      tiles,
+      features,
+      resources,
+      continents,
+      paths,
+      summary: {
+        landTiles,
+        waterTiles,
+        rivers: paths.filter((path) => path.kind === 'river').length,
+        roads: paths.filter((path) => path.kind === 'road').length,
+        resources: resourceCount,
+        wonders,
+      },
+    };
+  }
+
+  function applyCiv6Import(parsed) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+
+    editor.draft.cols = parsed.cols;
+    editor.draft.rows = parsed.rows;
+    editor.draft.tiles = parsed.tiles;
+    editor.draft.features = parsed.features;
+    editor.draft.paths = parsed.paths;
+    editor.draft.resources = parsed.resources;
+    editor.draft.continents = parsed.continents;
+
+    // 城市与自选领地保留：出界部分裁剪
+    editor.draft.cities = (editor.draft.cities || [])
+      .filter((city) => city.col < parsed.cols && city.row < parsed.rows)
+      .map((city) => {
+        if (!city.customArea) return city;
+        const cells = (city.cells || []).filter((key) => {
+          const [col, row] = key.split(',').map(Number);
+          return col < parsed.cols && row < parsed.rows;
+        });
+        return cells.length > 0
+          ? { ...city, cells }
+          : { ...city, customArea: false, cells: undefined };
+      });
+
+    pushMapHistory();
+    syncMapSizeUi();
+    renderMapCanvas();
+    renderMapInspector();
+    fitMapView();
   }
 
   function openCiv6ExportDialog() {
@@ -11681,7 +12447,213 @@
     calendar: { tag: '天文历法' },
     climate: { tag: '天气气候' },
     folk: { tag: '民风民俗' },
+    fate: { tag: '命运推演' },
   };
+
+  // 命运推演：规则透明 + 种子掷骰。输出是克制的叙事，不是名单——
+  // 这个功能存在的理由是「判决来自规则，作者只是记录者」。
+  const FATE_POSITIONS = {
+    safe: { label: '安然', weight: 0.02 },
+    risk: { label: '涉险', weight: 0.18 },
+    grave: { label: '濒死', weight: 0.52 },
+  };
+  const FATE_CRUELTY = {
+    克制: { mult: 0.5, note: '这个世界对它的居民手下留情' },
+    写实: { mult: 1, note: '命运不多一分慈悲，也不多一分恶意' },
+    残酷: { mult: 1.6, note: '这个世界从不解释自己' },
+  };
+  const FATE_DEPARTURE_LINES = [
+    '雾散的时候，{name}没有跟上来。',
+    '后来的人只找到{name}的剑，插在河滩上。',
+    '{name}撑到了第三天清晨，然后安静地放开了手。',
+    '没有人看见{name}倒下——队伍回头时，位置已经空了。',
+    '医士走出帐外，朝{name}的方向摇了摇头。',
+    '{name}把最后的话说完，像熄一盏灯那样简单。',
+    '火光暗下去的时候，{name}的影子先不见了。',
+    '{name}留在了对岸。那座桥随后被砍断。',
+  ];
+  const FATE_SURVIVAL_LINES = [
+    '{name}活了下来，只是从此不再提起那一夜。',
+    '{name}从死人堆里被认出来的时候，手里还攥着半块干粮。',
+    '高烧七日之后，{name}睁开了眼睛。',
+    '{name}断了三根肋骨，命还在。',
+    '{name}躲过了那一劫——多年后仍会在雨天摸摸旧伤。',
+  ];
+  const FATE_SEALED_LINES = [
+    '这一夜有人离开了故事。',
+    '命运收走了一个人。',
+    '有人没能等到天亮。',
+    '故事在这里失去了一个人。',
+  ];
+
+  function buildFateText(seed, scene, crueltyLabel, roster, sealed) {
+    const rand = mulberry32(seed);
+    const cruelty = FATE_CRUELTY[crueltyLabel] || FATE_CRUELTY.写实;
+    const lines = [];
+    lines.push(`【命运判定 · ${scene}】`);
+    lines.push(`规则：生存概率 = 1 − 处境基础危险 × 世界系数（${cruelty.note}）。掷骰之前，每个人都看得见自己的概率——命运不带预谋。`);
+
+    const survivors = [];
+    const departed = [];
+    const rolls = [];
+
+    for (const member of roster) {
+      const base = FATE_POSITIONS[member.position].weight * cruelty.mult;
+      const p = Math.min(0.95, base);
+      const roll = rand();
+      const alive = roll > p;
+      rolls.push({ member, p, alive });
+      if (alive) survivors.push(member);
+      else departed.push(member);
+    }
+
+    // 规则透明段：封存时隐去明细（不泄底），拆封后同种子还原完整档案
+    if (!sealed) {
+      lines.push('', '【判定明细（存档备查）】');
+      for (const r of rolls) {
+        const chance = Math.round((1 - r.p) * 100);
+        lines.push(`· ${r.member.name}（${FATE_POSITIONS[r.member.position].label}）—— 生存率 ${chance}%：${r.alive ? '生还' : '离场'}`);
+      }
+    }
+
+    lines.push('', `【叙事记录 · ${scene}】`);
+    if (departed.length === 0) {
+      lines.push('这一次，命运收拢了手，所有人都走了出来。伤疤会留，人还在。');
+    } else if (sealed) {
+      lines.push(FATE_SEALED_LINES[Math.floor(rand() * FATE_SEALED_LINES.length)]);
+      lines.push(`（共 ${departed.length} 人离场，${survivors.length} 人生还——名单已封存，写到那一页时再拆。）`);
+    } else {
+      for (const member of departed) {
+        const template = FATE_DEPARTURE_LINES[Math.floor(rand() * FATE_DEPARTURE_LINES.length)];
+        lines.push(`· ${template.replace('{name}', member.name)}`);
+      }
+      for (const member of survivors) {
+        const template = FATE_SURVIVAL_LINES[Math.floor(rand() * FATE_SURVIVAL_LINES.length)];
+        lines.push(`· ${template.replace('{name}', member.name)}`);
+      }
+    }
+
+    lines.push('', '【推衍参数】');
+    lines.push(`${scene} · ${crueltyLabel} · 卷入 ${roster.length} 人 · 种子 ${seed}（规则与种子立此存照，不可反悔）`);
+    return { text: lines.join('\n'), departed, survivors };
+  }
+
+  function renderFateRoster() {
+    const forge = getForgeState();
+    const novel = forge.novelId ? findNovel(forge.novelId) : null;
+    const roster = els.forgeFateRoster;
+    if (!roster) return;
+    const fragment = document.createDocumentFragment();
+
+    if (!novel || novel.entries.characters.length === 0) {
+      roster.replaceChildren(
+        el('p', 'fate-roster-empty', '这本书还没有角色。先去角色分区让他们登场，再来推演命运。')
+      );
+      els.forgeFateRollBtn.disabled = true;
+      return;
+    }
+
+    const selected = new Map(
+      (forge.fateRoster || []).map((m) => [m.id, m.position])
+    );
+    const next = [];
+    for (const entry of novel.entries.characters) {
+      const row = el('label', 'fate-roster-row');
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.checked = selected.has(entry.id);
+      const name = el('span', 'fate-roster-name', entry.title);
+      const select = document.createElement('select');
+      for (const [key, config] of Object.entries(FATE_POSITIONS)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = config.label;
+        select.appendChild(option);
+      }
+      select.value = selected.get(entry.id) || 'risk';
+      row.append(check, name, select);
+      fragment.appendChild(row);
+
+      if (check.checked) {
+        next.push({ id: entry.id, name: entry.title, position: select.value });
+      }
+      const sync = () => {
+        forge.fateRoster = collectFateRoster();
+        els.forgeFateRollBtn.disabled = forge.fateRoster.length === 0;
+        forge.fateSealed = undefined;
+        els.forgeOutput.value = '';
+        els.forgeSeedHint.textContent = '规则已变，命运待掷';
+        els.forgeFateUnsealBtn.hidden = true;
+      };
+      check.addEventListener('change', sync);
+      select.addEventListener('change', sync);
+    }
+    roster.replaceChildren(fragment);
+    forge.fateRoster = next;
+    els.forgeFateRollBtn.disabled = next.length === 0;
+
+    function collectFateRoster() {
+      const rows = [...roster.querySelectorAll('.fate-roster-row')];
+      const out = [];
+      const characters = novel.entries.characters;
+      rows.forEach((row, index) => {
+        const check = row.querySelector('input[type="checkbox"]');
+        const select = row.querySelector('select');
+        if (check.checked && characters[index]) {
+          out.push({ id: characters[index].id, name: characters[index].title, position: select.value });
+        }
+      });
+      return out;
+    }
+  }
+
+  function rollFate() {
+    const forge = getForgeState();
+    const roster = forge.fateRoster || [];
+    if (roster.length === 0) {
+      showToast('至少勾选一位卷入的人', 'error');
+      return;
+    }
+    const scene = els.forgeFateScene.value;
+    const cruelty = els.forgeFateCruelty.value;
+    const sealed = els.forgeFateSeal.checked;
+    const seed = forge.seed;
+
+    const result = buildFateText(seed, scene, cruelty, roster, sealed);
+    forge.lastDraft = {
+      title: `命运 · ${scene}（${roster.length} 人卷入）`,
+      subtitle: `命运推演 · ${cruelty}${sealed ? ' · 名单已封存' : ''}`,
+      tags: ['世界法则', '命运推演'],
+      notes: result.text,
+    };
+    forge.fateSealed = sealed ? result : undefined;
+    if (els.forgeFateUnsealBtn) els.forgeFateUnsealBtn.hidden = !sealed;
+
+    if (sealed) {
+      els.forgeOutput.value = result.text;
+      els.forgeSeedHint.textContent = `种子 ${seed} · 已封存，存档后可在词条里拆看`;
+    } else {
+      els.forgeOutput.value = result.text;
+      els.forgeSeedHint.textContent = `种子 ${seed} · 命运已落定`;
+    }
+    els.forgeAiInput.placeholder = '留空则请 AI 以克制笔法补写离别的现场；也可写你的方向';
+  }
+
+  function unsealFate() {
+    // 拆信封：同种子重掷还原完整名单（规则透明：种子即证据）
+    const forge = getForgeState();
+    const roster = forge.fateRoster || [];
+    const seed = forge.seed;
+    const result = buildFateText(seed, els.forgeFateScene.value, els.forgeFateCruelty.value, roster, false);
+    forge.lastDraft = {
+      title: `命运 · ${els.forgeFateScene.value}（${roster.length} 人卷入）`,
+      subtitle: `命运推演 · ${els.forgeFateCruelty.value} · 已拆封`,
+      tags: ['世界法则', '命运推演'],
+      notes: result.text,
+    };
+    els.forgeOutput.value = result.text;
+    els.forgeSeedHint.textContent = `种子 ${seed} · 信封已拆开`;
+  }
 
   function getForgeState() {
     if (!state.forge) {
@@ -11705,10 +12677,19 @@
     els.forgeCalendarParams.hidden = forge.tab !== 'calendar';
     els.forgeClimateParams.hidden = forge.tab !== 'climate';
     els.forgeFolkParams.hidden = forge.tab !== 'folk';
+    els.forgeFateParams.hidden = forge.tab !== 'fate';
+    if (forge.tab === 'fate') {
+      renderFateRoster();
+      els.forgeOutput.value = '';
+      els.forgeSeedHint.textContent = '规则已立，命运待掷';
+      els.forgeFateUnsealBtn.hidden = true;
+    }
   }
 
   function runForge() {
     const forge = getForgeState();
+    // 命运 tab 不随参数即时演算——生死值得一次郑重的「掷出」
+    if (forge.tab === 'fate') return;
     const seed = forge.seed;
     let text;
     let title;
@@ -11786,6 +12767,7 @@
       calendar: '请补充 3–5 个挂在这套历法上的节日与历史大事纪年（给出具体日期，如「星澜历·潮月第十四日」），并检查推衍结果有无内在矛盾。',
       climate: '请推衍当地的主要物产、两三种由气候催生的职业，以及一张简明的「灾年大事表」；与我已有的世界法则冲突之处请单独指出。',
       folk: '请补充俚语 3 句、仪式细节 2 处、阶层与行当关系一段；每条新内容都必须能追溯到「生计 / 威胁 / 信仰」的因果。',
+      fate: '这是一场由规则与种子决定的命运判定，我只是记录者。请以克制、留白、有余韵的笔法，把【叙事记录】扩写成一个场景片段（≤300 字）：不渲染惨烈，重在与告别；不要替我改判生死。',
     };
 
     const lines = [
@@ -13856,8 +14838,44 @@
     }
     if (els.forgeRerollBtn) {
       els.forgeRerollBtn.addEventListener('click', () => {
-        getForgeState().seed = Math.floor(Math.random() * 90000) + 10000;
+        const forge = getForgeState();
+        forge.seed = Math.floor(Math.random() * 90000) + 10000;
+        if (forge.tab === 'fate') {
+          // 换种子即换一套未掷的命运；已掷出的判定随旧种子存档，不作废
+          forge.fateSealed = undefined;
+          els.forgeOutput.value = '';
+          els.forgeSeedHint.textContent = '换了种子，命运待掷';
+          els.forgeFateUnsealBtn.hidden = true;
+          return;
+        }
         runForge();
+      });
+    }
+    if (els.forgeFateRollBtn) {
+      els.forgeFateRollBtn.addEventListener('click', rollFate);
+    }
+    if (els.forgeFateUnsealBtn) {
+      els.forgeFateUnsealBtn.addEventListener('click', unsealFate);
+    }
+    for (const id of ['forgeFateScene', 'forgeFateCruelty']) {
+      const node = document.getElementById(id);
+      if (node) {
+        node.addEventListener('change', () => {
+          const forge = getForgeState();
+          forge.fateSealed = undefined;
+          els.forgeOutput.value = '';
+          els.forgeSeedHint.textContent = '规则已变，命运待掷';
+          els.forgeFateUnsealBtn.hidden = true;
+        });
+      }
+    }
+    if (els.forgeFateSeal) {
+      els.forgeFateSeal.addEventListener('change', () => {
+        const forge = getForgeState();
+        forge.fateSealed = undefined;
+        els.forgeOutput.value = '';
+        els.forgeSeedHint.textContent = '规则已变，命运待掷';
+        els.forgeFateUnsealBtn.hidden = true;
       });
     }
     if (els.forgeSaveBtn) els.forgeSaveBtn.addEventListener('click', saveForgeDraft);
@@ -14384,10 +15402,13 @@
       if (!button || !editor) return;
       if (editor.pendingPath) commitPendingMapPath();
       const nextTool = button.dataset.mapTool;
+      const paletteTools = ['feature', 'resource', 'continent'];
       const paletteModeChanged =
-        (nextTool === 'feature') !== (editor.tool === 'feature');
+        nextTool !== editor.tool &&
+        (paletteTools.includes(nextTool) || paletteTools.includes(editor.tool));
       editor.tool = nextTool;
       if (paletteModeChanged) renderMapPalette();
+      if (nextTool === 'continent' || paletteModeChanged) renderMapCanvas();
       renderMapToolState();
     });
 
@@ -14399,6 +15420,18 @@
       if (featureButton) {
         editor.feature = featureButton.dataset.feature;
         renderMapToolState();
+        return;
+      }
+
+      const resourceButton = event.target.closest('[data-resource]');
+      if (resourceButton) {
+        editor.resource = resourceButton.dataset.resource;
+        return;
+      }
+
+      const continentButton = event.target.closest('[data-continent]');
+      if (continentButton) {
+        editor.continent = continentButton.dataset.continent;
         return;
       }
 
@@ -14450,6 +15483,65 @@
     }
     if (els.civ6ExportConfirmBtn) {
       els.civ6ExportConfirmBtn.addEventListener('click', runCiv6Export);
+    }
+    if (els.mapRiverNameInput) {
+      els.mapRiverNameInput.addEventListener('input', () => {
+        const editor = state.mapEditor;
+        if (!editor) return;
+        const path = (editor.draft.paths || []).find(
+          (item) => item.id === editor.selectedPathId
+        );
+        if (!path) return;
+        const value = els.mapRiverNameInput.value.trim().slice(0, 20);
+        if (value) path.name = value;
+        else delete path.name;
+        syncMapDirtyUi();
+      });
+      els.mapRiverNameInput.addEventListener('change', () => {
+        const editor = state.mapEditor;
+        if (!editor) return;
+        const path = (editor.draft.paths || []).find(
+          (item) => item.id === editor.selectedPathId
+        );
+        if (!path) return;
+        pushMapHistory();
+        renderMapCanvas();
+        renderMapPathList();
+      });
+    }
+    if (els.civ6ImportBtn) {
+      els.civ6ImportBtn.addEventListener('click', async () => {
+        const file =
+          els.civ6ImportFile &&
+          els.civ6ImportFile.files &&
+          els.civ6ImportFile.files[0];
+        if (!file) {
+          setCiv6Status('请先选择 .Civ6Map 文件');
+          return;
+        }
+        const importBtn = els.civ6ImportBtn;
+        importBtn.disabled = true;
+        try {
+          setCiv6Status('正在解析文明6地图…');
+          const SQL = await loadCiv6SqlRuntime();
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const parsed = parseCiv6MapBytes(SQL, bytes);
+          setCiv6Status('');
+          openConfirm({
+            title: '导入文明6地图？',
+            message: `尺寸 ${parsed.cols}×${parsed.rows} · 河流 ${parsed.summary.rivers} 条 · 道路 ${parsed.summary.roads} 条 · 物产 ${parsed.summary.resources} 处 · 奇观 ${parsed.summary.wonders} 处。将覆盖当前地形、地貌、河流、道路、物产与大陆；城市和自选领地保留，可用撤销找回。`,
+            okLabel: '导入并覆盖',
+            onConfirm: () => {
+              applyCiv6Import(parsed);
+              showToast('已导入文明6地图，可在工坊里继续调整');
+            },
+          });
+        } catch (error) {
+          setCiv6Status(`导入失败：${error.message}`);
+        } finally {
+          importBtn.disabled = false;
+        }
+      });
     }
     if (els.mapGenerateBtn) {
       els.mapGenerateBtn.addEventListener('click', generateMapTerrain);

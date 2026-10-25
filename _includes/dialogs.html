@@ -426,6 +426,15 @@
                 <svg class="icon" aria-hidden="true"><use href="#i-dropper"></use></svg>
                 <span>吸管</span>
               </button>
+
+              <button type="button" class="map-tool" data-map-tool="resource" aria-pressed="false" title="在格子上放置可导出到文明6的物产">
+                <svg class="icon" aria-hidden="true"><use href="#i-coin"></use></svg>
+                <span>物产</span>
+              </button>
+              <button type="button" class="map-tool" data-map-tool="continent" aria-pressed="false" title="手动指定格子归属的大陆">
+                <svg class="icon" aria-hidden="true"><use href="#i-continents"></use></svg>
+                <span>大陆</span>
+              </button>
             </div>
           </div>
 
@@ -555,6 +564,11 @@
               <span class="map-city-count" id="mapPathCount">0 条</span>
             </div>
             <div class="map-path-list" id="mapPathList" hidden></div>
+
+            <div class="map-field map-river-name" id="mapRiverNameField" hidden>
+              <span>河流命名</span>
+              <input type="text" id="mapRiverNameInput" maxlength="20" autocomplete="off" spellcheck="false" placeholder="给选中的河流起个名字（导出到文明6生效）">
+            </div>
           </div>
 
           <div class="map-city-editor" id="mapCityEditor" hidden>
@@ -726,6 +740,7 @@
         <button type="button" class="view-switch-btn" data-forge-tab="calendar">历法</button>
         <button type="button" class="view-switch-btn" data-forge-tab="climate">气候</button>
         <button type="button" class="view-switch-btn" data-forge-tab="folk">民俗</button>
+        <button type="button" class="view-switch-btn" data-forge-tab="fate">命运</button>
       </div>
 
       <div class="forge-params" id="forgeCalendarParams">
@@ -828,6 +843,45 @@
         </div>
       </div>
 
+      <div class="forge-params forge-fate-params" id="forgeFateParams" hidden>
+        <p class="fate-oath">命运由规则与种子决定，不由你决定。你设定每个人的处境，掷出之后，你只是记录者。<br>规则先立、掷骰后不可反悔——这样的离去才有重量。</p>
+        <div class="form-split">
+          <div class="field">
+            <label for="forgeFateScene">场景</label>
+            <select id="forgeFateScene">
+              <option value="战争">战争</option>
+              <option value="瘟疫">瘟疫</option>
+              <option value="意外">意外</option>
+              <option value="决斗">决斗</option>
+              <option value="漫长岁月">漫长岁月</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="forgeFateCruelty">笔下的世界</label>
+            <select id="forgeFateCruelty">
+              <option value="克制">克制（伤亡最少）</option>
+              <option value="写实" selected>写实（符合处境）</option>
+              <option value="残酷">残酷（命运无常）</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">卷入的人（从本书角色中选择，为每人设定处境）</span>
+          <div class="fate-roster" id="forgeFateRoster"></div>
+          <p class="field-hint" id="forgeFateRosterHint">安然：远离危险 · 涉险：一线之间 · 濒死：命悬一线</p>
+        </div>
+        <div class="field">
+          <label class="fate-seal-line">
+            <input type="checkbox" id="forgeFateSeal" checked>
+            <span>以信封交付——先只告诉我「有人离场」，写到那一页再拆开细看</span>
+          </label>
+        </div>
+        <div class="fate-roll-row">
+          <button type="button" class="btn primary fate-roll-btn" id="forgeFateRollBtn">掷出命运</button>
+          <button type="button" class="btn ghost fate-unseal-btn" id="forgeFateUnsealBtn" hidden>拆开信封</button>
+        </div>
+      </div>
+
       <div class="field">
         <label for="forgeOutput">演算结果（可直接存为设定词条）</label>
         <textarea id="forgeOutput" rows="12" readonly></textarea>
@@ -904,10 +958,26 @@
         <li>河流 → 六边形边界河流（靠近世界构建器的河流工具重描可微调）</li>
         <li>奇观：圣山 → 乞力马扎罗，魔泉 → 青春之泉，世界树 → 潘塔纳尔，沉没神殿 → 大堡礁</li>
         <li>遗迹、神殿、要塞、港口、营地、石阵、凶地等地标没有文明6对应物，不会导出——请在构建器里用图钉或手工补齐</li>
-        <li>城市不会转成出生点，出生点请在构建器里自行放置</li>
+        <li>道路 → 文明6道路（ROUTE_ROAD）；物产 → 对应的文明6资源；手动指定的大陆 → 对应大陆</li>
+        <li>命名过的河流会带上名字一起导出</li>
       </ul>
 
+      <label class="form-check civ6-option">
+        <input type="checkbox" id="civ6ExportStarts" checked>
+        <span>把城市导出为出生点（以城邦形式，可在构建器里调整）</span>
+      </label>
+
       <p class="civ6-status" id="civ6ExportStatus"></p>
+
+      <h3>从文明6导入（反向对齐）</h3>
+      <ol class="civ6-steps">
+        <li>在世界构建器里编辑并保存后，选择导出的 .Civ6Map 文件。</li>
+        <li>导入会覆盖当前地形、地貌、河流、道路、物产与大陆；<strong>城市和自选领地保留</strong>，可用撤销找回。</li>
+        <li>文明6的冻土会被转成雪原；没有对应物的元素会被跳过。</li>
+      </ol>
+      <input type="file" id="civ6ImportFile" accept=".Civ6Map,.db" aria-label="选择 .Civ6Map 文件">
+      <button type="button" class="btn" id="civ6ImportBtn">解析并导入</button>
+      <p class="civ6-status" id="civ6ImportSummary"></p>
     </div>
 
     <footer class="dialog-foot">

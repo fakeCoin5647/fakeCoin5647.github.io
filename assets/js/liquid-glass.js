@@ -323,4 +323,58 @@
   window.addEventListener('resize', () => {
     for (const h of handles) h.scheduleRebuild();
   });
+
+  // 指针驱动的流动玻璃（glass-lens-react 的 Web 近似）：
+  // 1) 大浮层光斑——位置写入 --mx/--my，配合 theme.css 的 radial-gradient；
+  // 2) 交互件光角——指针相对控件中心的方位写入 --lg-light-base，
+  //    CSS 以 sin()/cos() 让亮 rim 指向光源，hover 扫掠围绕它进行。
+  // （显隐交给 CSS :hover，这里只更新变量。
+  //   时间戳节流同步写：此环境 rAF 可能被冻结，会拦掉后续所有更新）
+  const INTERACTIVE_GLASS =
+    'button, .nav-item, .side-novel-link, .workspace-nav-link, .search-box, ' +
+    '.sort-control, .filter-pill, .novel-card, .entry-card, .section-card, ' +
+    '.panel, .trash-card, .comment-card, .drill-card';
+  let glowLast = 0;
+  document.addEventListener(
+    'pointermove',
+    (e) => {
+      const target = e.target;
+      if (!target || typeof target.closest !== 'function') return;
+      const now = performance.now();
+      if (now - glowLast < 40) return;
+
+      const pane = target.closest('.dialog[open], .appearance-panel');
+      if (pane) {
+        const rect = pane.getBoundingClientRect();
+        if (rect.width < 2 || rect.height < 2) return;
+        glowLast = now;
+        pane.style.setProperty(
+          '--mx',
+          (((e.clientX - rect.left) / rect.width) * 100).toFixed(1) + '%',
+        );
+        pane.style.setProperty(
+          '--my',
+          (((e.clientY - rect.top) / rect.height) * 100).toFixed(1) + '%',
+        );
+        return;
+      }
+
+      const glass = target.closest(INTERACTIVE_GLASS);
+      if (!glass) return;
+      const rect = glass.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return;
+      glowLast = now;
+      // 0deg = 光源在正上方，顺时针为正（CSS 角度约定）；
+      // rim 位置 (-sinθ, cosθ) 使亮线始终朝向指针
+      const deg =
+        (Math.atan2(
+          e.clientX - (rect.left + rect.width / 2),
+          rect.top + rect.height / 2 - e.clientY,
+        ) *
+          180) /
+        Math.PI;
+      glass.style.setProperty('--lg-light-base', deg.toFixed(1) + 'deg');
+    },
+    { passive: true },
+  );
 })();

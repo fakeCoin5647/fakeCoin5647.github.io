@@ -6050,7 +6050,7 @@ html.is-sheer .entry-card-excerpt {
   --lg-edge: calc(0.62 * var(--rim-strength));
   --lg-top-light: calc(0.9 * var(--rim-strength));
   --lg-bottom-light: calc(0.38 * var(--rim-strength));
-  --lg-radius: 20px;
+  --lg-radius: 24px; /* iOS widget 级大圆角 */
   --lg-pill: 999px;
   /* 缓动与反馈时长采用 Lens 设计系统 token（MIT，
      ruiqichenbiec/design-systems）：spring 果冻曲线 */
@@ -6368,6 +6368,65 @@ html.is-sheer .entry-card-excerpt {
   }
 }
 
+/* 物产与大陆 */
+.terrain-chip-resource {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e9b23c;
+  border: 1.5px solid #8a6a1e;
+  color: #5c430f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.terrain-chip-continent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(79, 109, 245, 0.16);
+  border: 1.5px solid rgba(79, 109, 245, 0.55);
+  color: #3a56c4;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.map-resource-label {
+  fill: #6b4e12;
+  font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.88);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+}
+
+.map-continent-layer {
+  pointer-events: none;
+}
+
+.map-river-name {
+  margin-top: 10px;
+}
+
+.map-river-name input {
+  width: 100%;
+}
+
+.form-check.civ6-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
 /* Civ6 导出指南 */
 .civ6-guide {
   display: grid;
@@ -6427,45 +6486,56 @@ html.is-sheer .entry-card-excerpt {
 }
 
 /* ---------- 流动玻璃：hover 光泽 ----------
-   机制移植自 glass-lens-react（MIT License）
+   严格移植 glass-lens-react（MIT License）GlassSurface 的光角 rim 模型
    https://github.com/jvreeken/glass-lens-react
-   1) shimmer：hover 时光角 360° 扫掠一圈，inset 亮 rim 沿玻璃边缘流动；
-   2) reveal：hover/focus/active 时 overlay 亮度抬升（brightness 1.5）淡入。
-   光角经 @property 注册并用 CSS sin()/cos() 换算 rim 偏移（Chromium 111+）；
-   不支持的浏览器两条 box-shadow 与动画整体失效，自然回退到原有样式。 */
+   · rim 双侧结构照搬原版 boxShadow：光侧 inset(ox·1.3, oy·1.3) 0.5px 锐边
+     主亮线 + 暗侧对向 inset(-ox, -oy) 2px × 24% 强度（ox=-sinθ, oy=cosθ）
+   · shimmer：进入 hover 时光角围绕指针方位 ±180° 扫掠一圈后停回光位
+     （原版 700ms eased sweep；以 --lg-light-base 为中心避免回跳闪变）
+   · reveal：hover/focus/active 时亮度抬升淡入（原版 .glass-reveal
+     300ms ease-out；原版 1.5 针对深色透镜，亮玻璃控件取 1.35 防过曝）
+   · 指针方位 --lg-light-base 由 liquid-glass.js 委托 pointermove 写入
+     （原版光角来自 deviceorientation 倾角；Web 端以指针方位为光源）
+   光角经 @property 注册并用 CSS sin()/cos() 换算（Chromium 111+）；
+   不支持的浏览器 rim 与扫掠整体失效，回退到基础磨砂样式。 */
 @property --lg-light {
   syntax: '<angle>';
-  inherits: false;
-  initial-value: 315deg;
+  /* 必须可继承：rim 画在 ::after/::before 上，
+     伪元素要从宿主元素拿动画中的光角值 */
+  inherits: true;
+  initial-value: 0deg;
 }
 
-.btn,
-.icon-btn,
-.side-action,
+/* 全部可点击件：button 元素通配（对话框内按钮、地图工具、面板开关、
+   练笔房、演算等一网打尽）+ 非 button 的玻璃件与可点击卡片。
+   卡片的 ::after 已被玻璃描边占用，流光层放 ::before；
+   is-pinned 卡片与 synopsis-card 的 ::before 已被占用，跳过。 */
+button,
 .nav-item,
 .side-novel-link,
 .sidebar .workspace-nav-link,
 .search-box,
 .sort-control,
-.appearance-preset,
 .filter-pill,
-.view-switch-btn,
-.comment-fab {
-  --lg-light: 315deg;
+.novel-card:not(.is-pinned),
+.entry-card:not(.is-pinned),
+.section-card,
+.panel,
+.trash-card,
+.comment-card:not(.is-unavailable),
+.drill-card {
+  --lg-light: var(--lg-light-base, 0deg);
   position: relative;
 }
 
-.btn::after,
-.icon-btn::after,
-.side-action::after,
+/* 流光层：按钮与链接类玻璃件用 ::after */
+button::after,
 .nav-item::after,
 .side-novel-link::after,
 .sidebar .workspace-nav-link::after,
 .search-box::after,
 .sort-control::after,
-.appearance-preset::after,
 .filter-pill::after,
-.view-switch-btn::after,
 .comment-fab::after {
   content: '';
   position: absolute;
@@ -6475,55 +6545,152 @@ html.is-sheer .entry-card-excerpt {
   opacity: 0;
   transition: opacity 0.3s ease-out;
   box-shadow:
-    inset calc(-1.5px * sin(var(--lg-light))) calc(1.5px * cos(var(--lg-light))) 0 0
-      rgba(255, 255, 255, 0.55),
-    inset calc(-3px * sin(var(--lg-light))) calc(3px * cos(var(--lg-light))) 4px -2px
-      rgba(255, 255, 255, 0.4);
-  -webkit-backdrop-filter: brightness(1.5);
-  backdrop-filter: brightness(1.5);
+    inset calc(-1.3px * sin(var(--lg-light))) calc(1.3px * cos(var(--lg-light)))
+      0.5px 0 rgba(255, 255, 255, 0.9),
+    inset calc(1.3px * sin(var(--lg-light))) calc(-1.3px * cos(var(--lg-light)))
+      2px 0 rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: brightness(1.35);
+  backdrop-filter: brightness(1.35);
 }
 
-.btn:hover::after,
-.btn:focus-visible::after,
-.btn:active::after,
-.icon-btn:hover::after,
-.icon-btn:focus-visible::after,
-.icon-btn:active::after,
-.side-action:hover::after,
-.side-action:active::after,
+/* 流光层：可点击卡片用 ::before（::after 被 rim 描边占用） */
+.novel-card:not(.is-pinned)::before,
+.entry-card:not(.is-pinned)::before,
+.section-card::before,
+.panel::before,
+.trash-card::before,
+.comment-card:not(.is-unavailable)::before,
+.drill-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  box-shadow:
+    inset calc(-1.3px * sin(var(--lg-light))) calc(1.3px * cos(var(--lg-light)))
+      0.5px 0 rgba(255, 255, 255, 0.9),
+    inset calc(1.3px * sin(var(--lg-light))) calc(-1.3px * cos(var(--lg-light)))
+      2px 0 rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: brightness(1.2);
+  backdrop-filter: brightness(1.2);
+}
+
+button:hover::after,
+button:focus-visible::after,
+button:active::after,
 .nav-item:hover::after,
 .nav-item:active::after,
 .side-novel-link:hover::after,
 .sidebar .workspace-nav-link:hover::after,
 .search-box:focus-within::after,
 .sort-control:hover::after,
-.appearance-preset:hover::after,
 .filter-pill:hover::after,
-.view-switch-btn:hover::after,
-.comment-fab:hover::after {
+.comment-fab:hover::after,
+.novel-card:not(.is-pinned):hover::before,
+.entry-card:not(.is-pinned):hover::before,
+.section-card:hover::before,
+.panel:hover::before,
+.trash-card:hover::before,
+.comment-card:not(.is-unavailable):hover::before,
+.drill-card:hover::before {
   opacity: 1;
 }
 
-.btn:hover,
-.icon-btn:hover,
-.side-action:hover,
+button:hover,
 .nav-item:hover,
 .side-novel-link:hover,
 .sidebar .workspace-nav-link:hover,
-.appearance-preset:hover,
 .filter-pill:hover,
-.view-switch-btn:hover,
-.comment-fab:hover {
+.novel-card:not(.is-pinned):hover,
+.entry-card:not(.is-pinned):hover,
+.section-card:hover,
+.panel:hover,
+.trash-card:hover,
+.comment-card:not(.is-unavailable):hover,
+.drill-card:hover {
   animation: lg-shimmer 0.7s ease-out;
 }
 
 @keyframes lg-shimmer {
   from {
-    --lg-light: 0deg;
+    --lg-light: calc(var(--lg-light-base, 0deg) - 180deg);
   }
   to {
-    --lg-light: 360deg;
+    --lg-light: calc(var(--lg-light-base, 0deg) + 180deg);
   }
+}
+
+/* ---------- 全框液态玻璃：内容层统一材质 ----------
+   对齐 iOS 26 主屏幕：widget 与 inset grouped 卡片同为玻璃材质，
+   整页像浮在壁纸上的一组玻璃件。所有容器框在此统一：
+   rim 双亮线 + 雾度渐变 + 近贴影/大柔影，材质参数与官方式样一致。
+   （地图工坊保持近实心：大画布上玻璃折射开销过高） */
+.novel-card,
+.entry-card,
+.section-card,
+.panel,
+.synopsis-card,
+.trash-card,
+.comment-card:not(.is-unavailable),
+.drill-card,
+.shelf-toolbar,
+.comments-toolbar {
+  border: 1px solid rgba(255, 255, 255, var(--lg-edge));
+  border-radius: var(--lg-radius);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, calc(var(--card-alpha) + 0.16)),
+    rgba(255, 255, 255, calc(var(--card-alpha) - 0.05)) 55%,
+    rgba(234, 240, 251, calc(var(--card-alpha) + 0.05))
+  );
+  box-shadow:
+    0 2px 6px rgba(18, 28, 65, 0.04),
+    0 20px 44px -22px rgba(18, 28, 65, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, var(--lg-top-light)),
+    inset 0 -1px 0 rgba(255, 255, 255, var(--lg-bottom-light)),
+    inset 1px 0 0 rgba(255, 255, 255, calc(var(--lg-bottom-light) * 0.8)),
+    inset -1px 0 0 rgba(255, 255, 255, calc(var(--lg-bottom-light) * 0.8)),
+    inset 0 0 0 1px rgba(255, 255, 255, calc(0.14 * var(--rim-strength)));
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.65)) saturate(1.65);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.65)) saturate(1.65);
+}
+
+.synopsis-card,
+.section-card {
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.8)) saturate(1.6);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.8)) saturate(1.6);
+}
+
+/* 输入框与下拉：iOS inset 玻璃感（浅雾填充 + 内凹亮边） */
+.field > input,
+.field > select,
+.field > textarea,
+.tag-editor {
+  border: 1px solid rgba(255, 255, 255, calc(0.7 * var(--rim-strength)));
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow:
+    inset 0 1px 2px rgba(18, 28, 65, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.5)) saturate(1.4);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.5)) saturate(1.4);
+  border-radius: 12px;
+}
+
+.field > input:focus,
+.field > select:focus,
+.field > textarea:focus,
+.tag-editor:focus-within {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+/* 内容网格间距：iOS 主屏幕的疏朗节奏 */
+.novel-grid,
+.entry-grid {
+  gap: 1.05rem;
 }
 
 /* 大浮层（对话框/外观面板）不做整圈扫掠，改为柔和的指针光斑：
@@ -6539,9 +6706,10 @@ html.is-sheer .entry-card-excerpt {
   opacity: 0;
   transition: opacity 0.4s ease;
   background: radial-gradient(
-    240px circle at var(--mx, 50%) var(--my, 30%),
-    rgba(255, 255, 255, 0.2),
-    transparent 65%
+    170px circle at var(--mx, 50%) var(--my, 30%),
+    rgba(255, 255, 255, 0.34),
+    rgba(255, 255, 255, 0.1) 55%,
+    transparent 75%
   );
 }
 

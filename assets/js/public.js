@@ -111,6 +111,33 @@
     'wonderSea',
   ];
 
+  const MAP_RESOURCES = {
+    iron: '铁',
+    horses: '马',
+    niter: '硝石',
+    coal: '煤',
+    oil: '石油',
+    aluminum: '铝',
+    uranium: '铀',
+    gold: '金矿',
+    silver: '银矿',
+    marble: '大理石',
+    gems: '宝石',
+    ivory: '象牙',
+    salt: '盐',
+    silk: '丝绸',
+    spices: '香料',
+    tea: '茶叶',
+    wine: '葡萄酒',
+    pearls: '珍珠',
+    fish: '渔场',
+    wheat: '小麦',
+    cattle: '牛',
+    deer: '鹿',
+    stone: '石料',
+    amber: '琥珀',
+  };
+
   const MAP_CITY_TYPES = {
     city: { label: '城市' },
     capital: { label: '都城' },
@@ -429,10 +456,31 @@
       }
       if (points.length < 2) continue;
 
-      paths.push({ id, kind, points });
+      const name =
+        typeof item.name === 'string' && item.name.trim()
+          ? item.name.trim().slice(0, 20)
+          : null;
+      paths.push({ id, kind, points, ...(name ? { name } : {}) });
     }
 
-    return { cols, rows, tiles, features, cities, paths };
+    const resources = {};
+    const rawResources =
+      raw.resources && typeof raw.resources === 'object' ? raw.resources : {};
+    for (const [key, value] of Object.entries(rawResources)) {
+      if (
+        typeof value !== 'string' ||
+        !Object.prototype.hasOwnProperty.call(MAP_RESOURCES, value)
+      )
+        continue;
+      const match = /^(\d{1,2}),(\d{1,2})$/.exec(key);
+      if (!match) continue;
+      const col = Number(match[1]);
+      const row = Number(match[2]);
+      if (col >= cols || row >= rows) continue;
+      resources[`${col},${row}`] = value;
+    }
+
+    return { cols, rows, tiles, features, resources, cities, paths };
   }
 
   function sanitizeEntry(raw) {
@@ -890,6 +938,23 @@
     coastParts.push(buildMapCoastline(map));
     pathParts.push(buildMapPathsMarkup(map));
 
+    const resourceParts = [];
+    for (const [key, resourceKey] of Object.entries(map.resources || {})) {
+      if (!/^\d+,\d+$/.test(key)) continue;
+      const [col, row] = key.split(',').map(Number);
+      if (col >= map.cols || row >= map.rows) continue;
+      const label = MAP_RESOURCES[resourceKey];
+      if (!label) continue;
+      const center = hexCenter(col, row);
+      resourceParts.push(
+        `<g class="map-resource" transform="translate(${roundMapCoordinate(
+          center.x
+        )} ${roundMapCoordinate(center.y)})">${buildMapResourceBadge(
+          label
+        )}</g>`
+      );
+    }
+
     for (const [key, featureKey] of Object.entries(map.features || {})) {
       const [col, row] = key.split(',').map(Number);
       if (col >= map.cols || row >= map.rows) continue;
@@ -1061,6 +1126,9 @@
         ''
       )}${borderParts.join('')}</g>`,
       `<g class="map-layer map-feature-layer">${featureParts.join('')}</g>`,
+      `<g class="map-layer map-resource-layer" aria-hidden="true">${resourceParts.join(
+        ''
+      )}</g>`,
       `<g class="map-layer map-city-layer">${cityParts.join('')}</g>`,
     ].join('');
   }
@@ -1189,6 +1257,12 @@
     }
 
     return '';
+  }
+
+  function buildMapResourceBadge(label) {
+    return `<circle r="6.5" fill="#e9b23c" stroke="#8a6a1e" stroke-width="1.2"/><circle r="2" fill="rgba(255,255,255,.9)"/><text class="map-resource-label" y="17.5" text-anchor="middle">${escapeXml(
+      label
+    )}</text><title>${escapeXml(label)}</title>`;
   }
 
   function buildMapCoastline(map) {
@@ -1331,8 +1405,11 @@
             ? `<path d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2" stroke-linecap="round" transform="translate(0 -1.4)"/>`
             : '';
       }
+      const title = path.name || '';
       parts.push(
-        `<g class="map-path-item">${bank}${line}${glow}</g>`
+        `<g class="map-path-item">${bank}${line}${glow}${
+          title ? `<title>${escapeXml(title)}</title>` : ''
+        }</g>`
       );
     }
     return parts.join('');
