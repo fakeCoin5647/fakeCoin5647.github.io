@@ -7530,3 +7530,368 @@ html.lg-reduced-transparency .appearance-panel::before {
     transition: none;
   }
 }
+
+/* ---------- Glass Select：自绘玻璃下拉（方案 A） ----------
+   原生 <select> 弹出层由系统绘制，无法主题化。glass-select.js
+   保留原生 select 作为值与表单数据源，用 Popover + listbox
+   呈现玻璃弹层；不支持 Popover 的浏览器自动回退原生控件。 */
+
+.gs {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.gs--field,
+.gs--plain {
+  display: flex;
+  width: 100%;
+}
+
+.gs--sort {
+  height: 100%;
+}
+
+.gs > .gs-native {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gs-trigger {
+  -webkit-appearance: none;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, calc(0.7 * var(--rim-strength)));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow:
+    inset 0 1px 2px rgba(18, 28, 65, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.5)) saturate(1.4);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.5)) saturate(1.4);
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.gs-trigger:hover {
+  border-color: rgba(var(--accent-rgb), 0.42);
+}
+
+.gs-trigger:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.58);
+  outline: 2px solid var(--accent-weak);
+  outline-offset: 1px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.gs.is-open .gs-trigger {
+  border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+.gs-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gs-arrow {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  color: var(--muted);
+  transition: transform 0.2s var(--lg-ease);
+}
+
+.gs.is-open .gs-arrow {
+  transform: rotate(180deg);
+}
+
+.gs.is-disabled .gs-trigger,
+.gs-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gs.is-disabled .gs-trigger:hover {
+  border-color: rgba(255, 255, 255, calc(0.7 * var(--rim-strength)));
+}
+
+/* 排序控件：沿用外层胶囊，只保留文字与箭头 */
+.gs--sort .gs-trigger {
+  width: auto;
+  height: 100%;
+  min-height: 30px;
+  padding: 0 19px 0 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  gap: 7px;
+}
+
+.gs--sort .gs-trigger:hover,
+.gs--sort.is-open .gs-trigger {
+  color: var(--ink);
+}
+
+.gs--sort .gs-trigger:focus-visible {
+  border: 0;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  background: transparent;
+}
+
+.gs--sort .gs-value {
+  max-width: 10.5em;
+}
+
+.gs--sort .gs-arrow {
+  width: 9px;
+  height: 9px;
+}
+
+/* 弹层：顶层玻璃板，不透明底色保证任何壁纸上可读 */
+.gs-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  color: var(--ink);
+}
+
+.gs-popover::backdrop {
+  background: transparent;
+}
+
+.gs-panel {
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, calc(0.9 * var(--rim-strength)));
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.94),
+      rgba(244, 248, 255, 0.9) 58%,
+      rgba(235, 242, 253, 0.92)
+    );
+  box-shadow:
+    0 26px 60px -20px rgba(15, 25, 60, 0.42),
+    0 4px 14px rgba(15, 25, 60, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, calc(0.45 * var(--rim-strength))),
+    inset 0 -1px 0 rgba(255, 255, 255, calc(0.5 * var(--rim-strength))),
+    inset 0 0 0 1px rgba(255, 255, 255, calc(0.18 * var(--rim-strength)));
+  backdrop-filter: blur(24px) saturate(1.75);
+  -webkit-backdrop-filter: blur(24px) saturate(1.75);
+  overflow: hidden;
+  transform-origin: top center;
+  animation: gs-pop-in 0.16s var(--lg-ease);
+}
+
+.gs-popover[data-placement="top"] .gs-panel {
+  transform-origin: bottom center;
+  animation-name: gs-pop-in-top;
+}
+
+@keyframes gs-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gs-pop-in-top {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.gs-listbox {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(320px, 48vh);
+  padding: 2px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(38, 42, 51, 0.18) transparent;
+}
+
+.gs-listbox::-webkit-scrollbar {
+  width: 9px;
+}
+
+.gs-listbox::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(38, 42, 51, 0.16);
+  background-clip: content-box;
+}
+
+.gs-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gs-group-label {
+  padding: 8px 12px 4px;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.gs-group:first-child .gs-group-label {
+  padding-top: 4px;
+}
+
+.gs-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 10px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.45;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.gs-option:hover {
+  background: rgba(var(--accent-rgb), 0.07);
+}
+
+.gs-option.is-active {
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.gs-option[aria-selected="true"] {
+  background: rgba(var(--accent-rgb), 0.13);
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.gs-option[aria-selected="true"].is-active {
+  background: rgba(var(--accent-rgb), 0.17);
+}
+
+.gs-option.is-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.gs-option.is-disabled:hover {
+  background: transparent;
+}
+
+.gs-option-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gs-check {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.gs-option[aria-selected="true"] .gs-check {
+  opacity: 1;
+}
+
+.gs-empty {
+  padding: 14px 12px;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+@media (pointer: coarse) {
+  .gs-option {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 680px) {
+  .gs--sort .gs-trigger {
+    padding-right: 17px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .gs-panel {
+    background: #f5f8fd;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+html.lg-reduced-transparency .gs-panel {
+  background: #f5f8fd;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

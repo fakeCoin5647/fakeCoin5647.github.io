@@ -13575,6 +13575,7 @@
         select.appendChild(option);
       }
       select.value = selected.get(entry.id) || 'risk';
+      select.setAttribute('aria-label', `${entry.title} 的处境`);
       row.append(check, name, select);
       fragment.appendChild(row);
 
