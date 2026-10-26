@@ -172,6 +172,10 @@ layout: default
             <p class="novel-hero-summary" id="novelHeroSummary"></p>
             <p class="novel-hero-meta" id="novelHeroMeta"></p>
             <div class="novel-hero-actions">
+              <button type="button" class="btn ghost" id="novelAiPackBtn" title="把整本书的设定整理成可粘贴给 AI 的上下文">
+                <svg class="icon" aria-hidden="true"><use href="#i-spark"></use></svg>
+                整书给 AI
+              </button>
               <button type="button" class="btn ghost" data-action="edit-novel">
                 <svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>
                 编辑小说资料
@@ -310,6 +314,93 @@ layout: default
             <p>点「随机出题」抽一道题，或粘贴一段你喜欢的范文开始仿写；写完用「复制点评请求」发给 AI。</p>
             <div class="empty-actions">
               <button type="button" class="btn primary" id="drillsEmptyNewBtn">开始第一题</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="view ideas-view" id="ideasView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            <span>返回书架</span>
+          </a>
+        </nav>
+
+        <section class="shelf-section ideas-section" aria-labelledby="ideasHeading">
+          <h2 class="sr-only" id="ideasHeading">网页构想</h2>
+
+          <header class="content-head">
+            <div class="content-head-text">
+              <p class="eyebrow">SITE IDEAS</p>
+              <h1 class="content-title">网页构想</h1>
+              <p class="content-desc">把想给这个站点加的功能先扔进来。不用写完整方案，记下最小下一步；等有空时随机翻一张，挑一件开始做。</p>
+            </div>
+            <div class="content-head-actions">
+              <button type="button" class="btn ghost" id="ideaDrawBtn" title="从还没上线、也没搁置的构想里随机翻一张（R）">
+                <svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg>
+                随机翻一张
+              </button>
+              <button type="button" class="btn primary" id="ideaNewBtn" title="记下新构想（N）">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+                记下新构想
+              </button>
+            </div>
+          </header>
+
+          <div class="ideas-toolbar">
+            <div class="search-box">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+              <input type="search" id="ideasSearchInput" placeholder="搜索标题、说明或下一步…" aria-label="搜索网页构想" autocomplete="off" spellcheck="false">
+              <button type="button" class="search-clear" id="ideasSearchClearBtn" aria-label="清空搜索" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+              </button>
+              <kbd class="search-kbd" aria-hidden="true">/</kbd>
+            </div>
+            <label class="sort-control">
+              <span>排序</span>
+              <select id="ideasSortSelect">
+                <option value="updated">最近更新</option>
+                <option value="created">最近创建</option>
+                <option value="pipeline">推进优先</option>
+                <option value="excitement">心动优先</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="filter-row ideas-status-filters" id="ideasStatusFilters" role="group" aria-label="按构想状态筛选"></div>
+
+          <div class="list-meta ideas-meta">
+            <p id="ideasCount" aria-live="polite">还没有构想</p>
+            <button type="button" class="link-btn" id="ideasClearFiltersBtn" hidden>清除筛选</button>
+          </div>
+
+          <div class="idea-draw" id="ideaDraw" hidden aria-live="polite"></div>
+
+          <div class="idea-grid" id="ideasList"></div>
+
+          <div class="empty-state" id="ideasEmpty" hidden>
+            <svg class="empty-art" viewBox="0 0 200 140" aria-hidden="true">
+              <circle cx="100" cy="64" r="43" fill="#e6e9f8"/>
+              <path d="M100 32c1.6 12.8 5.4 16.6 18 18-12.6 1.6-16.4 5.4-18 18-1.6-12.6-5.4-16.4-18-18 12.6-1.4 16.4-5.2 18-18Z" fill="#6f86f0"/>
+              <path d="M72 102h56" stroke="#8f9fd0" stroke-width="3" stroke-linecap="round"/>
+              <path d="M82 112h36" stroke="#b3bfe2" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <h3>还没有记下网页构想</h3>
+            <p>突然想到的功能、交互或视觉点子，先扔进这里；写下最小下一步，以后翻到就能直接动手。</p>
+            <div class="empty-actions">
+              <button type="button" class="btn primary" id="ideasEmptyNewBtn">记下第一条构想</button>
+            </div>
+          </div>
+
+          <div class="empty-state empty-filtered" id="ideasNoResults" hidden>
+            <svg class="empty-art small" viewBox="0 0 120 100" aria-hidden="true">
+              <use href="#art-empty-search"></use>
+            </svg>
+            <h3>没有找到这条构想</h3>
+            <p>换个关键词，或者把状态筛选放宽。</p>
+            <div class="empty-actions">
+              <button type="button" class="btn ghost" id="ideasNoResultsClearBtn">清除筛选</button>
             </div>
           </div>
         </section>

@@ -61,6 +61,8 @@
 
   const MAP_DEFAULT_COLS = 22;
   const MAP_DEFAULT_ROWS = 14;
+  const MAP_MAX_COLS = 48;
+  const MAP_MAX_ROWS = 34;
   const MAP_HEX_SIZE = 40;
   const MAP_WORLD_SQRT3 = Math.sqrt(3);
   const MAP_TERRAINS = {
@@ -356,8 +358,8 @@
   function sanitizeMap(raw) {
     if (!raw || typeof raw !== 'object') return null;
 
-    const cols = clampInt(raw.cols, 6, 40, MAP_DEFAULT_COLS);
-    const rows = clampInt(raw.rows, 6, 30, MAP_DEFAULT_ROWS);
+    const cols = clampInt(raw.cols, 6, MAP_MAX_COLS, MAP_DEFAULT_COLS);
+    const rows = clampInt(raw.rows, 6, MAP_MAX_ROWS, MAP_DEFAULT_ROWS);
     const tiles = {};
     const rawTiles = raw.tiles && typeof raw.tiles === 'object' ? raw.tiles : {};
 
@@ -480,7 +482,21 @@
       resources[`${col},${row}`] = value;
     }
 
-    return { cols, rows, tiles, features, resources, cities, paths };
+    const continents = {};
+    const rawContinents =
+      raw.continents && typeof raw.continents === 'object' ? raw.continents : {};
+    for (const [key, value] of Object.entries(rawContinents)) {
+      const group = Number(value);
+      if (!Number.isInteger(group) || group < 1 || group > 4) continue;
+      const match = /^(\d{1,2}),(\d{1,2})$/.exec(key);
+      if (!match) continue;
+      const col = Number(match[1]);
+      const row = Number(match[2]);
+      if (col >= cols || row >= rows) continue;
+      continents[`${col},${row}`] = group;
+    }
+
+    return { cols, rows, tiles, features, resources, continents, cities, paths };
   }
 
   function sanitizeEntry(raw) {
@@ -1060,10 +1076,14 @@
         `<g class="map-city-marker" transform="translate(${roundMapCoordinate(
           center.x
         )} ${roundMapCoordinate(center.y)})">
+          <ellipse class="map-city-ground" cx="0" cy="${radius * 0.82}" rx="${
+          radius * 1.34
+        }" ry="${radius * 0.44}" fill="rgba(18,26,48,.2)"/>
           <circle class="map-city-halo" r="${MAP_HEX_SIZE * 0.64}" fill="${
           city.color
-        }" opacity=".18"/>
+          }" opacity=".18"/>
           <circle class="map-city-disc" r="${radius}" fill="${city.color}"/>
+          <circle class="map-city-sheen" r="${radius}" fill="url(#mapCitySheen)"/>
           ${capitalRing}
           <circle class="map-city-ring" r="${radius}" fill="none" stroke="#ffffff" stroke-width="2.4"/>
           ${cityGlyph}
@@ -1120,6 +1140,11 @@
           <stop offset="0" stop-color="#bce0f2"/>
           <stop offset="1" stop-color="#92c3de"/>
         </linearGradient>
+        <radialGradient id="mapCitySheen" cx=".34" cy=".24" r=".82">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".48"/>
+          <stop offset=".52" stop-color="#ffffff" stop-opacity=".1"/>
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
       sunBounds,
@@ -1269,35 +1294,81 @@
   }
 
   function buildMapCoastline(map) {
-    const segments = [];
+    const oceanEdges = [];
+    const lagoonEdges = [];
+    const lakeEdges = [];
+    const beachEdges = [];
+    const snowBeaches = [];
+    const beachTerrains = new Set(['grass', 'plains', 'desert', 'snow', 'hills']);
+
+    const edgePath = (corners, center, direction, inset) => {
+      const [start, end] = MAP_EDGE_CORNERS[direction];
+      const shift = (point) => {
+        if (!inset) return point;
+        const dx = point.x - center.x;
+        const dy = point.y - center.y;
+        const length = Math.hypot(dx, dy) || 1;
+        return {
+          x: point.x - (dx / length) * inset,
+          y: point.y - (dy / length) * inset,
+        };
+      };
+      const a = shift(corners[start]);
+      const b = shift(corners[end]);
+      return `M${roundMapCoordinate(a.x)} ${roundMapCoordinate(a.y)}L${roundMapCoordinate(
+        b.x
+      )} ${roundMapCoordinate(b.y)}`;
+    };
 
     for (let row = 0; row < map.rows; row += 1) {
       for (let col = 0; col < map.cols; col += 1) {
-        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        const terrain = map.tiles[`${col},${row}`] || 'grass';
         const center = hexCenter(col, row);
         const corners = hexCornersAt(center.x, center.y);
 
         for (const direction of MAP_DIRECTIONS) {
           const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
-          const neighbor =
-            nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows
-              ? 'water'
-              : map.tiles[`${nextCol},${nextRow}`] || 'grass';
-          if (neighbor === 'water') continue;
-          const [start, end] = MAP_EDGE_CORNERS[direction];
-          segments.push(
-            `M${roundMapCoordinate(corners[start].x)} ${roundMapCoordinate(
-              corners[start].y
-            )}L${roundMapCoordinate(corners[end].x)} ${roundMapCoordinate(corners[end].y)}`
-          );
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows)
+            continue;
+          const neighbor = map.tiles[`${nextCol},${nextRow}`] || 'grass';
+
+          if (terrain === 'water' && neighbor !== 'water') {
+            oceanEdges.push(edgePath(corners, center, direction, 0));
+            lagoonEdges.push(edgePath(corners, center, direction, 3.2));
+            continue;
+          }
+          if (terrain === 'lake' && neighbor !== 'lake' && neighbor !== 'water') {
+            lakeEdges.push(edgePath(corners, center, direction, 0.6));
+            continue;
+          }
+          if (terrain !== 'water' && terrain !== 'lake' && neighbor === 'water') {
+            if (!beachTerrains.has(terrain)) continue;
+            const path = edgePath(corners, center, direction, 2.4);
+            if (terrain === 'snow') snowBeaches.push(path);
+            else beachEdges.push(path);
+            continue;
+          }
+          if (terrain !== 'water' && terrain !== 'lake' && neighbor === 'lake') {
+            beachEdges.push(edgePath(corners, center, direction, 2.4));
+          }
         }
       }
     }
 
-    if (segments.length === 0) return '';
-    const d = segments.join('');
-    return `<path class="map-coastline" d="${d}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="5" stroke-linecap="round"/>` +
-      `<path class="map-coastline" d="${d}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>`;
+    const line = (d, stroke, width) =>
+      d
+        ? `<path class="map-coastline" d="${d}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`
+        : '';
+    const oceanD = oceanEdges.join('');
+    return [
+      line(lagoonEdges.join(''), 'rgba(228,248,255,.3)', 9),
+      line(oceanD, 'rgba(226,246,255,.38)', 8),
+      line(oceanD, 'rgba(255,255,255,.56)', 3.4),
+      line(oceanD, 'rgba(255,255,255,.94)', 1.5),
+      line(beachEdges.join(''), 'rgba(241,224,170,.72)', 2.6),
+      line(snowBeaches.join(''), 'rgba(240,248,255,.82)', 2.6),
+      line(lakeEdges.join(''), 'rgba(255,255,255,.62)', 1.6),
+    ].join('');
   }
 
   function catmullRomToBezierPath(points) {
@@ -1370,36 +1441,78 @@
       const config = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
       const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
       const d = catmullRomToBezierPath(path.points);
+      let casing = '';
       let bank = '';
       let line = '';
       let glow = '';
+      let source = '';
+      let mouth = '';
       if (path.kind === 'river' && path.points.length >= 2) {
         const segments = buildRiverSegmentPaths(path.points);
+        casing = segments
+          .map(
+            (segment) =>
+              `<path d="${segment.d}" fill="none" stroke="rgba(28,62,98,.28)" stroke-width="${segment.width + 4}" stroke-linecap="round" stroke-linejoin="round"/>`
+          )
+          .join('');
         bank = segments
           .map(
             (segment) =>
-              `<path d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width + 2.6}" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>`
+              `<path d="${segment.d}" fill="none" stroke="rgba(238,250,255,.62)" stroke-width="${segment.width + 2.2}" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/>`
           )
           .join('');
         line = segments
           .map(
             (segment) =>
-              `<path d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width}" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`
+              `<path d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width}" stroke-linecap="round" stroke-linejoin="round" opacity=".94"/>`
           )
           .join('');
         glow = segments
           .map(
             (segment) =>
-              `<path d="${segment.d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="${Math.max(0.9, segment.width * 0.34)}" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+              `<path d="${segment.d}" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="${Math.max(0.9, segment.width * 0.32)}" stroke-linecap="round" transform="translate(0 -1.4)"/>`
           )
           .join('');
+        const first = hexCenter(path.points[0].col, path.points[0].row);
+        const last = hexCenter(
+          path.points[path.points.length - 1].col,
+          path.points[path.points.length - 1].row
+        );
+        const firstWidth = segments[0].width;
+        const lastWidth = segments[segments.length - 1].width;
+        source = `<circle cx="${roundMapCoordinate(first.x)}" cy="${roundMapCoordinate(
+          first.y
+        )}" r="${Math.max(2.8, firstWidth * 0.9)}" fill="rgba(240,252,255,.96)" stroke="${
+          config.color
+        }" stroke-width="1.1"/><circle cx="${roundMapCoordinate(
+          first.x
+        )}" cy="${roundMapCoordinate(first.y)}" r="${Math.max(
+          1.1,
+          firstWidth * 0.34
+        )}" fill="${config.color}" opacity=".75"/>`;
+        mouth = `<circle cx="${roundMapCoordinate(last.x)}" cy="${roundMapCoordinate(
+          last.y
+        )}" r="${Math.max(4, lastWidth * 1.15)}" fill="${
+          config.color
+        }" opacity=".16"/><circle cx="${roundMapCoordinate(
+          last.x
+        )}" cy="${roundMapCoordinate(last.y)}" r="${Math.max(
+          2.2,
+          lastWidth * 0.6
+        )}" fill="rgba(244,252,255,.34)"/>`;
       } else {
-        bank =
-          path.kind === 'river'
-            ? `<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
-                config.width + 3
-              }" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
-            : '';
+        if (path.kind === 'road') {
+          casing = `<path d="${d}" fill="none" stroke="rgba(255,251,240,.82)" stroke-width="${
+            config.width + 3
+          }" stroke-linecap="round" stroke-linejoin="round"/>`;
+        } else {
+          casing = `<path d="${d}" fill="none" stroke="rgba(28,62,98,.2)" stroke-width="${
+            config.width + 3.4
+          }" stroke-linecap="round" stroke-linejoin="round"/>`;
+          bank = `<path d="${d}" fill="none" stroke="rgba(238,250,255,.55)" stroke-width="${
+            config.width + 2.2
+          }" stroke-linecap="round" stroke-linejoin="round"/>`;
+        }
         line = `<path d="${d}" fill="none" stroke="${config.color}" stroke-width="${
           config.width
         }"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`;
@@ -1410,7 +1523,7 @@
       }
       const title = path.name || '';
       parts.push(
-        `<g class="map-path-item">${bank}${line}${glow}${
+        `<g class="map-path-item">${casing}${bank}${line}${glow}${source}${mouth}${
           title ? `<title>${escapeXml(title)}</title>` : ''
         }</g>`
       );

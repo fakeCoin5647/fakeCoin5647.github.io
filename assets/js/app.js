@@ -155,6 +155,34 @@
   };
   const DRILL_TEXT_LIMIT = 8000;
   const DRILL_MAX_LINKS = 4;
+  const IDEA_MAX_COUNT = 200;
+  const IDEA_TITLE_LIMIT = 120;
+  const IDEA_BODY_LIMIT = 8000;
+  const IDEA_NEXT_LIMIT = 200;
+  const IDEA_DEFAULT_EXCITEMENT = 3;
+  const IDEA_KINDS = {
+    writing: { label: '写作' },
+    reading: { label: '阅读' },
+    map: { label: '地图' },
+    ai: { label: 'AI 协作' },
+    visual: { label: '视觉' },
+    engineering: { label: '工程' },
+    other: { label: '其他' },
+  };
+  const IDEA_STATUSES = {
+    spark: { label: '构想', className: 'is-spark' },
+    planned: { label: '计划做', className: 'is-planned' },
+    building: { label: '开发中', className: 'is-building' },
+    shipped: { label: '已上线', className: 'is-shipped' },
+    parked: { label: '搁置', className: 'is-parked' },
+  };
+  const IDEA_STATUS_ORDER = ['spark', 'planned', 'building', 'shipped', 'parked'];
+  const IDEA_NEXT_STATUS = { spark: 'planned', planned: 'building', building: 'shipped' };
+  const IDEA_ADVANCE_LABELS = {
+    spark: '排进计划',
+    planned: '开始开发',
+    building: '标记上线',
+  };
   const BACKLINK_LIMIT = 20;
   const BACKLINK_BATCH_SIZE = 100;
   const BACKLINK_IDLE_DELAY = 200;
@@ -295,6 +323,8 @@
 
   const MAP_DEFAULT_COLS = 22;
   const MAP_DEFAULT_ROWS = 14;
+  const MAP_MAX_COLS = 48;
+  const MAP_MAX_ROWS = 34;
   const MAP_HEX_SIZE = 40;
   const MAP_HISTORY_LIMIT = 80;
   const MAP_MAX_CITIES = 40;
@@ -549,6 +579,8 @@
     forgeDialog: $('#forgeDialog'),
     forgeDialogCloseBtn: $('#forgeDialogCloseBtn'),
     forgeTabSwitch: $('#forgeDialog .forge-tab-switch'),
+    forgeSeedInput: $('#forgeSeedInput'),
+    forgeSeedHint: $('#forgeSeedHint'),
     forgeCalendarParams: $('#forgeCalendarParams'),
     forgeClimateParams: $('#forgeClimateParams'),
     forgeFolkParams: $('#forgeFolkParams'),
@@ -561,11 +593,12 @@
     forgeLatitude: $('#forgeLatitude'),
     forgeTerrain: $('#forgeTerrain'),
     forgeMagic: $('#forgeMagic'),
+    forgeClimateMap: $('#forgeClimateMap'),
+    forgeClimateMapHint: $('#forgeClimateMapHint'),
     forgeLivelihood: $('#forgeLivelihood'),
     forgeThreat: $('#forgeThreat'),
     forgeFaith: $('#forgeFaith'),
     forgeOutput: $('#forgeOutput'),
-    forgeSeedHint: $('#forgeSeedHint'),
     forgeRerollBtn: $('#forgeRerollBtn'),
     forgeSaveBtn: $('#forgeSaveBtn'),
     forgeAiInput: $('#forgeAiInput'),
@@ -604,6 +637,40 @@
     drillLinkSuggestions: $('#drillLinkSuggestions'),
     sidebarDrillCount: $('#sidebarDrillCount'),
     sidebarDrillsLink: $('#sidebarDrillsLink'),
+
+    ideasView: $('#ideasView'),
+    ideasList: $('#ideasList'),
+    ideasCount: $('#ideasCount'),
+    ideasEmpty: $('#ideasEmpty'),
+    ideasEmptyNewBtn: $('#ideasEmptyNewBtn'),
+    ideasNoResults: $('#ideasNoResults'),
+    ideasNoResultsClearBtn: $('#ideasNoResultsClearBtn'),
+    ideasSearchInput: $('#ideasSearchInput'),
+    ideasSearchClearBtn: $('#ideasSearchClearBtn'),
+    ideasSortSelect: $('#ideasSortSelect'),
+    ideasStatusFilters: $('#ideasStatusFilters'),
+    ideasClearFiltersBtn: $('#ideasClearFiltersBtn'),
+    ideaDraw: $('#ideaDraw'),
+    ideaNewBtn: $('#ideaNewBtn'),
+    ideaDrawBtn: $('#ideaDrawBtn'),
+    ideaDialog: $('#ideaDialog'),
+    ideaDialogEyebrow: $('#ideaDialogEyebrow'),
+    ideaDialogTitle: $('#ideaDialogTitle'),
+    ideaDialogCloseBtn: $('#ideaDialogCloseBtn'),
+    ideaForm: $('#ideaForm'),
+    ideaTitleInput: $('#ideaTitleInput'),
+    ideaTitleError: $('#ideaTitleError'),
+    ideaKindSelect: $('#ideaKindSelect'),
+    ideaStatusSelect: $('#ideaStatusSelect'),
+    ideaExcitement: $('#ideaExcitement'),
+    ideaExcitementHint: $('#ideaExcitementHint'),
+    ideaBodyInput: $('#ideaBodyInput'),
+    ideaBodyCount: $('#ideaBodyCount'),
+    ideaNextInput: $('#ideaNextInput'),
+    ideaCancelBtn: $('#ideaCancelBtn'),
+    ideaSaveBtn: $('#ideaSaveBtn'),
+    sidebarIdeaCount: $('#sidebarIdeaCount'),
+    sidebarIdeasLink: $('#sidebarIdeasLink'),
     backupReminder: $('#backupReminder'),
     sideCapacity: $('#sideCapacity'),
     footerExportBtn: $('#footerExportBtn'),
@@ -640,6 +707,18 @@
     novelHeroSummary: $('#novelHeroSummary'),
     novelHeroMeta: $('#novelHeroMeta'),
     novelPinBtn: $('#novelPinBtn'),
+    novelAiPackBtn: $('#novelAiPackBtn'),
+    aiPackDialog: $('#aiPackDialog'),
+    aiPackCloseBtn: $('#aiPackCloseBtn'),
+    aiPackPresetBtns: Array.from(document.querySelectorAll('[data-ai-pack-preset]')),
+    aiPackSections: $('#aiPackSections'),
+    aiPackFocusInput: $('#aiPackFocusInput'),
+    aiPackPreview: $('#aiPackPreview'),
+    aiPackCount: $('#aiPackCount'),
+    aiPackMeta: $('#aiPackMeta'),
+    aiPackNotice: $('#aiPackNotice'),
+    aiPackCopyBtn: $('#aiPackCopyBtn'),
+    aiPackDownloadBtn: $('#aiPackDownloadBtn'),
     workspaceNav: $('#workspaceNav'),
     workspaceContent: $('#workspaceContent'),
 
@@ -783,6 +862,9 @@
     mapMobileFitBtn: $('#mapMobileFitBtn'),
     mapMobileUndoBtn: $('#mapMobileUndoBtn'),
     mapMobileRedoBtn: $('#mapMobileRedoBtn'),
+    mapInspector: $('#mapInspector'),
+    mapInspectorBody: $('#mapInspectorBody'),
+    mapInspectorToggle: $('#mapInspectorToggle'),
     mapCityList: $('#mapCityList'),
     mapCityCount: $('#mapCityCount'),
     mapCityEditor: $('#mapCityEditor'),
@@ -803,8 +885,10 @@
     mapSizeRowsValue: $('#mapSizeRowsValue'),
     mapGenerateBtn: $('#mapGenerateBtn'),
     mapExportBtn: $('#mapExportBtn'),
+    mapTopExportBtn: $('#mapTopExportBtn'),
     mapSuggestBtn: $('#mapSuggestBtn'),
     mapCiv6Btn: $('#mapCiv6Btn'),
+    mapTopCiv6Btn: $('#mapTopCiv6Btn'),
     civ6ExportDialog: $('#civ6ExportDialog'),
     civ6ExportCloseBtn: $('#civ6ExportCloseBtn'),
     civ6ExportCancelBtn: $('#civ6ExportCancelBtn'),
@@ -814,6 +898,7 @@
     civ6ExportStarts: $('#civ6ExportStarts'),
     civ6ImportFile: $('#civ6ImportFile'),
     civ6ImportBtn: $('#civ6ImportBtn'),
+    civ6ImportSummary: $('#civ6ImportSummary'),
     mapRiverNameField: $('#mapRiverNameField'),
     mapRiverNameInput: $('#mapRiverNameInput'),
     mapCityTypeRow: $('#mapCityTypeRow'),
@@ -868,6 +953,9 @@
     search: { items: [], activeIndex: -1, mode: 'recent' },
     drills: [],
     drillDraft: { id: null, kind: 'free', dirty: false, links: [] },
+    ideas: [],
+    ideaBoard: { status: 'all', query: '', sort: 'updated', pickedId: null },
+    ideaDraft: { id: null, kind: 'other', status: 'spark', excitement: 3, dirty: false },
     forge: null,
   };
 
@@ -882,6 +970,7 @@
     state.trash = library.trash;
     state.comments = library.comments;
     state.drills = library.drills;
+    state.ideas = library.ideas;
     state.appearance = loadAppearance();
     applyAppearance();
     document.body.appendChild(els.appearancePanel);
@@ -934,9 +1023,9 @@
     try {
       raw = localStorage.getItem(STORAGE_KEY);
     } catch (error) {
-      return { novels: [], trash: [], comments: [], drills: [] };
+      return { novels: [], trash: [], comments: [], drills: [], ideas: [] };
     }
-    if (!raw) return { novels: [], trash: [], comments: [], drills: [] };
+    if (!raw) return { novels: [], trash: [], comments: [], drills: [], ideas: [] };
 
     try {
       const parsed = JSON.parse(raw);
@@ -992,15 +1081,31 @@
       }
       drills.sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt));
 
+      const rawIdeas =
+        migrated.data && !Array.isArray(migrated.data) && Array.isArray(migrated.data.ideas)
+          ? migrated.data.ideas
+          : [];
+      const ideas = [];
+      const ideaSeen = new Set();
+      for (const rawItem of rawIdeas) {
+        if (ideas.length >= IDEA_MAX_COUNT) break;
+        const idea = normalizeIdea(rawItem);
+        if (!idea || ideaSeen.has(idea.id)) continue;
+        ideaSeen.add(idea.id);
+        ideas.push(idea);
+      }
+      ideas.sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt));
+
       return {
         novels: list.map((item) => normalizeNovel(item)?.novel).filter(Boolean),
         trash,
         comments,
         drills,
+        ideas,
       };
     } catch (error) {
       console.warn('读取本地书架数据失败：', error);
-      return { novels: [], trash: [], comments: [], drills: [] };
+      return { novels: [], trash: [], comments: [], drills: [], ideas: [] };
     }
   }
 
@@ -1018,6 +1123,7 @@
           trash: state.trash,
           comments: state.comments,
           drills: state.drills,
+          ideas: state.ideas,
         })
       );
       return true;
@@ -1544,8 +1650,8 @@
   function normalizeMap(raw) {
     if (!raw || typeof raw !== 'object') return null;
 
-    const cols = clampInt(raw.cols, 6, 40, MAP_DEFAULT_COLS);
-    const rows = clampInt(raw.rows, 6, 30, MAP_DEFAULT_ROWS);
+    const cols = clampInt(raw.cols, 6, MAP_MAX_COLS, MAP_DEFAULT_COLS);
+    const rows = clampInt(raw.rows, 6, MAP_MAX_ROWS, MAP_DEFAULT_ROWS);
     const tiles = {};
     const rawTiles = raw.tiles && typeof raw.tiles === 'object' ? raw.tiles : {};
 
@@ -1857,6 +1963,10 @@
       return parts.length === 1 ? { view: 'drills' } : { view: 'missing' };
     }
 
+    if (parts[0] === 'ideas') {
+      return parts.length === 1 ? { view: 'ideas' } : { view: 'missing' };
+    }
+
     if (parts[0] === 'publish') {
       return parts.length === 1 ? { view: 'publish' } : { view: 'missing' };
     }
@@ -1898,6 +2008,7 @@
       route.view === 'trash' ||
       route.view === 'comments' ||
       route.view === 'drills' ||
+      route.view === 'ideas' ||
       route.view === 'publish'
     ) {
       return route.view;
@@ -2063,6 +2174,9 @@
     } else if (route.view === 'drills') {
       showView('drills');
       renderDrills();
+    } else if (route.view === 'ideas') {
+      showView('ideas');
+      renderIdeas();
     } else if (route.view === 'publish') {
       showView('publish');
       renderPublish();
@@ -2111,6 +2225,7 @@
     els.novelView.hidden = name !== 'novel';
     els.commentsView.hidden = name !== 'comments';
     els.drillsView.hidden = name !== 'drills';
+    els.ideasView.hidden = name !== 'ideas';
     els.publishView.hidden = name !== 'publish';
     els.missingView.hidden = name !== 'missing';
   }
@@ -2124,6 +2239,8 @@
       document.title = `评论与标注 · ${SITE_NAME}`;
     } else if (route.view === 'drills') {
       document.title = `练笔房 · ${SITE_NAME}`;
+    } else if (route.view === 'ideas') {
+      document.title = `网页构想 · ${SITE_NAME}`;
     } else if (route.view === 'publish') {
       document.title = `公开作品 · ${SITE_NAME}`;
     } else if (route.view === 'missing') {
@@ -2653,6 +2770,7 @@
     const onComments = Boolean(route && route.view === 'comments');
     const onTrash = Boolean(route && route.view === 'trash');
     const onPublish = Boolean(route && route.view === 'publish');
+    const onIdeas = Boolean(route && route.view === 'ideas');
     const currentNovel =
       route && ['novel', 'section', 'entry', 'outline-editor'].includes(route.view)
         ? route.novel
@@ -2680,6 +2798,19 @@
       state.drills.length > 99 ? '99+' : String(state.drills.length);
     els.sidebarDrillCount.hidden = state.drills.length === 0;
     els.sidebarDrillsLink.classList.toggle('is-active', route.view === 'drills');
+
+    const activeIdeaCount = state.ideas.filter(
+      (idea) => idea.status !== 'shipped' && idea.status !== 'parked'
+    ).length;
+    els.sidebarIdeaCount.textContent =
+      activeIdeaCount > 99 ? '99+' : String(activeIdeaCount);
+    els.sidebarIdeaCount.hidden = activeIdeaCount === 0;
+    els.sidebarIdeasLink.classList.toggle('is-active', onIdeas);
+    if (onIdeas) {
+      els.sidebarIdeasLink.setAttribute('aria-current', 'page');
+    } else {
+      els.sidebarIdeasLink.removeAttribute('aria-current');
+    }
 
     els.sidebarTrashLink.classList.toggle('is-active', onTrash);
     if (onTrash) {
@@ -6985,6 +7116,11 @@
           <stop offset="0" stop-color="#bce0f2"/>
           <stop offset="1" stop-color="#92c3de"/>
         </linearGradient>
+        <radialGradient id="mapCitySheen" cx=".34" cy=".24" r=".82">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".48"/>
+          <stop offset=".52" stop-color="#ffffff" stop-opacity=".1"/>
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
       </defs>`,
       `<g class="map-layer map-terrain-layer">${terrainParts.join('')}</g>`,
       showContinents
@@ -7017,35 +7153,97 @@
   }
 
   function buildMapCoastline(map) {
-    const segments = [];
+    const oceanEdges = [];
+    const lagoonEdges = [];
+    const lakeEdges = [];
+    const beachEdges = [];
+    const snowBeaches = [];
+    const beachTerrains = new Set(['grass', 'plains', 'desert', 'snow', 'hills']);
+
+    const edgePath = (corners, center, direction, inset) => {
+      const [start, end] = MAP_EDGE_CORNERS[direction];
+      const shift = (point) => {
+        if (!inset) return point;
+        const dx = point.x - center.x;
+        const dy = point.y - center.y;
+        const length = Math.hypot(dx, dy) || 1;
+        return {
+          x: point.x - (dx / length) * inset,
+          y: point.y - (dy / length) * inset,
+        };
+      };
+      const a = shift(corners[start]);
+      const b = shift(corners[end]);
+      return `M${roundMapCoordinate(a.x)} ${roundMapCoordinate(a.y)}L${roundMapCoordinate(
+        b.x
+      )} ${roundMapCoordinate(b.y)}`;
+    };
 
     for (let row = 0; row < map.rows; row += 1) {
       for (let col = 0; col < map.cols; col += 1) {
-        if ((map.tiles[`${col},${row}`] || 'grass') !== 'water') continue;
+        const terrain = map.tiles[`${col},${row}`] || 'grass';
         const center = hexCenter(col, row);
         const corners = hexCornersAt(center.x, center.y);
 
         for (const direction of MAP_DIRECTIONS) {
           const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
-          const neighbor =
-            nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows
-              ? 'water'
-              : map.tiles[`${nextCol},${nextRow}`] || 'grass';
-          if (neighbor === 'water') continue;
-          const [start, end] = MAP_EDGE_CORNERS[direction];
-          segments.push(
-            `M${roundMapCoordinate(corners[start].x)} ${roundMapCoordinate(
-              corners[start].y
-            )}L${roundMapCoordinate(corners[end].x)} ${roundMapCoordinate(corners[end].y)}`
-          );
+          if (nextCol < 0 || nextRow < 0 || nextCol >= map.cols || nextRow >= map.rows)
+            continue;
+          const neighbor = map.tiles[`${nextCol},${nextRow}`] || 'grass';
+
+          if (terrain === 'water' && neighbor !== 'water') {
+            oceanEdges.push(edgePath(corners, center, direction, 0));
+            lagoonEdges.push(edgePath(corners, center, direction, 3.2));
+            continue;
+          }
+          if (terrain === 'lake' && neighbor !== 'lake' && neighbor !== 'water') {
+            lakeEdges.push(edgePath(corners, center, direction, 0.6));
+            continue;
+          }
+          if (terrain !== 'water' && terrain !== 'lake' && neighbor === 'water') {
+            if (!beachTerrains.has(terrain)) continue;
+            const path = edgePath(corners, center, direction, 2.4);
+            if (terrain === 'snow') snowBeaches.push(path);
+            else beachEdges.push(path);
+            continue;
+          }
+          if (terrain !== 'water' && terrain !== 'lake' && neighbor === 'lake') {
+            beachEdges.push(edgePath(corners, center, direction, 2.4));
+          }
         }
       }
     }
 
-    if (segments.length === 0) return '';
-    const d = segments.join('');
-    return `<path class="map-coastline" d="${d}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="5" stroke-linecap="round"/>` +
-      `<path class="map-coastline" d="${d}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>`;
+    const paths = [];
+    const line = (className, d, stroke, width, extra = '') =>
+      d
+        ? `<path class="${className}" d="${d}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`
+        : '';
+
+    const oceanD = oceanEdges.join('');
+    paths.push(
+      line('map-lagoon', lagoonEdges.join(''), 'rgba(228,248,255,.3)', 9)
+    );
+    paths.push(
+      line('map-coast-glow', oceanD, 'rgba(226,246,255,.38)', 8)
+    );
+    paths.push(
+      line('map-coast-foam', oceanD, 'rgba(255,255,255,.56)', 3.4)
+    );
+    paths.push(
+      line('map-coastline', oceanD, 'rgba(255,255,255,.94)', 1.5)
+    );
+    paths.push(
+      line('map-beach', beachEdges.join(''), 'rgba(241,224,170,.72)', 2.6)
+    );
+    paths.push(
+      line('map-beach', snowBeaches.join(''), 'rgba(240,248,255,.82)', 2.6)
+    );
+    paths.push(
+      line('map-lake-shore', lakeEdges.join(''), 'rgba(255,255,255,.62)', 1.6)
+    );
+
+    return paths.join('');
   }
 
   function catmullRomToBezierPath(points) {
@@ -7119,34 +7317,63 @@
     const dash = config.dash ? ` stroke-dasharray="${config.dash}"` : '';
     const d = catmullRomToBezierPath(path.points);
 
+    let casing = '';
     let bank = '';
     let line = '';
     let glow = '';
+    let source = '';
+    let mouth = '';
     if (path.kind === 'river' && path.points.length >= 2) {
       const segments = buildRiverSegmentPaths(path.points);
+      casing = segments
+        .map(
+          (segment) =>
+            `<path d="${segment.d}" fill="none" stroke="rgba(28,62,98,.28)" stroke-width="${segment.width + 4}" stroke-linecap="round" stroke-linejoin="round"/>`
+        )
+        .join('');
       bank = segments
         .map(
           (segment) =>
-            `<path d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width + 2.6}" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>`
+            `<path d="${segment.d}" fill="none" stroke="rgba(238,250,255,.62)" stroke-width="${segment.width + 2.2}" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/>`
         )
         .join('');
       line = segments
         .map(
           (segment) =>
-            `<path class="map-path-line" d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width}" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`
+            `<path class="map-path-line" d="${segment.d}" fill="none" stroke="${config.color}" stroke-width="${segment.width}" stroke-linecap="round" stroke-linejoin="round" opacity=".94"/>`
         )
         .join('');
       glow = segments
         .map(
           (segment) =>
-            `<path d="${segment.d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="${Math.max(0.9, segment.width * 0.34)}" stroke-linecap="round" transform="translate(0 -1.4)"/>`
+            `<path d="${segment.d}" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="${Math.max(0.9, segment.width * 0.32)}" stroke-linecap="round" transform="translate(0 -1.4)"/>`
         )
         .join('');
+      // 源头用一眼泉水标记，入海口加一圈淡色水面，让河流「有始有终」
+      const first = hexCenter(path.points[0].col, path.points[0].row);
+      const last = hexCenter(
+        path.points[path.points.length - 1].col,
+        path.points[path.points.length - 1].row
+      );
+      const firstWidth = segments[0].width;
+      const lastWidth = segments[segments.length - 1].width;
+      source = `<circle class="map-river-source" cx="${roundMapCoordinate(
+        first.x
+      )}" cy="${roundMapCoordinate(first.y)}" r="${Math.max(2.8, firstWidth * 0.9)}" fill="rgba(240,252,255,.96)" stroke="${config.color}" stroke-width="1.1"/><circle cx="${roundMapCoordinate(
+        first.x
+      )}" cy="${roundMapCoordinate(first.y)}" r="${Math.max(1.1, firstWidth * 0.34)}" fill="${config.color}" opacity=".75"/>`;
+      mouth = `<circle class="map-river-mouth" cx="${roundMapCoordinate(
+        last.x
+      )}" cy="${roundMapCoordinate(last.y)}" r="${Math.max(4, lastWidth * 1.15)}" fill="${config.color}" opacity=".16"/><circle cx="${roundMapCoordinate(
+        last.x
+      )}" cy="${roundMapCoordinate(last.y)}" r="${Math.max(2.2, lastWidth * 0.6)}" fill="rgba(244,252,255,.34)"/>`;
     } else {
-      bank =
-        path.kind === 'river'
-          ? `<path class="map-path-bank" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width + 3}" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>`
-          : '';
+      if (path.kind === 'road') {
+        casing = `<path d="${d}" fill="none" stroke="rgba(255,251,240,.82)" stroke-width="${config.width + 3}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      } else {
+        casing = `<path d="${d}" fill="none" stroke="rgba(28,62,98,.2)" stroke-width="${config.width + 3.4}" stroke-linecap="round" stroke-linejoin="round"/>`;
+        bank = `<path class="map-path-bank" d="${d}" fill="none" stroke="rgba(238,250,255,.55)" stroke-width="${config.width + 2.2}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }
       line = `<path class="map-path-line" d="${d}" fill="none" stroke="${config.color}" stroke-width="${config.width}"${dash} stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>`;
       glow =
         path.kind === 'river'
@@ -7156,9 +7383,12 @@
 
     return `<g class="map-path-item${data}" data-path-id="${escapeXml(path.id)}">
       <path class="map-path-hit" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="14"/>
+      ${casing}
       ${bank}
       ${line}
       ${glow}
+      ${source}
+      ${mouth}
       <title>${config.label}</title>
     </g>`;
   }
@@ -7495,11 +7725,15 @@
     }" data-city-id="${escapeXml(city.id)}" transform="translate(${roundMapCoordinate(
       center.x
     )} ${roundMapCoordinate(center.y)})" filter="url(#mapCityShadow)">
+      <ellipse class="map-city-ground" cx="0" cy="${radius * 0.82}" rx="${
+      radius * 1.34
+    }" ry="${radius * 0.44}" fill="rgba(18,26,48,.2)"/>
       <circle class="map-city-halo" r="${MAP_HEX_SIZE * 0.64}" fill="${
       city.color
     }" opacity=".18"/>
       ${selectRing}
       <circle class="map-city-disc" r="${radius}" fill="${city.color}"/>
+      <circle class="map-city-sheen" r="${radius}" fill="url(#mapCitySheen)"/>
       ${capitalRing}
       <circle class="map-city-ring" r="${radius}" fill="none" stroke="#ffffff" stroke-width="2.4"/>
       ${cityGlyph}
@@ -7559,6 +7793,8 @@
       selectedCityId: null,
       selectedPathId: null,
       pendingPath: null,
+      inspectorCollapsed:
+        window.matchMedia('(max-width: 980px)').matches && window.innerHeight < 640,
       view: { tx: 0, ty: 0, scale: 1 },
       fitScale: 1,
       history: [JSON.stringify(draft)],
@@ -7579,6 +7815,7 @@
     syncMapDirtyUi();
 
     els.mapDialog.showModal();
+    els.mapCancelBtn.focus();
     fitMapView();
     requestAnimationFrame(fitMapView);
   }
@@ -8071,6 +8308,7 @@
   function renderMapInspector() {
     const editor = state.mapEditor;
     if (!editor) return;
+    syncMapInspectorToggle();
 
     const cities = editor.draft.cities;
     const selected = cities.find((city) => city.id === editor.selectedCityId) || null;
@@ -8144,6 +8382,29 @@
     syncMapRadiusButtons(selected);
     if (els.mapCityTypeRow) syncMapCityTypeButtons(selected);
     syncMapStageTip();
+  }
+
+  function syncMapInspectorToggle() {
+    const editor = state.mapEditor;
+    if (!editor || !els.mapInspector) return;
+    const collapsed = Boolean(editor.inspectorCollapsed);
+    els.mapInspector.classList.toggle('is-collapsed', collapsed);
+    if (els.mapInspectorToggle) {
+      const label = collapsed ? '展开检查器' : '收起检查器';
+      els.mapInspectorToggle.setAttribute('aria-expanded', String(!collapsed));
+      els.mapInspectorToggle.setAttribute('aria-label', label);
+      els.mapInspectorToggle.title = label;
+    }
+  }
+
+  function setMapInspectorCollapsed(collapsed) {
+    const editor = state.mapEditor;
+    if (!editor) return;
+    editor.inspectorCollapsed = Boolean(collapsed);
+    syncMapInspectorToggle();
+    requestAnimationFrame(() => {
+      if (state.mapEditor) syncMapViewportBox();
+    });
   }
 
   function syncMapCityTypeButtons(city) {
@@ -8386,6 +8647,9 @@
       renderMapInspector();
       return;
     }
+    if (nextId && editor.inspectorCollapsed) {
+      setMapInspectorCollapsed(false);
+    }
     editor.selectedCityId = nextId;
     renderMapCanvas();
     renderMapInspector();
@@ -8417,6 +8681,9 @@
     };
     editor.draft.cities.push(city);
     editor.selectedCityId = city.id;
+    if (editor.inspectorCollapsed) {
+      setMapInspectorCollapsed(false);
+    }
     pushMapHistory();
     renderMapCanvas();
     renderMapInspector();
@@ -8761,13 +9028,13 @@
     const cols = clampInt(
       editor.draft.cols + deltaCols,
       6,
-      40,
+      MAP_MAX_COLS,
       editor.draft.cols
     );
     const rows = clampInt(
       editor.draft.rows + deltaRows,
       6,
-      30,
+      MAP_MAX_ROWS,
       editor.draft.rows
     );
     if (cols === editor.draft.cols && rows === editor.draft.rows) return;
@@ -9370,15 +9637,40 @@
 
   function buildMapExportOverlays(map, title, originX, originY, totalW, totalH) {
     const parts = [];
-    const panel = 'rgba(252,253,255,.93)';
+    const panel = 'rgba(252,253,255,.94)';
     const edge = 'rgba(28,36,64,.2)';
     const titleText = String(title || '未命名地图').slice(0, 18);
+    const cityCount = map.cities.length;
+    const featureCount = Object.keys(map.features || {}).length;
+    const riverCount = (map.paths || []).filter((path) => path.kind === 'river').length;
 
+    const tileCounts = {};
+    let totalTiles = 0;
+    let waterTiles = 0;
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const key = map.tiles[`${col},${row}`] || 'grass';
+        tileCounts[key] = (tileCounts[key] || 0) + 1;
+        totalTiles += 1;
+        if (key === 'water' || key === 'lake') waterTiles += 1;
+      }
+    }
+    const landPercent = totalTiles
+      ? Math.round(((totalTiles - waterTiles) / totalTiles) * 100)
+      : 0;
+    const subtitleText = `${map.cols}×${map.rows} 格 · ${cityCount} 城市 · ${featureCount} 地标 · ${riverCount} 河流`;
+
+    const panelWidth = Math.min(
+      totalW - 28,
+      Math.max(220, titleText.length * 17 + 36, subtitleText.length * 12 + 36)
+    );
     parts.push(
       `<g transform="translate(${roundMapCoordinate(originX + 14)} ${roundMapCoordinate(
         originY + 14
-      )})"><rect width="${titleText.length * 17 + 36}" height="36" rx="10" fill="${panel}" stroke="${edge}"/><text x="18" y="24" class="map-export-title">${escapeXml(
+      )})"><rect width="${roundMapCoordinate(panelWidth)}" height="56" rx="10" fill="${panel}" stroke="${edge}"/><text x="18" y="24" class="map-export-title">${escapeXml(
         titleText
+      )}</text><text x="18" y="43" class="map-export-sub">${escapeXml(
+        subtitleText
       )}</text></g>`
     );
 
@@ -9389,13 +9681,6 @@
     );
 
     const legendItems = [];
-    const tileCounts = {};
-    for (let row = 0; row < map.rows; row += 1) {
-      for (let col = 0; col < map.cols; col += 1) {
-        const key = map.tiles[`${col},${row}`] || 'grass';
-        tileCounts[key] = (tileCounts[key] || 0) + 1;
-      }
-    }
     for (const terrainKey of MAP_TERRAIN_KEYS) {
       if (!tileCounts[terrainKey]) continue;
       legendItems.push({
@@ -9414,11 +9699,12 @@
     }
 
     if (legendItems.length > 0) {
-      const perRow = 5;
       const cellW = 94;
+      const perRow = Math.max(3, Math.min(6, Math.floor((totalW - 46) / cellW)));
       const rows = Math.ceil(legendItems.length / perRow);
-      const legendW = Math.min(perRow, legendItems.length) * cellW + 18;
-      const legendH = rows * 26 + 14;
+      const statsH = 24;
+      const legendW = Math.min(totalW - 28, Math.min(perRow, legendItems.length) * cellW + 18);
+      const legendH = rows * 26 + 14 + statsH;
       const legend = [];
 
       legendItems.forEach((item, index) => {
@@ -9435,12 +9721,56 @@
         }
       });
 
-      parts.push(
-        `<g transform="translate(${roundMapCoordinate(originX + 14)} ${roundMapCoordinate(
-          originY + totalH - 14 - legendH
-        )})"><rect width="${legendW}" height="${legendH}" rx="10" fill="${panel}" stroke="${edge}"/>${legend.join('')}</g>`
+      const statsY = 14 + rows * 26 + 4;
+      legend.push(
+        `<text x="14" y="${statsY}" class="map-export-stats">陆地 ${landPercent}% · 水域 ${
+          100 - landPercent
+        }% · 城市 ${cityCount} · 地标 ${featureCount}</text>`
       );
+
+      const legendX = originX + 14;
+      const legendY = originY + totalH - 14 - legendH;
+      parts.push(
+        `<g transform="translate(${roundMapCoordinate(legendX)} ${roundMapCoordinate(
+          legendY
+        )})"><rect width="${roundMapCoordinate(legendW)}" height="${roundMapCoordinate(
+          legendH
+        )}" rx="10" fill="${panel}" stroke="${edge}"/>${legend.join('')}</g>`
+      );
+      // 比例尺：两个六边形的宽度，给读图的人一个直觉尺度
+      const barWidth = MAP_HEX_SIZE * MAP_WORLD_SQRT3 * 2;
+      if (totalW > 360 && legendY - originY > 110) {
+        const barX = originX + totalW - 36 - barWidth;
+        const barY = legendY - 20;
+        parts.push(
+          `<g class="map-export-scale" transform="translate(${roundMapCoordinate(
+            barX
+          )} ${roundMapCoordinate(barY)})"><path d="M0 -6V6M${roundMapCoordinate(
+            barWidth / 2
+          )} -3V3M${roundMapCoordinate(barWidth)} -6V6M0 0H${roundMapCoordinate(
+            barWidth
+          )}" fill="none" stroke="rgba(48,62,96,.6)" stroke-width="2" stroke-linecap="round"/><text x="${roundMapCoordinate(
+            barWidth / 2
+          )}" y="20" text-anchor="middle" class="map-export-legend">2 格</text></g>`
+        );
+      }
     }
+
+    parts.push(
+      `<g class="map-export-frame" aria-hidden="true"><rect x="${roundMapCoordinate(
+        originX + 7
+      )}" y="${roundMapCoordinate(originY + 7)}" width="${roundMapCoordinate(
+        totalW - 14
+      )}" height="${roundMapCoordinate(
+        totalH - 14
+      )}" rx="18" fill="none" stroke="rgba(48,62,96,.28)" stroke-width="2"/><rect x="${roundMapCoordinate(
+        originX + 11
+      )}" y="${roundMapCoordinate(originY + 11)}" width="${roundMapCoordinate(
+        totalW - 22
+      )}" height="${roundMapCoordinate(
+        totalH - 22
+      )}" rx="15" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1"/></g>`
+    );
 
     return parts.join('');
   }
@@ -9470,7 +9800,7 @@
     svg.setAttribute('width', String(width));
     svg.setAttribute('height', String(height));
     svg.innerHTML =
-      `<style>.map-city-label{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:15px;font-weight:600;paint-order:stroke;stroke:rgba(255,255,255,.86);stroke-width:4px;stroke-linejoin:round}.map-export-title{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:17px;font-weight:700}.map-export-legend{fill:#4a5266;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:12.5px}.map-export-n{fill:#8a6a48;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:12.5px;font-weight:700}</style>` +
+      `<style>.map-city-label{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:15px;font-weight:600;paint-order:stroke;stroke:rgba(255,255,255,.86);stroke-width:4px;stroke-linejoin:round}.map-export-title{fill:#293044;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:17px;font-weight:700}.map-export-sub{fill:#6a7286;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:11.5px}.map-export-legend{fill:#4a5266;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:12.5px}.map-export-stats{fill:#6a7286;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:11.5px}.map-export-n{fill:#8a6a48;font-family:-apple-system,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;font-size:12.5px;font-weight:700}</style>` +
       `<rect x="${roundMapCoordinate(bounds.minX - padding)}" y="${roundMapCoordinate(
         bounds.minY - padding
       )}" width="${roundMapCoordinate(bounds.width + padding * 2)}" height="${roundMapCoordinate(
@@ -9542,7 +9872,131 @@
     forest: 'FEATURE_FOREST',
     swamp: 'FEATURE_MARSH',
   };
+  // 文明6标准尺寸（宽×高×总格数）；导出时按面积选最接近的一档，
+  // 世界构建器主要读 Width/Height，MapSizeType 只影响界面标注。
+  const CIV6_MAP_SIZES = [
+    { type: 'MAPSIZE_DUEL', cols: 44, rows: 26 },
+    { type: 'MAPSIZE_TINY', cols: 60, rows: 38 },
+    { type: 'MAPSIZE_SMALL', cols: 74, rows: 46 },
+    { type: 'MAPSIZE_STANDARD', cols: 84, rows: 54 },
+    { type: 'MAPSIZE_LARGE', cols: 96, rows: 60 },
+    { type: 'MAPSIZE_HUGE', cols: 106, rows: 66 },
+  ];
   let civ6SqlRuntime = null;
+
+  function civ6MapSizeTypeFor(cols, rows) {
+    const area = cols * rows;
+    let best = CIV6_MAP_SIZES[0];
+    for (const size of CIV6_MAP_SIZES) {
+      if (
+        Math.abs(size.cols * size.rows - area) <
+        Math.abs(best.cols * best.rows - area)
+      ) {
+        best = size;
+      }
+    }
+    return best.type;
+  }
+
+  function collectCiv6ExportWarnings(map, includeStarts) {
+    const warnings = [];
+    const terrainAt = (col, row) => map.tiles[`${col},${row}`] || 'grass';
+    const seenPlots = new Set();
+    let validStarts = 0;
+
+    for (const city of map.cities) {
+      const terrain = terrainAt(city.col, city.row);
+      if (terrain === 'water' || terrain === 'lake') {
+        warnings.push(`城市「${city.name}」落在水域，出生点会跳过`);
+        continue;
+      }
+      const key = `${city.col},${city.row}`;
+      if (seenPlots.has(key)) {
+        warnings.push(`城市「${city.name}」与其他城市重合，出生点会跳过`);
+        continue;
+      }
+      seenPlots.add(key);
+      validStarts += 1;
+    }
+    if (includeStarts && validStarts > CIV6_CITY_STATES.length) {
+      warnings.push(
+        `有效城市 ${validStarts} 座，超过城邦上限 ${CIV6_CITY_STATES.length}，多出的不会生成出生点`
+      );
+    }
+
+    for (const path of map.paths || []) {
+      if (path.kind === 'river' && path.points.length < 3) {
+        warnings.push('有一条河流少于 3 个点，文明6里可能显示不完整');
+      }
+      if (path.kind !== 'road') continue;
+      const onWater = path.points.filter((point) => {
+        const terrain = terrainAt(point.col, point.row);
+        return terrain === 'water' || terrain === 'lake';
+      }).length;
+      if (onWater > 0) {
+        warnings.push(`有一条道路有 ${onWater} 个点在水上，水上路段会跳过`);
+      }
+    }
+
+    for (const [key, featureKey] of Object.entries(map.features || {})) {
+      const wonder = CIV6_WONDER_FEATURES[featureKey];
+      if (!wonder) continue;
+      const [col, row] = key.split(',').map(Number);
+      const terrain = terrainAt(col, row);
+      const isWater = terrain === 'water' || terrain === 'lake';
+      if (featureKey === 'wonderSea' && !isWater) {
+        warnings.push('沉没神殿不在水面上，文明6可能不接受这个奇观');
+      } else if (featureKey !== 'wonderSea' && isWater) {
+        warnings.push(`${MAP_FEATURES[featureKey].label}在水面上，文明6可能不接受`);
+      }
+    }
+
+    return warnings;
+  }
+
+  function hexLineCells(from, to) {
+    const toCube = (cell) => {
+      const x = cell.col - (cell.row - (cell.row & 1)) / 2;
+      const z = cell.row;
+      return { x, y: -x - z, z };
+    };
+    const roundCube = (cube) => {
+      let x = Math.round(cube.x);
+      let y = Math.round(cube.y);
+      let z = Math.round(cube.z);
+      const dx = Math.abs(x - cube.x);
+      const dy = Math.abs(y - cube.y);
+      const dz = Math.abs(z - cube.z);
+      if (dx > dy && dx > dz) x = -y - z;
+      else if (dy > dz) y = -x - z;
+      else z = -x - y;
+      return { x, z };
+    };
+    const start = toCube(from);
+    const end = toCube(to);
+    const steps = Math.max(
+      Math.abs(start.x - end.x),
+      Math.abs(start.y - end.y),
+      Math.abs(start.z - end.z)
+    );
+    if (steps === 0) return [from];
+    const cells = [];
+    for (let index = 0; index <= steps; index += 1) {
+      const t = index / steps;
+      const cube = roundCube({
+        x: start.x + (end.x - start.x) * t,
+        y: start.y + (end.y - start.y) * t,
+        z: start.z + (end.z - start.z) * t,
+      });
+      const cell = {
+        col: cube.x + (cube.z - (cube.z & 1)) / 2,
+        row: cube.z,
+      };
+      const last = cells[cells.length - 1];
+      if (!last || last.col !== cell.col || last.row !== cell.row) cells.push(cell);
+    }
+    return cells;
+  }
 
   function loadCiv6SqlRuntime() {
     if (!civ6SqlRuntime) {
@@ -9722,11 +10176,16 @@
       const riverData = buildCiv6Rivers(map);
       const rivers = riverData.rivers;
       const manualContinents = map.continents || {};
+      const mapSizeType = civ6MapSizeTypeFor(map.cols, map.rows);
+      const exportWarnings = collectCiv6ExportWarnings(
+        map,
+        Boolean(els.civ6ExportStarts && els.civ6ExportStarts.checked)
+      );
 
       setCiv6Status('正在生成地块…');
       db.run(
-        "UPDATE Map SET Width=?, Height=?, MapSizeType='MAPSIZE_DUEL' WHERE ID='Default'",
-        [map.cols, map.rows]
+        'UPDATE Map SET Width=?, Height=?, MapSizeType=? WHERE ID=\'Default\'',
+        [map.cols, map.rows, mapSizeType]
       );
       db.run('DELETE FROM Plots');
       db.run('DELETE FROM PlotFeatures');
@@ -9761,8 +10220,10 @@
             ]);
             usedFeaturePlots.add(key);
           }
+          // 自然奇观优先于森林/沼泽：奇观格上的地貌不再单独写入
+          const wonderAtCell = CIV6_WONDER_FEATURES[(map.features || {})[key]];
           const terrainFeature = CIV6_TERRAIN_FEATURES[terrainKey];
-          if (terrainFeature) {
+          if (terrainFeature && !wonderAtCell) {
             db.run('INSERT INTO PlotFeatures (ID, FeatureType) VALUES (?, ?)', [
               row * map.cols + col,
               terrainFeature,
@@ -9799,6 +10260,10 @@
       for (const path of map.paths || []) {
         if (path.kind !== 'road') continue;
         for (const point of path.points) {
+          if (point.col < 0 || point.row < 0 || point.col >= map.cols || point.row >= map.rows)
+            continue;
+          const terrain = map.tiles[`${point.col},${point.row}`] || 'grass';
+          if (terrain === 'water' || terrain === 'lake') continue;
           roadPlots.add(point.row * map.cols + point.col);
         }
       }
@@ -9843,13 +10308,18 @@
         );
       }
 
-      // 城市出生点（可选）
+      // 城市出生点（可选）：跳过水域与重合城市，城邦不重复
       if (els.civ6ExportStarts && els.civ6ExportStarts.checked) {
+        const usedPlots = new Set();
         let startCount = 0;
         for (const city of map.cities) {
-          const leader = CIV6_CITY_STATES[
-            startCount % CIV6_CITY_STATES.length
-          ];
+          if (startCount >= CIV6_CITY_STATES.length) break;
+          const terrain = map.tiles[`${city.col},${city.row}`] || 'grass';
+          if (terrain === 'water' || terrain === 'lake') continue;
+          const key = `${city.col},${city.row}`;
+          if (usedPlots.has(key)) continue;
+          usedPlots.add(key);
+          const leader = CIV6_CITY_STATES[startCount];
           db.run(
             'INSERT INTO StartPositions (Plot, Type, Value) VALUES (?, ?, ?)',
             [city.row * map.cols + city.col, 'LEADER', `LEADER_MINOR_CIV_${leader}`]
@@ -9883,8 +10353,16 @@
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 4000);
 
+      const sizeLabel = mapSizeType.replace('MAPSIZE_', '').toLowerCase();
+      const warningText = exportWarnings.length
+        ? `\n检查提示：${exportWarnings.slice(0, 4).join('；')}${
+            exportWarnings.length > 4 ? ` 等 ${exportWarnings.length} 条` : ''
+          }`
+        : '';
       setCiv6Status(
-        `已生成 ${baseName}.Civ6Map（${Math.round(bytes.length / 1024)} KB），按上方第 2 步放入存档目录即可。`
+        `已生成 ${baseName}.Civ6Map（${Math.round(
+          bytes.length / 1024
+        )} KB）· ${map.cols}×${map.rows} · ${sizeLabel} 尺寸，按上方第 2 步放入存档目录即可。${warningText}`
       );
     } catch (error) {
       setCiv6Status(`导出失败：${error.message}`);
@@ -9905,37 +10383,106 @@
 
     const mapRow = readAll('SELECT Width, Height FROM Map')[0];
     if (!mapRow || !Number(mapRow.Width)) throw new Error('不是有效的文明6地图文件');
-    const cols = Math.max(6, Math.min(40, Number(mapRow.Width)));
-    const rows = Math.max(6, Math.min(30, Number(mapRow.Height)));
+    const rawCols = Math.max(1, Math.floor(Number(mapRow.Width)));
+    const rawRows = Math.max(1, Math.floor(Number(mapRow.Height)));
+    const scale = Math.min(
+      1,
+      MAP_MAX_COLS / rawCols,
+      MAP_MAX_ROWS / rawRows
+    );
+    const cols = Math.max(6, Math.min(MAP_MAX_COLS, Math.round(rawCols * scale)));
+    const rows = Math.max(6, Math.min(MAP_MAX_ROWS, Math.round(rawRows * scale)));
+    const downsampled = cols !== rawCols || rows !== rawRows;
 
-    const tiles = {};
-    const plotTypes = {};
-    let waterTiles = 0;
+    const rawTiles = {};
     for (const plot of readAll(
       'SELECT ID, TerrainType FROM Plots ORDER BY ID'
     )) {
       const id = Number(plot.ID);
-      const col = id % cols;
-      const row = Math.floor(id / cols);
-      if (row >= rows) continue;
-      const key = `${col},${row}`;
-      const terrain = String(plot.TerrainType || '');
-      plotTypes[key] = terrain;
-      if (terrain === 'TERRAIN_OCEAN' || terrain === 'TERRAIN_COAST') {
-        tiles[key] = 'water';
-        waterTiles += 1;
-      } else if (terrain.endsWith('_MOUNTAIN')) {
-        tiles[key] = 'mountain';
-      } else if (terrain.endsWith('_HILLS')) {
-        tiles[key] = 'hills';
-      } else if (terrain === 'TERRAIN_DESERT') {
-        tiles[key] = 'desert';
-      } else if (terrain === 'TERRAIN_SNOW' || terrain === 'TERRAIN_TUNDRA') {
-        tiles[key] = 'snow';
-      } else if (terrain === 'TERRAIN_PLAINS') {
-        tiles[key] = 'plains';
-      } else {
-        tiles[key] = 'grass';
+      const col = id % rawCols;
+      const row = Math.floor(id / rawCols);
+      if (col >= rawCols || row >= rawRows) continue;
+      rawTiles[`${col},${row}`] = String(plot.TerrainType || '');
+    }
+
+    const terrainWeight = (terrain) => {
+      if (terrain === 'TERRAIN_COAST') return 1.3;
+      if (terrain === 'TERRAIN_OCEAN') return 0.85;
+      return 1.15;
+    };
+    const sampleTerrainAt = (destCol, destRow) => {
+      if (!downsampled) return rawTiles[`${destCol},${destRow}`] || '';
+      const colStart = Math.floor((destCol * rawCols) / cols);
+      const colEnd = Math.max(
+        colStart + 1,
+        Math.ceil(((destCol + 1) * rawCols) / cols)
+      );
+      const rowStart = Math.floor((destRow * rawRows) / rows);
+      const rowEnd = Math.max(
+        rowStart + 1,
+        Math.ceil(((destRow + 1) * rawRows) / rows)
+      );
+      const counts = new Map();
+      for (let row = rowStart; row < Math.min(rawRows, rowEnd); row += 1) {
+        for (let col = colStart; col < Math.min(rawCols, colEnd); col += 1) {
+          const terrain = rawTiles[`${col},${row}`];
+          if (!terrain) continue;
+          counts.set(terrain, (counts.get(terrain) || 0) + 1);
+        }
+      }
+      let best = '';
+      let bestScore = -1;
+      for (const [terrain, count] of counts) {
+        const score = count * terrainWeight(terrain);
+        if (score > bestScore) {
+          best = terrain;
+          bestScore = score;
+        }
+      }
+      if (best) return best;
+      const fallbackCol = Math.min(
+        rawCols - 1,
+        Math.floor(((destCol + 0.5) * rawCols) / cols)
+      );
+      const fallbackRow = Math.min(
+        rawRows - 1,
+        Math.floor(((destRow + 0.5) * rawRows) / rows)
+      );
+      return rawTiles[`${fallbackCol},${fallbackRow}`] || '';
+    };
+    const toDestCell = (rawCol, rawRow) => ({
+      col: Math.max(
+        0,
+        Math.min(cols - 1, Math.floor((rawCol * cols) / rawCols))
+      ),
+      row: Math.max(
+        0,
+        Math.min(rows - 1, Math.floor((rawRow * rows) / rawRows))
+      ),
+    });
+    const toDestKey = (rawCol, rawRow) => {
+      const cell = toDestCell(rawCol, rawRow);
+      return `${cell.col},${cell.row}`;
+    };
+    const localTerrainOf = (terrain) => {
+      if (terrain === 'TERRAIN_OCEAN' || terrain === 'TERRAIN_COAST') return 'water';
+      if (terrain.endsWith('_MOUNTAIN')) return 'mountain';
+      if (terrain.endsWith('_HILLS')) return 'hills';
+      if (terrain === 'TERRAIN_DESERT') return 'desert';
+      if (terrain === 'TERRAIN_SNOW' || terrain === 'TERRAIN_TUNDRA') return 'snow';
+      if (terrain === 'TERRAIN_PLAINS') return 'plains';
+      return 'grass';
+    };
+
+    const tiles = {};
+    const plotTypes = {};
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const terrain = sampleTerrainAt(col, row);
+        if (!terrain) continue;
+        const key = `${col},${row}`;
+        plotTypes[key] = terrain;
+        tiles[key] = localTerrainOf(terrain);
       }
     }
 
@@ -9979,15 +10526,17 @@
     let wonders = 0;
     for (const plot of readAll('SELECT ID, FeatureType FROM PlotFeatures')) {
       const id = Number(plot.ID);
-      const col = id % cols;
-      const row = Math.floor(id / cols);
-      if (row >= rows) continue;
-      const key = `${col},${row}`;
+      const rawCol = id % rawCols;
+      const rawRow = Math.floor(id / rawCols);
+      if (rawCol >= rawCols || rawRow >= rawRows) continue;
+      const key = toDestKey(rawCol, rawRow);
+      const localTerrain = tiles[key] || 'grass';
+      const isWater = localTerrain === 'water' || localTerrain === 'lake';
       const feature = String(plot.FeatureType || '');
-      if (feature === 'FEATURE_FOREST') tiles[key] = 'forest';
-      else if (feature === 'FEATURE_MARSH') tiles[key] = 'swamp';
-      else if (feature === 'FEATURE_VOLCANO') tiles[key] = 'volcano';
-      else if (wonderReverse[feature]) {
+      if (feature === 'FEATURE_FOREST' && !isWater) tiles[key] = 'forest';
+      else if (feature === 'FEATURE_MARSH' && !isWater) tiles[key] = 'swamp';
+      else if (feature === 'FEATURE_VOLCANO' && !isWater) tiles[key] = 'volcano';
+      else if (wonderReverse[feature] && !features[key]) {
         features[key] = wonderReverse[feature];
         wonders += 1;
       }
@@ -10001,8 +10550,8 @@
       'SELECT ID, IsNEOfRiver, IsWOfRiver, IsNWOfRiver FROM PlotRivers'
     )) {
       const id = Number(plot.ID);
-      const col = id % cols;
-      const row = Math.floor(id / cols);
+      const col = id % rawCols;
+      const row = Math.floor(id / rawCols);
       const odd = row & 1;
       const neighbors = {
         W: [col - 1, row],
@@ -10011,9 +10560,14 @@
       };
       for (const [edgeName, target] of Object.entries(neighbors)) {
         if (!Number(plot[`Is${edgeName}OfRiver`])) continue;
-        if (target[0] < 0 || target[1] < 0 || target[0] >= cols || target[1] >= rows)
+        if (
+          target[0] < 0 ||
+          target[1] < 0 ||
+          target[0] >= rawCols ||
+          target[1] >= rawRows
+        )
           continue;
-        const key = segmentKey(id, target[1] * cols + target[0]);
+        const key = segmentKey(id, target[1] * rawCols + target[0]);
         if (seenSegments.has(key)) continue;
         seenSegments.add(key);
         riverSegments.push([
@@ -10024,67 +10578,124 @@
     }
 
     const chainPolyline = (segments) => {
-      const adjacency = new Map();
       const pointKey = (point) => `${point.col},${point.row}`;
+      const edgeKey = (a, b) =>
+        [pointKey(a), pointKey(b)].sort().join('|');
+      const adjacency = new Map();
+      const uniqueEdges = [];
+      const seenEdges = new Set();
       for (const [a, b] of segments) {
+        if (pointKey(a) === pointKey(b)) continue;
+        const key = edgeKey(a, b);
+        if (seenEdges.has(key)) continue;
+        seenEdges.add(key);
+        uniqueEdges.push([a, b]);
         if (!adjacency.has(pointKey(a))) adjacency.set(pointKey(a), []);
         if (!adjacency.has(pointKey(b))) adjacency.set(pointKey(b), []);
         adjacency.get(pointKey(a)).push(b);
         adjacency.get(pointKey(b)).push(a);
       }
-      const polylines = [];
+      const degree = (point) => (adjacency.get(pointKey(point)) || []).length;
+      const rankEdge = ([a, b]) => {
+        const da = degree(a);
+        const db = degree(b);
+        if (da === 1 || db === 1) return 0;
+        if (da > 2 || db > 2) return 1;
+        return 2;
+      };
+      const ordered = uniqueEdges.slice().sort((a, b) => rankEdge(a) - rankEdge(b));
       const used = new Set();
-      for (const [a, b] of segments) {
-        const startKey = pointKey(a);
-        if (used.has(`${startKey}|${pointKey(b)}`)) continue;
-        if (adjacency.get(startKey).length !== 1 && polylines.length > 0) {
-          // 从端点开始优先；度>2 时也允许作为链条起点
-        }
-        const line = [a, b];
-        used.add(`${startKey}|${pointKey(b)}`);
-        used.add(`${pointKey(b)}|${startKey}`);
-        let tail = b;
-        let tailKey = pointKey(b);
+      const polylines = [];
+      for (const [a, b] of ordered) {
+        if (used.has(edgeKey(a, b))) continue;
+        const start =
+          degree(a) !== 2 ? a : degree(b) !== 2 ? b : a;
+        const first = pointKey(start) === pointKey(a) ? b : a;
+        const line = [start, first];
+        used.add(edgeKey(start, first));
+        let current = first;
         for (;;) {
-          const candidates = (adjacency.get(tailKey) || []).filter(
-            (candidate) =>
-              !used.has(`${tailKey}|${pointKey(candidate)}`) &&
-              !(
-                pointKey(candidate) === pointKey(line[0]) &&
-                line.length > 2
-              )
+          const candidates = (adjacency.get(pointKey(current)) || []).filter(
+            (candidate) => !used.has(edgeKey(current, candidate))
           );
-          if (candidates.length !== 1) break;
+          if (!candidates.length) break;
+          if (candidates.length > 1 && line.length > 1) break;
           const next = candidates[0];
-          used.add(`${tailKey}|${pointKey(next)}`);
-          used.add(`${pointKey(next)}|${tailKey}`);
+          used.add(edgeKey(current, next));
+          if (pointKey(next) === pointKey(line[0]) && line.length > 2) {
+            line.push(next);
+            break;
+          }
           line.push(next);
-          tailKey = pointKey(next);
+          current = next;
         }
         if (line.length >= 2) polylines.push(line);
       }
       return polylines;
     };
 
+    // 缩放后的折线可能跨格：用六边形直线插值补齐相邻点，
+    // 这样导回文明6时每一段仍能落在六边形边界上。
+    const mapLineToLocal = (line) => {
+      const mapped = [];
+      for (const point of line) {
+        const cell = toDestCell(point.col, point.row);
+        const last = mapped[mapped.length - 1];
+        if (!last) {
+          mapped.push(cell);
+          continue;
+        }
+        if (last.col === cell.col && last.row === cell.row) continue;
+        const bridge = hexLineCells(last, cell);
+        for (let index = 1; index < bridge.length; index += 1) {
+          const next = bridge[index];
+          if (
+            next.col < 0 ||
+            next.row < 0 ||
+            next.col >= cols ||
+            next.row >= rows
+          )
+            continue;
+          const previous = mapped[mapped.length - 1];
+          if (
+            previous &&
+            previous.col === next.col &&
+            previous.row === next.row
+          )
+            continue;
+          mapped.push({ col: next.col, row: next.row });
+          if (mapped.length >= MAP_MAX_PATH_POINTS) break;
+        }
+        if (mapped.length >= MAP_MAX_PATH_POINTS) break;
+      }
+      return mapped;
+    };
+
     const paths = [];
     for (const line of chainPolyline(riverSegments)) {
-      paths.push({ id: makeId(), kind: 'river', points: line });
+      const points = mapLineToLocal(line);
+      if (points.length >= 2) paths.push({ id: makeId(), kind: 'river', points });
     }
 
     // 道路：相邻道路格连成折线
     const roadPlots = new Set();
     for (const plot of readAll('SELECT ID FROM PlotRoutes')) {
       const id = Number(plot.ID);
-      const col = id % cols;
-      const row = Math.floor(id / cols);
-      if (row < rows) roadPlots.add(`${col},${row}`);
+      const col = id % rawCols;
+      const row = Math.floor(id / rawCols);
+      if (row < rawRows) roadPlots.add(`${col},${row}`);
     }
     const roadSegments = [];
     for (const key of roadPlots) {
       const [col, row] = key.split(',').map(Number);
       for (const direction of MAP_DIRECTIONS) {
         const [nextCol, nextRow] = mapNeighborCell(col, row, direction);
-        if (nextCol < 0 || nextRow < 0 || nextCol >= cols || nextRow >= rows)
+        if (
+          nextCol < 0 ||
+          nextRow < 0 ||
+          nextCol >= rawCols ||
+          nextRow >= rawRows
+        )
           continue;
         if (nextCol < col || (nextCol === col && nextRow < row)) continue;
         if (roadPlots.has(`${nextCol},${nextRow}`)) {
@@ -10096,7 +10707,8 @@
       }
     }
     for (const line of chainPolyline(roadSegments)) {
-      paths.push({ id: makeId(), kind: 'road', points: line });
+      const points = mapLineToLocal(line);
+      if (points.length >= 2) paths.push({ id: makeId(), kind: 'road', points });
     }
 
     // 河流命名
@@ -10104,14 +10716,18 @@
       'SELECT ID, CustomName FROM NamedRiver ORDER BY ID'
     );
     const namedPlots = readAll('SELECT PlotIndex FROM NamedRiverPlot');
-    const namedPlotSet = new Set(namedPlots.map((plot) => Number(plot.PlotIndex)));
+    const namedKeys = new Set();
+    for (const plot of namedPlots) {
+      const id = Number(plot.PlotIndex);
+      namedKeys.add(toDestKey(id % rawCols, Math.floor(id / rawCols)));
+    }
     for (const named of namedRivers) {
       const name = String(named.CustomName || '').trim();
       if (!name) continue;
       for (const path of paths) {
         if (path.kind !== 'river') continue;
         if (path.name) continue;
-        if (path.points.some((point) => namedPlotSet.has(point.row * cols + point.col))) {
+        if (path.points.some((point) => namedKeys.has(`${point.col},${point.row}`))) {
           path.name = name.slice(0, 20);
           break;
         }
@@ -10129,12 +10745,14 @@
       'SELECT ID, ResourceType FROM PlotResources'
     )) {
       const id = Number(plot.ID);
-      const col = id % cols;
-      const row = Math.floor(id / cols);
-      if (row >= rows) continue;
+      const rawCol = id % rawCols;
+      const rawRow = Math.floor(id / rawCols);
+      if (rawCol >= rawCols || rawRow >= rawRows) continue;
       const preset = civReverse[String(plot.ResourceType || '')];
       if (!preset) continue;
-      resources[`${col},${row}`] = preset;
+      const key = toDestKey(rawCol, rawRow);
+      if (resources[key]) continue;
+      resources[key] = preset;
       resourceCount += 1;
     }
 
@@ -10148,18 +10766,20 @@
     };
     for (const plot of readAll('SELECT ID, ContinentType FROM Plots')) {
       const id = Number(plot.ID);
-      const col = id % cols;
-      const row = Math.floor(id / cols);
-      if (row >= rows) continue;
+      const rawCol = id % rawCols;
+      const rawRow = Math.floor(id / rawCols);
+      if (rawCol >= rawCols || rawRow >= rawRows) continue;
       const group = continentReverse[String(plot.ContinentType || '')];
-      if (group) continents[`${col},${row}`] = group;
+      if (group) continents[toDestKey(rawCol, rawRow)] = group;
     }
 
     db.close();
 
     let landTiles = 0;
+    let waterTiles = 0;
     for (const key of Object.keys(tiles)) {
       if (tiles[key] !== 'water' && tiles[key] !== 'lake') landTiles += 1;
+      else waterTiles += 1;
     }
 
     return {
@@ -10177,6 +10797,9 @@
         roads: paths.filter((path) => path.kind === 'road').length,
         resources: resourceCount,
         wonders,
+        sourceCols: rawCols,
+        sourceRows: rawRows,
+        downsampled,
       },
     };
   }
@@ -10222,10 +10845,24 @@
     const entry = entries
       ? entries.find((item) => item.id === editor.entryId)
       : null;
+    const map = editor.draft;
     if (els.civ6ExportTarget) {
-      els.civ6ExportTarget.textContent = entry ? entry.title : '未命名地图';
+      els.civ6ExportTarget.textContent = `${entry ? entry.title : '未命名地图'} · ${
+        map.cols
+      }×${map.rows}`;
     }
-    setCiv6Status('');
+    const warnings = collectCiv6ExportWarnings(
+      map,
+      Boolean(els.civ6ExportStarts && els.civ6ExportStarts.checked)
+    );
+    setCiv6Status(
+      warnings.length
+        ? `导出前检查：${warnings.slice(0, 3).join('；')}${
+            warnings.length > 3 ? ` 等 ${warnings.length} 条` : ''
+          }`
+        : ''
+    );
+    if (els.civ6ImportSummary) els.civ6ImportSummary.textContent = '';
     els.civ6ExportDialog.showModal();
   }
 
@@ -11887,12 +12524,17 @@
         parsed && !Array.isArray(parsed) && Array.isArray(parsed.drills)
           ? parsed.drills
           : [];
+      const rawIdeas =
+        parsed && !Array.isArray(parsed) && Array.isArray(parsed.ideas)
+          ? parsed.ideas
+          : [];
 
       if (
         !rawNovels &&
         rawTrash.length === 0 &&
         rawComments.length === 0 &&
-        rawDrills.length === 0
+        rawDrills.length === 0 &&
+        rawIdeas.length === 0
       ) {
         throw new Error(`这不是 ${SITE_NAME} 的备份文件`);
       }
@@ -11901,6 +12543,7 @@
       const incomingTrash = [];
       const incomingComments = [];
       const incomingDrills = [];
+      const incomingIdeas = [];
       let skipped = 0;
 
       for (const raw of rawNovels || []) {
@@ -11940,11 +12583,21 @@
         incomingDrills.push(drill);
       }
 
+      for (const raw of rawIdeas) {
+        const idea = normalizeIdea(raw);
+        if (!idea) {
+          skipped += 1;
+          continue;
+        }
+        incomingIdeas.push(idea);
+      }
+
       if (
         incoming.length === 0 &&
         incomingTrash.length === 0 &&
         incomingComments.length === 0 &&
-        incomingDrills.length === 0
+        incomingDrills.length === 0 &&
+        incomingIdeas.length === 0
       ) {
         throw new Error('文件里没有有效的内容');
       }
@@ -11953,10 +12606,12 @@
       const previousTrash = state.trash;
       const previousComments = state.comments;
       const previousDrills = state.drills;
+      const previousIdeas = state.ideas;
       const counts = mergeLibraries(incoming);
       const addedTrash = mergeTrash(incomingTrash);
       const commentCounts = mergeComments(incomingComments);
       const drillCounts = mergeDrills(incomingDrills);
+      const ideaCounts = mergeIdeas(incomingIdeas);
       const changed =
         counts.addedNovels > 0 ||
         counts.updatedNovels > 0 ||
@@ -11966,13 +12621,16 @@
         commentCounts.added > 0 ||
         commentCounts.updated > 0 ||
         drillCounts.added > 0 ||
-        drillCounts.updated > 0;
+        drillCounts.updated > 0 ||
+        ideaCounts.added > 0 ||
+        ideaCounts.updated > 0;
 
       if (!changed) {
         state.novels = previousNovels;
         state.trash = previousTrash;
         state.comments = previousComments;
         state.drills = previousDrills;
+        state.ideas = previousIdeas;
         showToast('没有发现需要导入的新内容');
         return;
       }
@@ -11982,6 +12640,7 @@
         state.trash = previousTrash;
         state.comments = previousComments;
         state.drills = previousDrills;
+        state.ideas = previousIdeas;
         return;
       }
 
@@ -11998,6 +12657,8 @@
       if (commentCounts.updated) parts.push(`更新 ${commentCounts.updated} 条评论`);
       if (drillCounts.added) parts.push(`新增 ${drillCounts.added} 条练笔`);
       if (drillCounts.updated) parts.push(`更新 ${drillCounts.updated} 条练笔`);
+      if (ideaCounts.added) parts.push(`新增 ${ideaCounts.added} 条构想`);
+      if (ideaCounts.updated) parts.push(`更新 ${ideaCounts.updated} 条构想`);
       if (skipped) parts.push(`跳过 ${skipped} 条无效内容`);
       showToast(`导入完成：${parts.join('，')}`);
       refreshDataSafetyPanel();
@@ -12177,6 +12838,19 @@
   const FORGE_MOON_NAMES = ['银盘', '绯瞳', '灰鸥', '青璧', '孤灯', '碎镜'];
   const FORGE_FEST_PREFIXES = ['灯', '潮', '火', '穗', '盐', '霜', '归', '醒', '祭', '戒'];
   const FORGE_FEST_SUFFIXES = ['祭', '节', '夜', '日', '会'];
+  const FORGE_SEED_MIN = 1;
+  const FORGE_SEED_MAX = 999999;
+
+  function normalizeForgeSeed(value) {
+    if (typeof value === 'string' && !value.trim()) return null;
+    const seed = Math.floor(Number(value));
+    if (!Number.isFinite(seed)) return null;
+    return Math.min(FORGE_SEED_MAX, Math.max(FORGE_SEED_MIN, seed));
+  }
+
+  function randomForgeSeed() {
+    return Math.floor(Math.random() * 900000) + 100000;
+  }
 
   const CLIMATE_BASE = {
     寒带: { temp: '-35℃ ~ 10℃', seasons: '暖季 / 长冬', note: '生长季极短，地表封冻大半年，一切围绕「熬过冬天」组织' },
@@ -12340,7 +13014,263 @@
     return lines.join('\n');
   }
 
-  function buildClimateText(seed, latitude, terrain, magic) {
+  // P1 雨影：风沿行方向携带水汽，山脉抬升致雨，下风侧进入干旱带。
+  // 地形只取山脉/丘陵作为抬升源；海洋重置水汽，湖泊只做有限补充。
+  const FORGE_RAIN_HEIGHTS = { hills: 1, mountain: 3, volcano: 3 };
+
+  function forgeWind(latitude) {
+    if (latitude === '温带') return { step: 1, label: '西风带（自西向东）' };
+    if (latitude === '寒带') return { step: -1, label: '极地东风（自东向西）' };
+    return { step: -1, label: '信风带（自东向西）' };
+  }
+
+  function forgeMoistureField(map, latitude) {
+    const wind = forgeWind(latitude);
+    const field = [];
+    for (let row = 0; row < map.rows; row += 1) {
+      const line = new Array(map.cols).fill(0);
+      let moisture = 0.9;
+      let prevHeight = 0;
+      for (let index = 0; index < map.cols; index += 1) {
+        const col = wind.step > 0 ? index : map.cols - 1 - index;
+        const terrain = map.tiles[`${col},${row}`] || 'grass';
+        if (terrain === 'water') {
+          moisture = 1;
+          prevHeight = 0;
+          line[col] = 1;
+          continue;
+        }
+        if (terrain === 'lake') {
+          moisture = Math.min(1, moisture + 0.25);
+          prevHeight = 0;
+          line[col] = moisture;
+          continue;
+        }
+        moisture = Math.min(1, moisture + (1 - moisture) * 0.012);
+        const height = FORGE_RAIN_HEIGHTS[terrain] || 0;
+        if (height > prevHeight) {
+          moisture -= moisture * Math.min(0.68, 0.26 * (height - prevHeight));
+        } else if (height < prevHeight) {
+          moisture = Math.min(1, moisture + (1 - moisture) * 0.015);
+        }
+        moisture = Math.max(0.04, moisture);
+        line[col] = moisture;
+        prevHeight = height;
+      }
+      field.push(line);
+    }
+    return { field, wind };
+  }
+
+  function forgeMoistureBand(value) {
+    if (value >= 0.62) return 'wet';
+    if (value >= 0.45) return 'fresh';
+    if (value >= 0.32) return 'semi';
+    return 'dry';
+  }
+
+  function forgeRelativePosition(cells, cols, rows) {
+    if (!cells.length) return '地图中央';
+    const col = cells.reduce((sum, cell) => sum + cell.col, 0) / cells.length;
+    const row = cells.reduce((sum, cell) => sum + cell.row, 0) / cells.length;
+    const x = col / Math.max(1, cols - 1);
+    const y = row / Math.max(1, rows - 1);
+    const ns = y < 0.34 ? '北' : y > 0.66 ? '南' : '';
+    const ew = x < 0.34 ? '西' : x > 0.66 ? '东' : '中';
+    if (!ns && ew === '中') return '地图中央';
+    if (ew === '中') return `地图${ns}部`;
+    if (!ns) return `地图${ew}部`;
+    return `地图${ns}${ew}部`;
+  }
+
+  function forgePathCells(path) {
+    const cells = [];
+    for (let index = 0; index < path.points.length - 1; index += 1) {
+      const from = path.points[index];
+      const to = path.points[index + 1];
+      const steps = Math.max(
+        Math.abs(to.col - from.col),
+        Math.abs(to.row - from.row),
+        1
+      );
+      for (let step = 0; step <= steps; step += 1) {
+        cells.push({
+          col: Math.round(from.col + ((to.col - from.col) * step) / steps),
+          row: Math.round(from.row + ((to.row - from.row) * step) / steps),
+        });
+      }
+    }
+    return cells;
+  }
+
+  function buildRainShadowLines(context, latitude) {
+    const map = context.map;
+    const { field, wind } = forgeMoistureField(map, latitude);
+    const lines = [`【地形雨影 · ${context.title}】`];
+    const wet = [];
+    const semi = [];
+    const dry = [];
+    const shadow = new Set();
+    const lakes = [];
+    let landCount = 0;
+    let waterCount = 0;
+    let mountainCount = 0;
+    let hillCount = 0;
+    let desertCount = 0;
+
+    for (let row = 0; row < map.rows; row += 1) {
+      for (let col = 0; col < map.cols; col += 1) {
+        const terrain = map.tiles[`${col},${row}`] || 'grass';
+        if (terrain === 'water' || terrain === 'lake') {
+          waterCount += 1;
+          if (terrain === 'lake') lakes.push({ col, row });
+          continue;
+        }
+        landCount += 1;
+        if (terrain === 'mountain' || terrain === 'volcano') mountainCount += 1;
+        else if (terrain === 'hills') hillCount += 1;
+        if (terrain === 'desert') desertCount += 1;
+        const band = forgeMoistureBand(field[row][col]);
+        const cell = { col, row, moisture: field[row][col] };
+        if (band === 'wet') wet.push(cell);
+        else if (band === 'semi') {
+          semi.push(cell);
+          shadow.add(`${col},${row}`);
+        } else if (band === 'dry') {
+          dry.push(cell);
+          shadow.add(`${col},${row}`);
+        }
+      }
+    }
+
+    if (landCount === 0) {
+      lines.push('· 这张地图全是水域，没有陆地可供推演雨影。');
+      return lines;
+    }
+
+    const waterPct = Math.round((waterCount / (map.cols * map.rows)) * 100);
+    lines.push(
+      `读取地图 ${map.cols}×${map.rows}，水域 ${waterPct}%；盛行风为${wind.label}——水汽遇山脉抬升致雨，过山后进入雨影。`
+    );
+
+    if (mountainCount + hillCount === 0) {
+      lines.push('· 图上没有山脉或丘陵，盛行风几乎不受阻挡，不会形成明显雨影。');
+    } else {
+      const relief = [];
+      if (mountainCount) relief.push(`山脉 ${mountainCount} 格`);
+      if (hillCount) relief.push(`丘陵 ${hillCount} 格`);
+      lines.push(`· 抬升地形：${relief.join('、')}；雨影落在山脊的下风侧。`);
+    }
+
+    const landPct = (count) => Math.round((count / landCount) * 100);
+    if (dry.length) {
+      const driest = dry.reduce((min, cell) => Math.min(min, cell.moisture), 1);
+      lines.push(
+        `· 雨影干旱：${forgeRelativePosition(dry, map.cols, map.rows)}，约 ${dry.length} 格（占陆地 ${landPct(dry.length)}%），最干处水汽只剩 ${Math.floor(driest * 100)}%。`
+      );
+    } else if (semi.length) {
+      lines.push(
+        `· 半干旱：${forgeRelativePosition(semi, map.cols, map.rows)}，约 ${semi.length} 格（占陆地 ${landPct(semi.length)}%）；山还不够高，尚未形成彻底的雨影。`
+      );
+    } else {
+      lines.push('· 没有形成雨影：水汽沿盛行风一路得到补充，全图陆地偏湿润。');
+    }
+
+    if (dry.length && wet.length) {
+      lines.push(
+        `· 迎风多雨：${forgeRelativePosition(wet, map.cols, map.rows)}，约 ${wet.length} 格（占陆地 ${landPct(wet.length)}%）。`
+      );
+    }
+
+    if (desertCount) {
+      let desertInShadow = 0;
+      for (let row = 0; row < map.rows; row += 1) {
+        for (let col = 0; col < map.cols; col += 1) {
+          if (
+            map.tiles[`${col},${row}`] === 'desert' &&
+            shadow.has(`${col},${row}`)
+          ) {
+            desertInShadow += 1;
+          }
+        }
+      }
+      lines.push(
+        `· 已画沙漠 ${desertCount} 格，其中 ${desertInShadow} 格与雨影/半干旱带重合${
+          desertInShadow === desertCount
+            ? '，地形与气候自洽'
+            : '；其余可解释为寒流海岸、盐碱地或副热带高压'
+        }。`
+      );
+    } else if (dry.length) {
+      lines.push(
+        '· 雨影带目前仍画成草原或森林；可考虑改成荒漠、盐碱地或旱生灌丛，不改也不冲突。'
+      );
+    }
+
+    const dryCities = [];
+    const semiCities = [];
+    for (const city of map.cities || []) {
+      const terrain = map.tiles[`${city.col},${city.row}`] || 'grass';
+      if (terrain === 'water' || terrain === 'lake') continue;
+      const band = forgeMoistureBand(field[city.row]?.[city.col] ?? 0.9);
+      if (band === 'dry') dryCities.push(city.name);
+      else if (band === 'semi') semiCities.push(city.name);
+    }
+    if (dryCities.length || semiCities.length) {
+      const names = [...dryCities, ...semiCities].slice(0, 8);
+      const truncated = names.length < dryCities.length + semiCities.length;
+      lines.push(
+        `· 落在雨影/半干旱带的城市：${names.join('、')}${truncated ? ' 等' : ''}——饮水应依赖井、暗渠或运水。`
+      );
+    }
+
+    const springs = [];
+    for (const [key, feature] of Object.entries(map.features || {})) {
+      if (feature !== 'wonderSpring' || !shadow.has(key)) continue;
+      const [col, row] = key.split(',').map(Number);
+      springs.push(`第 ${col + 1} 列 · 第 ${row + 1} 行`);
+    }
+    if (springs.length) {
+      lines.push(
+        `· 魔泉落在雨影带（${springs.join('、')}）：旱地少有的活水，谁守泉谁定规矩。`
+      );
+    }
+
+    const riverCells = new Set();
+    for (const path of map.paths || []) {
+      if (path.kind !== 'river') continue;
+      for (const cell of forgePathCells(path)) {
+        riverCells.add(`${cell.col},${cell.row}`);
+      }
+    }
+    const riverInShadow = [...shadow].some((key) => riverCells.has(key));
+    if (riverInShadow) {
+      lines.push(
+        '· 有河流穿过雨影带：可沿河写成绿洲走廊，聚落与商路会贴着水线生长。'
+      );
+    } else if (dry.length) {
+      lines.push(
+        '· 雨影带内没有河流穿过：交通与饮水应围绕井、暗渠与运水队展开。'
+      );
+    }
+
+    if (lakes.length) {
+      lines.push(
+        `· 图上有 ${lakes.length} 格湖泊；若落在雨影带附近，可解释为山麓涌泉或内流湖。`
+      );
+    }
+
+    if (Object.keys(map.tiles).length === 0) {
+      lines.push('· 地图尚未绘制地形，本次按默认草原计算，结论仅供占位。');
+    }
+
+    lines.push(
+      '改写建议：迎风坡写成雨林或洪泛平原，雨影带写成旱地、风口或盐碱地；若想让干旱更极端，沿南北向加高一列山脊。'
+    );
+    return lines;
+  }
+
+  function buildClimateText(seed, latitude, terrain, magic, mapContext = null) {
     const rand = mulberry32(seed);
     const base = CLIMATE_BASE[latitude];
     const land = CLIMATE_TERRAIN[terrain];
@@ -12393,13 +13323,19 @@
       lines.push(CLIMATE_MAGIC[magic]);
     }
 
+    if (mapContext) {
+      lines.push('', ...buildRainShadowLines(mapContext, latitude));
+    }
+
     lines.push('', '【衍生影响（气候 → 民生的因果链）】');
     lines.push(`建筑：${land.build}。`);
     lines.push(`饮食：${land.food}。`);
     lines.push(`出行：${land.travel}。`);
 
     lines.push('', '【推衍参数】');
-    lines.push(`${latitude} · ${terrain} · ${magic} · 种子 ${seed}`);
+    lines.push(
+      `${latitude} · ${terrain} · ${magic}${mapContext ? ` · 地图《${mapContext.title}》` : ''} · 种子 ${seed}`
+    );
     return lines.join('\n');
   }
 
@@ -12450,11 +13386,71 @@
     return lines.join('\n');
   }
 
-  const FORGE_TABS = {
-    calendar: { tag: '天文历法' },
-    climate: { tag: '天气气候' },
-    folk: { tag: '民风民俗' },
-    fate: { tag: '命运推演' },
+  // 推演领域登记表：新增领域只需补 tag / 参数面板 / build / 默认拓展方向，
+  // runForge、标签与 AI 请求都从这里取，不再堆分支。
+  const FORGE_DOMAINS = {
+    calendar: {
+      tag: '天文历法',
+      panel: 'forgeCalendarParams',
+      build(seed) {
+        const yearDays = Math.min(720, Math.max(120, Math.floor(Number(els.forgeYearDays.value) || 360)));
+        const monthCount = Math.min(24, Math.max(3, Math.floor(Number(els.forgeMonthCount.value) || 13)));
+        const weekLen = Math.min(12, Math.max(3, Math.floor(Number(els.forgeWeekLen.value) || 7)));
+        const moonCount = Math.min(2, Math.max(0, Math.floor(Number(els.forgeMoonCount.value) || 0)));
+        const eraName = els.forgeEraName.value.trim().slice(0, 12) || '新历';
+        const queryDay = Math.floor(Number(els.forgeDayQuery.value)) || 0;
+        return {
+          text: buildCalendarText(seed, yearDays, monthCount, weekLen, moonCount, eraName, queryDay),
+          title: `历法 · ${eraName}`,
+          subtitle: `天文历法 · ${yearDays} 天 ${monthCount} 月${moonCount > 0 ? ` · ${moonCount === 1 ? '单月' : '双月'}` : ' · 无月'}`,
+        };
+      },
+      defaultDirection:
+        '请补充 3–5 个挂在这套历法上的节日与历史大事纪年（给出具体日期，如「星澜历·潮月第十四日」），并检查推衍结果有无内在矛盾。',
+    },
+    climate: {
+      tag: '天气气候',
+      panel: 'forgeClimateParams',
+      build(seed) {
+        const latitude = els.forgeLatitude.value;
+        const terrain = els.forgeTerrain.value;
+        const magic = els.forgeMagic.value;
+        const context = getForgeClimateMapContext();
+        return {
+          text: buildClimateText(seed, latitude, terrain, magic, context),
+          title: `气候 · ${latitude}${terrain}`,
+          subtitle: `天气气候 · ${magic}${context ? ` · 《${context.title}》` : ''}`,
+          context: context
+            ? { title: context.title, cols: context.map.cols, rows: context.map.rows }
+            : null,
+        };
+      },
+      defaultDirection:
+        '请推衍当地的主要物产、两三种由气候催生的职业，以及一张简明的「灾年大事表」；若读取了地图，请让聚落与水源分布同雨影、迎风坡一致；与我已有的世界法则冲突之处请单独指出。',
+    },
+    folk: {
+      tag: '民风民俗',
+      panel: 'forgeFolkParams',
+      build(seed) {
+        const livelihood = els.forgeLivelihood.value;
+        const threat = els.forgeThreat.value;
+        const faith = els.forgeFaith.value;
+        return {
+          text: buildFolkText(seed, livelihood, threat, faith),
+          title: `民俗 · ${livelihood}与${threat}`,
+          subtitle: `民风民俗 · ${faith}`,
+        };
+      },
+      defaultDirection:
+        '请补充俚语 3 句、仪式细节 2 处、阶层与行当关系一段；每条新内容都必须能追溯到「生计 / 威胁 / 信仰」的因果。',
+    },
+    fate: {
+      tag: '命运推演',
+      panel: 'forgeFateParams',
+      manual: true,
+      defaultDirection:
+        '这是一场由规则与种子决定的命运判定，我只是记录者。请以克制、留白、有余韵的笔法，把【叙事记录】扩写成一个场景片段（≤300 字）：不渲染惨烈，重在与告别；不要替我改判生死。',
+    },
   };
 
   // 命运推演：规则透明 + 种子掷骰。输出是克制的叙事，不是名单——
@@ -12553,6 +13549,7 @@
     const fragment = document.createDocumentFragment();
 
     if (!novel || novel.entries.characters.length === 0) {
+      forge.fateRoster = [];
       roster.replaceChildren(
         el('p', 'fate-roster-empty', '这本书还没有角色。先去角色分区让他们登场，再来推演命运。')
       );
@@ -12587,10 +13584,7 @@
       const sync = () => {
         forge.fateRoster = collectFateRoster();
         els.forgeFateRollBtn.disabled = forge.fateRoster.length === 0;
-        forge.fateSealed = undefined;
-        els.forgeOutput.value = '';
-        els.forgeSeedHint.textContent = '规则已变，命运待掷';
-        els.forgeFateUnsealBtn.hidden = true;
+        resetFateDraft('规则已变，命运待掷');
       };
       check.addEventListener('change', sync);
       select.addEventListener('change', sync);
@@ -12634,16 +13628,15 @@
       notes: result.text,
     };
     forge.fateSealed = sealed ? result : undefined;
+    forge.lastContext = null;
     if (els.forgeFateUnsealBtn) els.forgeFateUnsealBtn.hidden = !sealed;
 
-    if (sealed) {
-      els.forgeOutput.value = result.text;
-      els.forgeSeedHint.textContent = `种子 ${seed} · 已封存，存档后可在词条里拆看`;
-    } else {
-      els.forgeOutput.value = result.text;
-      els.forgeSeedHint.textContent = `种子 ${seed} · 命运已落定`;
-    }
+    els.forgeOutput.value = result.text;
+    els.forgeSeedHint.textContent = sealed
+      ? '已封存，存档后可在词条里拆看'
+      : '命运已落定';
     els.forgeAiInput.placeholder = '留空则请 AI 以克制笔法补写离别的现场；也可写你的方向';
+    syncForgeActions();
   }
 
   function unsealFate() {
@@ -12658,20 +13651,112 @@
       tags: ['世界法则', '命运推演'],
       notes: result.text,
     };
+    forge.lastContext = null;
     els.forgeOutput.value = result.text;
-    els.forgeSeedHint.textContent = `种子 ${seed} · 信封已拆开`;
+    els.forgeSeedHint.textContent = '信封已拆开';
+    syncForgeActions();
   }
 
   function getForgeState() {
     if (!state.forge) {
       state.forge = {
         tab: 'calendar',
-        seed: Math.floor(Math.random() * 90000) + 10000,
+        seed: randomForgeSeed(),
         novelId: null,
+        climateMapId: null,
         lastDraft: null,
+        lastContext: null,
       };
     }
     return state.forge;
+  }
+
+  function syncForgeSeedInput() {
+    if (els.forgeSeedInput) {
+      els.forgeSeedInput.value = String(getForgeState().seed);
+    }
+  }
+
+  function syncForgeActions() {
+    const hasDraft = Boolean(getForgeState().lastDraft);
+    if (els.forgeSaveBtn) els.forgeSaveBtn.disabled = !hasDraft;
+    if (els.forgeAiBtn) els.forgeAiBtn.disabled = !hasDraft;
+  }
+
+  function resetFateDraft(hint) {
+    const forge = getForgeState();
+    forge.fateSealed = undefined;
+    forge.lastDraft = null;
+    forge.lastContext = null;
+    if (els.forgeOutput) els.forgeOutput.value = '';
+    if (els.forgeSeedHint) els.forgeSeedHint.textContent = hint;
+    if (els.forgeFateUnsealBtn) els.forgeFateUnsealBtn.hidden = true;
+    syncForgeActions();
+  }
+
+  function setForgeSeed(value, fateHint = '种子已改，命运待掷') {
+    const forge = getForgeState();
+    const seed = normalizeForgeSeed(value);
+    if (seed === null) {
+      syncForgeSeedInput();
+      return;
+    }
+    if (seed === forge.seed) {
+      syncForgeSeedInput();
+      return;
+    }
+    forge.seed = seed;
+    syncForgeSeedInput();
+    if (forge.tab === 'fate') {
+      resetFateDraft(fateHint);
+    } else {
+      runForge();
+    }
+  }
+
+  function syncForgeClimateMaps() {
+    const forge = getForgeState();
+    const select = els.forgeClimateMap;
+    if (!select) return;
+    const novel = forge.novelId ? findNovel(forge.novelId) : null;
+    const maps = novel
+      ? novel.entries.maps.filter((entry) => entry.map && mapHasContent(entry.map))
+      : [];
+    if (!maps.some((entry) => entry.id === forge.climateMapId)) {
+      forge.climateMapId = null;
+    }
+
+    const fragment = document.createDocumentFragment();
+    fragment.appendChild(new Option('不读地图 · 只按上方地貌推衍', ''));
+    for (const entry of maps) {
+      fragment.appendChild(
+        new Option(
+          `${entry.title} · ${entry.map.cols}×${entry.map.rows}`,
+          entry.id
+        )
+      );
+    }
+    select.replaceChildren(fragment);
+    select.value = forge.climateMapId || '';
+
+    if (els.forgeClimateMapHint) {
+      els.forgeClimateMapHint.textContent = maps.length
+        ? '选一张本书地图，按山脉与盛行风推演迎风坡、雨影与干旱带。'
+        : novel && novel.entries.maps.length
+          ? '本书的地图还是空的；先在地图工坊画上山脉与地形，再来推雨影。'
+          : '本书还没有地图；可先去地图工坊画一张，气候会读它的地形。';
+    }
+  }
+
+  function getForgeClimateMapContext() {
+    const forge = getForgeState();
+    if (!forge.climateMapId) return null;
+    const novel = forge.novelId ? findNovel(forge.novelId) : null;
+    const entry = novel
+      ? novel.entries.maps.find((item) => item.id === forge.climateMapId)
+      : null;
+    if (!entry || !entry.map || !mapHasContent(entry.map)) return null;
+    return { id: entry.id, title: entry.title, map: entry.map };
   }
 
   function syncForgeTabs() {
@@ -12681,61 +13766,34 @@
       btn.classList.toggle('is-active', active);
       btn.setAttribute('aria-pressed', String(active));
     });
-    els.forgeCalendarParams.hidden = forge.tab !== 'calendar';
-    els.forgeClimateParams.hidden = forge.tab !== 'climate';
-    els.forgeFolkParams.hidden = forge.tab !== 'folk';
-    els.forgeFateParams.hidden = forge.tab !== 'fate';
-    if (forge.tab === 'fate') {
+    for (const [key, domain] of Object.entries(FORGE_DOMAINS)) {
+      const panel = els[domain.panel];
+      if (panel) panel.hidden = key !== forge.tab;
+    }
+    if (forge.tab === 'climate') syncForgeClimateMaps();
+    if (FORGE_DOMAINS[forge.tab]?.manual) {
+      resetFateDraft('规则已立，命运待掷');
       renderFateRoster();
-      els.forgeOutput.value = '';
-      els.forgeSeedHint.textContent = '规则已立，命运待掷';
-      els.forgeFateUnsealBtn.hidden = true;
     }
   }
 
   function runForge() {
     const forge = getForgeState();
+    const domain = FORGE_DOMAINS[forge.tab];
     // 命运 tab 不随参数即时演算——生死值得一次郑重的「掷出」
-    if (forge.tab === 'fate') return;
-    const seed = forge.seed;
-    let text;
-    let title;
-    let subtitle;
-
-    if (forge.tab === 'calendar') {
-      const yearDays = Math.min(720, Math.max(120, Math.floor(Number(els.forgeYearDays.value) || 360)));
-      const monthCount = Math.min(24, Math.max(3, Math.floor(Number(els.forgeMonthCount.value) || 13)));
-      const weekLen = Math.min(12, Math.max(3, Math.floor(Number(els.forgeWeekLen.value) || 7)));
-      const moonCount = Math.min(2, Math.max(0, Math.floor(Number(els.forgeMoonCount.value) || 0)));
-      const eraName = els.forgeEraName.value.trim().slice(0, 12) || '新历';
-      const queryDay = Math.floor(Number(els.forgeDayQuery.value)) || 0;
-      text = buildCalendarText(seed, yearDays, monthCount, weekLen, moonCount, eraName, queryDay);
-      title = `历法 · ${eraName}`;
-      subtitle = `天文历法 · ${yearDays} 天 ${monthCount} 月${moonCount > 0 ? ` · ${moonCount === 1 ? '单月' : '双月'}` : ' · 无月'}`;
-    } else if (forge.tab === 'climate') {
-      const latitude = els.forgeLatitude.value;
-      const terrain = els.forgeTerrain.value;
-      const magic = els.forgeMagic.value;
-      text = buildClimateText(seed, latitude, terrain, magic);
-      title = `气候 · ${latitude}${terrain}`;
-      subtitle = `天气气候 · ${magic}`;
-    } else {
-      const livelihood = els.forgeLivelihood.value;
-      const threat = els.forgeThreat.value;
-      const faith = els.forgeFaith.value;
-      text = buildFolkText(seed, livelihood, threat, faith);
-      title = `民俗 · ${livelihood}与${threat}`;
-      subtitle = `民风民俗 · ${faith}`;
-    }
-
-    els.forgeOutput.value = text;
-    els.forgeSeedHint.textContent = `种子 ${seed} · 同参数同种子可复现`;
+    if (!domain || domain.manual) return;
+    const draft = domain.build(forge.seed);
+    if (!draft) return;
+    els.forgeOutput.value = draft.text;
+    els.forgeSeedHint.textContent = '同参数同种子可复现';
     forge.lastDraft = {
-      title,
-      subtitle,
-      tags: ['世界法则', FORGE_TABS[forge.tab].tag],
-      notes: text,
+      title: draft.title,
+      subtitle: draft.subtitle,
+      tags: ['世界法则', domain.tag],
+      notes: draft.text,
     };
+    forge.lastContext = draft.context || null;
+    syncForgeActions();
   }
 
   function openForge(novelId) {
@@ -12745,6 +13803,7 @@
     }
     const forge = getForgeState();
     forge.novelId = novelId;
+    syncForgeSeedInput();
     syncForgeTabs();
     runForge();
     els.forgeDialog.showModal();
@@ -12766,19 +13825,13 @@
   // 已有法则随行是防吃设定的延伸——AI 拓展必须长在既有正典上，而不是另起炉灶。
   function buildForgeAiRequest() {
     const forge = getForgeState();
-    if (!forge.lastDraft) return null;
+    const domain = FORGE_DOMAINS[forge.tab];
+    if (!forge.lastDraft || !domain) return null;
     const novel = findNovel(forge.novelId);
-    const domain = FORGE_TABS[forge.tab].tag;
     const custom = els.forgeAiInput.value.trim();
-    const defaultDirections = {
-      calendar: '请补充 3–5 个挂在这套历法上的节日与历史大事纪年（给出具体日期，如「星澜历·潮月第十四日」），并检查推衍结果有无内在矛盾。',
-      climate: '请推衍当地的主要物产、两三种由气候催生的职业，以及一张简明的「灾年大事表」；与我已有的世界法则冲突之处请单独指出。',
-      folk: '请补充俚语 3 句、仪式细节 2 处、阶层与行当关系一段；每条新内容都必须能追溯到「生计 / 威胁 / 信仰」的因果。',
-      fate: '这是一场由规则与种子决定的命运判定，我只是记录者。请以克制、留白、有余韵的笔法，把【叙事记录】扩写成一个场景片段（≤300 字）：不渲染惨烈，重在与告别；不要替我改判生死。',
-    };
 
     const lines = [
-      `我正在为小说《${novel ? novel.title : '我的小说'}》搭建世界设定。下面是我用参数推衍出的${domain}设定，请在此基础上继续拓展。`,
+      `我正在为小说《${novel ? novel.title : '我的小说'}》搭建世界设定。下面是我用参数推衍出的${domain.tag}设定，请在此基础上继续拓展。`,
     ];
 
     if (novel) {
@@ -12793,8 +13846,15 @@
       }
     }
 
+    if (forge.tab === 'climate' && forge.lastContext) {
+      lines.push(
+        '',
+        `【本次读取的地图】《${forge.lastContext.title}》（${forge.lastContext.cols}×${forge.lastContext.rows}）。雨影结论基于这张地图的实际地形；拓展时不要让聚落、水源与地形互相矛盾。`
+      );
+    }
+
     lines.push('', '【待拓展的推衍结果】', forge.lastDraft.notes);
-    lines.push('', '【拓展方向】', custom || defaultDirections[forge.tab]);
+    lines.push('', '【拓展方向】', custom || domain.defaultDirection);
     lines.push(
       '',
       '要求：输出为可直接存档的中文设定文本（分节、条目化）；如发现我现有设定的矛盾，先列矛盾再给修正建议。'
@@ -12878,6 +13938,562 @@
       createdAt,
       updatedAt,
     };
+  }
+
+  function normalizeIdeaKind(value) {
+    return typeof value === 'string' && IDEA_KINDS[value] ? value : 'other';
+  }
+
+  function normalizeIdeaStatus(value) {
+    return typeof value === 'string' && IDEA_STATUSES[value] ? value : 'spark';
+  }
+
+  function normalizeIdeaExcitement(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return IDEA_DEFAULT_EXCITEMENT;
+    return Math.min(5, Math.max(1, Math.round(number)));
+  }
+
+  function normalizeIdea(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const title = cleanText(raw.title, IDEA_TITLE_LIMIT);
+    if (!title) return null;
+    const createdAt = parseDate(raw.createdAt) || new Date().toISOString();
+    const updatedAt = parseDate(raw.updatedAt) || createdAt;
+    return {
+      id: cleanText(raw.id, 80) || makeId(),
+      title,
+      body: typeof raw.body === 'string' ? raw.body.replace(/\r\n?/g, '\n').trim().slice(0, IDEA_BODY_LIMIT) : '',
+      nextStep: cleanText(raw.nextStep, IDEA_NEXT_LIMIT),
+      kind: normalizeIdeaKind(raw.kind),
+      status: normalizeIdeaStatus(raw.status),
+      excitement: normalizeIdeaExcitement(raw.excitement),
+      createdAt,
+      updatedAt,
+    };
+  }
+
+  /* ---------- 网页构想 ---------- */
+
+  function findIdea(id) {
+    return state.ideas.find((idea) => idea.id === id) || null;
+  }
+
+  function ideaMatchesFilter(idea) {
+    const query = state.ideaBoard.query.trim().toLowerCase();
+    if (
+      state.ideaBoard.status !== 'all' &&
+      idea.status !== state.ideaBoard.status
+    ) {
+      return false;
+    }
+    if (!query) return true;
+    return `${idea.title}\n${idea.body}\n${idea.nextStep}`
+      .toLowerCase()
+      .includes(query);
+  }
+
+  function getFilteredIdeas() {
+    const list = state.ideas.filter(ideaMatchesFilter);
+    const sort = state.ideaBoard.sort;
+    const pipelineRank = { building: 0, planned: 1, spark: 2, parked: 3, shipped: 4 };
+    return list.sort((a, b) => {
+      if (sort === 'created') {
+        return timeValue(b.createdAt) - timeValue(a.createdAt);
+      }
+      if (sort === 'excitement') {
+        return b.excitement - a.excitement || timeValue(b.updatedAt) - timeValue(a.updatedAt);
+      }
+      if (sort === 'pipeline') {
+        return (
+          (pipelineRank[a.status] ?? 9) - (pipelineRank[b.status] ?? 9) ||
+          b.excitement - a.excitement ||
+          timeValue(b.updatedAt) - timeValue(a.updatedAt)
+        );
+      }
+      return timeValue(b.updatedAt) - timeValue(a.updatedAt);
+    });
+  }
+
+  function countIdeasByStatus() {
+    const counts = { all: state.ideas.length };
+    for (const status of IDEA_STATUS_ORDER) counts[status] = 0;
+    for (const idea of state.ideas) {
+      counts[idea.status] = (counts[idea.status] || 0) + 1;
+    }
+    return counts;
+  }
+
+  function renderIdeas() {
+    renderIdeaStatusFilters();
+
+    const filtered = getFilteredIdeas();
+    const total = state.ideas.length;
+    const hasQuery = Boolean(state.ideaBoard.query.trim());
+    const filtersActive = hasQuery || state.ideaBoard.status !== 'all';
+
+    els.ideasSortSelect.value = state.ideaBoard.sort;
+    els.ideasSearchClearBtn.hidden = !hasQuery;
+    els.ideasClearFiltersBtn.hidden = !filtersActive;
+    els.ideasEmpty.hidden = total > 0;
+    els.ideasList.hidden = total === 0 || filtered.length === 0;
+    els.ideasNoResults.hidden = total === 0 || filtered.length > 0;
+
+    if (total === 0) {
+      els.ideasCount.textContent = '还没有构想';
+    } else {
+      const shipped = state.ideas.filter((idea) => idea.status === 'shipped').length;
+      const parked = state.ideas.filter((idea) => idea.status === 'parked').length;
+      const pending = total - shipped - parked;
+      const scope = filtersActive ? `筛选出 ${filtered.length} 条 · ` : '';
+      els.ideasCount.textContent = `${scope}共 ${total} 条构想 · ${pending} 条待推进 · ${shipped} 条已上线`;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (const idea of filtered) {
+      fragment.appendChild(createIdeaCard(idea));
+    }
+    els.ideasList.replaceChildren(fragment);
+
+    renderIdeaDraw();
+    renderSidebar(state.route);
+  }
+
+  function renderIdeaStatusFilters() {
+    const counts = countIdeasByStatus();
+    const options = [{ value: 'all', label: '全部' }].concat(
+      IDEA_STATUS_ORDER.map((status) => ({
+        value: status,
+        label: IDEA_STATUSES[status].label,
+      }))
+    );
+
+    const fragment = document.createDocumentFragment();
+    for (const option of options) {
+      const active = state.ideaBoard.status === option.value;
+      const chip = el('button', `filter-pill${active ? ' is-active' : ''}`);
+      chip.type = 'button';
+      chip.dataset.action = 'idea-status-filter';
+      chip.dataset.value = option.value;
+      chip.setAttribute('aria-pressed', String(active));
+      chip.appendChild(document.createTextNode(option.label));
+      chip.appendChild(el('span', 'filter-count', counts[option.value] || 0));
+      fragment.appendChild(chip);
+    }
+    els.ideasStatusFilters.replaceChildren(fragment);
+  }
+
+  function buildIdeaStars(value) {
+    const wrap = el('span', 'idea-stars');
+    wrap.setAttribute('role', 'img');
+    wrap.setAttribute('aria-label', `心动值 ${value} / 5`);
+    wrap.title = `心动值 ${value} / 5`;
+    for (let index = 1; index <= 5; index += 1) {
+      const star = el('span', index <= value ? 'is-on' : '');
+      star.appendChild(icon('i-star'));
+      wrap.appendChild(star);
+    }
+    return wrap;
+  }
+
+  function ideaAdvanceLabel(status) {
+    if (status === 'parked') return '重新拾起';
+    return IDEA_ADVANCE_LABELS[status] || '';
+  }
+
+  function createIdeaCard(idea) {
+    const kind = IDEA_KINDS[idea.kind] || IDEA_KINDS.other;
+    const status = IDEA_STATUSES[idea.status] || IDEA_STATUSES.spark;
+    const card = el('article', 'idea-card');
+    card.dataset.ideaId = idea.id;
+    card.classList.toggle('is-picked', state.ideaBoard.pickedId === idea.id);
+    card.classList.toggle('is-shipped', idea.status === 'shipped');
+
+    const head = el('div', 'idea-card-head');
+    head.appendChild(el('span', 'idea-kind-chip', kind.label));
+    head.appendChild(el('span', `idea-status-chip ${status.className}`, status.label));
+    const time = el('time', 'idea-card-time');
+    time.dateTime = idea.updatedAt;
+    time.textContent = relativeDate(new Date(idea.updatedAt));
+    time.title = `更新于 ${fullDate(new Date(idea.updatedAt))}`;
+    head.appendChild(time);
+
+    const title = el('h3', 'idea-card-title', idea.title);
+
+    const next = el('p', `idea-card-next${idea.nextStep ? '' : ' is-empty'}`);
+    if (idea.nextStep) {
+      next.appendChild(el('strong', '', '最小下一步 · '));
+      next.appendChild(document.createTextNode(idea.nextStep));
+    } else {
+      next.textContent = '还没写最小下一步';
+    }
+
+    const meta = el('div', 'idea-card-meta');
+    meta.appendChild(buildIdeaStars(idea.excitement));
+
+    const actions = el('div', 'idea-card-actions');
+    const advanceLabel = ideaAdvanceLabel(idea.status);
+    if (advanceLabel) {
+      const advanceBtn = el('button', 'btn ghost idea-advance-btn');
+      advanceBtn.type = 'button';
+      advanceBtn.dataset.action = 'advance-idea';
+      advanceBtn.dataset.ideaId = idea.id;
+      advanceBtn.title = idea.status === 'parked'
+        ? '把它重新放回「构想」，之后再排期'
+        : `把状态推进到「${IDEA_STATUSES[IDEA_NEXT_STATUS[idea.status]].label}」`;
+      advanceBtn.append(icon('i-arrow-right'), document.createTextNode(advanceLabel));
+      actions.appendChild(advanceBtn);
+    }
+
+    const copyBtn = el('button', 'icon-btn');
+    copyBtn.type = 'button';
+    copyBtn.dataset.action = 'copy-idea-ai';
+    copyBtn.dataset.ideaId = idea.id;
+    copyBtn.setAttribute('aria-label', `复制「${idea.title}」的 AI 讨论请求`);
+    copyBtn.title = '复制给 AI 的讨论请求：先评估价值，再拆最小可行版本';
+    copyBtn.appendChild(icon('i-export'));
+
+    const editBtn = el('button', 'icon-btn');
+    editBtn.type = 'button';
+    editBtn.dataset.action = 'edit-idea';
+    editBtn.dataset.ideaId = idea.id;
+    editBtn.setAttribute('aria-label', `编辑构想「${idea.title}」`);
+    editBtn.title = '编辑';
+    editBtn.appendChild(icon('i-pencil'));
+
+    const deleteBtn = el('button', 'icon-btn danger-hover');
+    deleteBtn.type = 'button';
+    deleteBtn.dataset.action = 'delete-idea';
+    deleteBtn.dataset.ideaId = idea.id;
+    deleteBtn.setAttribute('aria-label', `删除构想「${idea.title}」`);
+    deleteBtn.title = '删除';
+    deleteBtn.appendChild(icon('i-trash'));
+
+    actions.append(copyBtn, editBtn, deleteBtn);
+    card.append(head, title);
+    if (idea.body) {
+      card.appendChild(el('p', 'idea-card-excerpt', idea.body.replace(/\s+/g, ' ')));
+    }
+    card.append(next, meta, actions);
+    return card;
+  }
+
+  function renderIdeaDraw() {
+    const picked = state.ideaBoard.pickedId ? findIdea(state.ideaBoard.pickedId) : null;
+    const visible = Boolean(picked && ideaMatchesFilter(picked));
+    els.ideaDraw.hidden = !visible;
+    if (!visible) {
+      els.ideaDraw.replaceChildren();
+      return;
+    }
+
+    const status = IDEA_STATUSES[picked.status] || IDEA_STATUSES.spark;
+    const kind = IDEA_KINDS[picked.kind] || IDEA_KINDS.other;
+    const candidates = state.ideas.filter(
+      (idea) => idea.status !== 'shipped' && idea.status !== 'parked'
+    ).length;
+
+    const head = el('div', 'idea-draw-head');
+    head.appendChild(el('p', 'eyebrow', 'RANDOM DRAW'));
+    const closeBtn = el('button', 'icon-btn');
+    closeBtn.type = 'button';
+    closeBtn.dataset.action = 'dismiss-idea-draw';
+    closeBtn.setAttribute('aria-label', '收起随机翻牌');
+    closeBtn.title = '收起';
+    closeBtn.appendChild(icon('i-close'));
+    head.appendChild(closeBtn);
+
+    const kicker = el(
+      'p',
+      'idea-draw-kicker',
+      `从 ${candidates} 条待推进里翻到 · ${kind.label}`
+    );
+    const title = el('h3', 'idea-draw-title', picked.title);
+
+    const next = el('p', `idea-draw-next${picked.nextStep ? '' : ' is-empty'}`);
+    if (picked.nextStep) {
+      next.appendChild(el('strong', '', '先做这一步 · '));
+      next.appendChild(document.createTextNode(picked.nextStep));
+    } else {
+      next.textContent = '这条还没写最小下一步。点「补一笔」，先把第一步写下来。';
+    }
+
+    const meta = el('div', 'idea-draw-meta');
+    meta.appendChild(el('span', `idea-status-chip ${status.className}`, status.label));
+    meta.appendChild(buildIdeaStars(picked.excitement));
+
+    const actions = el('div', 'idea-draw-actions');
+    const advanceBtn = el('button', 'btn primary');
+    advanceBtn.type = 'button';
+    advanceBtn.dataset.action = 'advance-idea';
+    advanceBtn.dataset.ideaId = picked.id;
+    advanceBtn.append(icon('i-arrow-right'), document.createTextNode(ideaAdvanceLabel(picked.status)));
+
+    const copyBtn = el('button', 'btn ghost');
+    copyBtn.type = 'button';
+    copyBtn.dataset.action = 'copy-idea-ai';
+    copyBtn.dataset.ideaId = picked.id;
+    copyBtn.append(icon('i-export'), document.createTextNode('复制给 AI 讨论'));
+
+    const editBtn = el('button', 'btn ghost');
+    editBtn.type = 'button';
+    editBtn.dataset.action = 'edit-idea';
+    editBtn.dataset.ideaId = picked.id;
+    editBtn.append(icon('i-pencil'), document.createTextNode('补一笔'));
+
+    actions.append(advanceBtn, copyBtn, editBtn);
+    els.ideaDraw.replaceChildren(head, kicker, title, next, meta, actions);
+  }
+
+  function drawIdea() {
+    if (state.ideas.length === 0) {
+      openIdeaEditor();
+      return;
+    }
+    const candidates = state.ideas.filter(
+      (idea) => idea.status !== 'shipped' && idea.status !== 'parked'
+    );
+    if (candidates.length === 0) {
+      showToast('没有待推进的构想了，先把搁置的重新拾起再翻');
+      return;
+    }
+
+    const pool = candidates.length > 1
+      ? candidates.filter((idea) => idea.id !== state.ideaBoard.pickedId)
+      : candidates;
+    const statusWeight = { spark: 1, planned: 1.4, building: 1.8 };
+    const weights = pool.map(
+      (idea) => idea.excitement * (statusWeight[idea.status] || 1)
+    );
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    let roll = Math.random() * totalWeight;
+    let chosen = pool[pool.length - 1];
+    for (let index = 0; index < pool.length; index += 1) {
+      roll -= weights[index];
+      if (roll <= 0) {
+        chosen = pool[index];
+        break;
+      }
+    }
+
+    state.ideaBoard.status = 'all';
+    state.ideaBoard.query = '';
+    state.ideaBoard.pickedId = chosen.id;
+    els.ideasSearchInput.value = '';
+    renderIdeas();
+
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    window.requestAnimationFrame(() => {
+      els.ideaDraw.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'nearest',
+      });
+    });
+  }
+
+  function closeIdeaDraw() {
+    if (!state.ideaBoard.pickedId) return;
+    state.ideaBoard.pickedId = null;
+    renderIdeas();
+  }
+
+  function resetIdeaFilters({ focusSearch = false } = {}) {
+    state.ideaBoard.status = 'all';
+    state.ideaBoard.query = '';
+    state.ideaBoard.pickedId = null;
+    els.ideasSearchInput.value = '';
+    renderIdeas();
+    if (focusSearch) els.ideasSearchInput.focus();
+  }
+
+  function openIdeaEditor(idea = null) {
+    state.ideaDraft = {
+      id: idea ? idea.id : null,
+      excitement: idea ? idea.excitement : IDEA_DEFAULT_EXCITEMENT,
+      dirty: false,
+    };
+    els.ideaForm.reset();
+    els.ideaTitleError.hidden = true;
+    els.ideaDialogEyebrow.textContent = idea ? 'SITE IDEA · EDIT' : 'SITE IDEA · NEW';
+    els.ideaDialogTitle.textContent = idea ? '补一笔构想' : '记下新构想';
+    els.ideaSaveBtn.textContent = idea ? '保存修改' : '收下构想';
+
+    if (idea) {
+      els.ideaTitleInput.value = idea.title;
+      els.ideaKindSelect.value = idea.kind;
+      els.ideaStatusSelect.value = idea.status;
+      els.ideaBodyInput.value = idea.body;
+      els.ideaNextInput.value = idea.nextStep;
+    } else {
+      els.ideaKindSelect.value = 'other';
+      els.ideaStatusSelect.value = 'spark';
+    }
+    syncIdeaExcitement();
+    syncIdeaBodyCount();
+
+    els.ideaDialog.showModal();
+    requestAnimationFrame(() => els.ideaTitleInput.focus());
+  }
+
+  function syncIdeaExcitement() {
+    const value = state.ideaDraft.excitement;
+    els.ideaExcitement.querySelectorAll('[data-excitement]').forEach((button) => {
+      const on = Number(button.dataset.excitement) <= value;
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+    els.ideaExcitementHint.textContent = `${value} / 5`;
+  }
+
+  function syncIdeaBodyCount() {
+    els.ideaBodyCount.textContent = `${els.ideaBodyInput.value.length} 字`;
+  }
+
+  function saveIdea() {
+    const title = els.ideaTitleInput.value.trim();
+    if (!title) {
+      els.ideaTitleError.hidden = false;
+      els.ideaTitleInput.focus();
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const fields = {
+      title: title.slice(0, IDEA_TITLE_LIMIT),
+      body: els.ideaBodyInput.value.trim().slice(0, IDEA_BODY_LIMIT),
+      nextStep: els.ideaNextInput.value.trim().slice(0, IDEA_NEXT_LIMIT),
+      kind: normalizeIdeaKind(els.ideaKindSelect.value),
+      status: normalizeIdeaStatus(els.ideaStatusSelect.value),
+      excitement: normalizeIdeaExcitement(state.ideaDraft.excitement),
+    };
+
+    const previous = state.ideas;
+    const editing = state.ideaDraft.id;
+    if (editing) {
+      state.ideas = state.ideas.map((idea) =>
+        idea.id === editing ? { ...idea, ...fields, updatedAt: now } : idea
+      );
+    } else {
+      state.ideas = [
+        { id: makeId(), ...fields, createdAt: now, updatedAt: now },
+        ...state.ideas,
+      ].slice(0, IDEA_MAX_COUNT);
+    }
+    if (!persist()) {
+      state.ideas = previous;
+      return;
+    }
+
+    state.ideaDraft.dirty = false;
+    els.ideaDialog.close();
+    renderIdeas();
+    showToast(editing ? '构想已更新' : '构想已收下，等哪天翻到它');
+  }
+
+  function attemptCloseIdeaDialog() {
+    if (!els.ideaDialog.open) return;
+    if (!state.ideaDraft.dirty) {
+      els.ideaDialog.close();
+      return;
+    }
+    openConfirm({
+      title: '放弃这次记录？',
+      message: '尚未保存的构想内容会丢失。',
+      okLabel: '放弃修改',
+      onConfirm: () => {
+        state.ideaDraft.dirty = false;
+        els.ideaDialog.close();
+      },
+    });
+  }
+
+  function advanceIdea(id) {
+    const idea = findIdea(id);
+    if (!idea) return;
+    const next = idea.status === 'parked' ? 'spark' : IDEA_NEXT_STATUS[idea.status];
+    if (!next) return;
+
+    const previous = state.ideas;
+    state.ideas = state.ideas.map((item) =>
+      item.id === id
+        ? { ...item, status: next, updatedAt: new Date().toISOString() }
+        : item
+    );
+    if (!persist()) {
+      state.ideas = previous;
+      return;
+    }
+
+    renderIdeas();
+    const label = IDEA_STATUSES[next].label;
+    showToast(`已推进到「${label}」：${idea.title}`);
+  }
+
+  function deleteIdea(id) {
+    const idea = findIdea(id);
+    if (!idea) return;
+    openConfirm({
+      title: '删除这条构想？',
+      message: `「${idea.title}」删除后无法恢复。`,
+      okLabel: '删除构想',
+      onConfirm: () => {
+        const previous = state.ideas;
+        state.ideas = state.ideas.filter((item) => item.id !== id);
+        if (!persist()) {
+          state.ideas = previous;
+          return;
+        }
+        if (state.ideaBoard.pickedId === id) state.ideaBoard.pickedId = null;
+        renderIdeas();
+        showToast('构想已删除');
+      },
+    });
+  }
+
+  function buildIdeaAiRequest(idea) {
+    const kind = IDEA_KINDS[idea.kind] || IDEA_KINDS.other;
+    const status = IDEA_STATUSES[idea.status] || IDEA_STATUSES.spark;
+    const lines = [
+      '我在给一个纯前端的小说创作站点「故事簿」做迭代，想认真评估下面这个构想。',
+      '',
+      `【构想】${idea.title}`,
+      `【分类】${kind.label}`,
+      `【当前状态】${status.label}`,
+      `【心动值】${idea.excitement} / 5`,
+    ];
+    if (idea.body) lines.push('【我的说明】', idea.body);
+    lines.push(
+      `【我想到的最小下一步】${idea.nextStep || '还没想好，请帮我补一个'}`,
+      '',
+      '这个站点的技术边界：',
+      '· 纯静态、原生 JavaScript，没有前端框架，也没有构建步骤',
+      '· 数据只存在浏览器 localStorage，本地优先，没有后端、账号和云同步',
+      '· 页面用 Hash 路由，已有书架 / 小说 / 分区 / 词条 / 地图工坊 / 练笔 / 评论',
+      '· 发布只导出公开快照，私有数据不能外泄',
+      '· 要兼容旧备份，不能依赖服务器或付费服务',
+      '',
+      '请先不要写代码，按下面顺序帮我：',
+      '1. 用户价值：最值得做的一点是什么？如果没必要做，请直接说。',
+      '2. 最小可行版本：砍到最核心的交互，应该包含什么、明确不做什么。',
+      '3. 落地步骤：按现有技术边界拆成 3 个能独立验证的小步骤。',
+      '4. 风险与取舍：数据兼容、性能、移动端分别有什么坑？',
+      '5. 验收标准：我怎么在浏览器里判断它真的做成了。',
+      '',
+      '最后用一句话告诉我：你会怎么向作者介绍这个功能。'
+    );
+    return lines.join('\n');
+  }
+
+  async function copyIdeaForAi(id) {
+    const idea = findIdea(id);
+    if (!idea) return;
+    const ok = await copyTextToClipboard(buildIdeaAiRequest(idea));
+    showToast(
+      ok ? '已复制讨论请求，粘贴给 AI；先评估，再动手' : '复制失败，请手动选择文本复制',
+      ok ? 'default' : 'error'
+    );
   }
 
   async function copyTextToClipboard(text) {
@@ -13366,6 +14982,365 @@
     showToast(ok ? '已复制词条与上下文，去粘贴给 AI 吧' : '复制失败，请手动复制', ok ? 'default' : 'error');
   }
 
+  const AI_PACK_PRESETS = {
+    discuss: {
+      label: '讨论剧情',
+      instruction(title) {
+        return [
+          `我想和你讨论《${title}》接下来的剧情。请把下面的内容当作这本书已经确定的正典。`,
+          '',
+          '请先做三件事：',
+          '1. 用三句话概括当前故事的核心矛盾；',
+          '2. 指出三条最有张力、但还没有被充分展开的线索；',
+          '3. 标出你判断最容易写崩的设定边界。',
+          '',
+          '然后等我提出具体问题再展开。不要替我定稿，也不要引入与正典冲突的新设定；如果我的想法会破坏既有设定，请先指出冲突。',
+        ].join('\n');
+      },
+    },
+    continue: {
+      label: '续写上下文',
+      instruction(title) {
+        return [
+          `我要续写《${title}》。请把下面的内容当作已经确定的正文与设定。`,
+          '',
+          '请先做三件事：',
+          '1. 用一段话总结当前人物处境与尚未解决的悬念；',
+          '2. 列出五个可以直接承接的伏笔或场景入口；',
+          '3. 提醒我最容易写崩的设定边界与人物口吻。',
+          '',
+          '先不要写正文。等我给出续写起点和视角后再动笔，并保持时间线、世界规则与人物动机一致。',
+        ].join('\n');
+      },
+    },
+    audit: {
+      label: '自查矛盾',
+      instruction(title) {
+        return [
+          `请检查《${title}》以下正典资料之间的内部一致性。`,
+          '',
+          '按严重程度列出：',
+          '1. 时间线与因果冲突；',
+          '2. 人物动机、称谓与关系冲突；',
+          '3. 世界规则、地理与资源冲突；',
+          '4. 大纲承诺但正文没有兑现的线索。',
+          '',
+          '每条注明涉及哪些条目，并给出最小改动的修正建议。不要臆造资料中没有写过的内容；没有发现问题的部分也请明确说“未发现冲突”。',
+        ].join('\n');
+      },
+    },
+  };
+  const AI_PACK_TOTAL_LIMIT = 60000;
+  const AI_PACK_ENTRY_NOTES_LIMIT = 2400;
+  const aiPackState = { novelId: null, preset: 'discuss' };
+
+  function clipAiPackText(text, limit) {
+    const value = String(text || '').trim();
+    if (value.length <= limit) return value;
+    return `${value.slice(0, limit).replace(/\s+$/, '')}\n（后略）`;
+  }
+
+  function buildAiPackMapSummary(map) {
+    if (!map) return '';
+    const parts = [`${map.cols}×${map.rows} 格`];
+    const cities = Array.isArray(map.cities) ? map.cities : [];
+    if (cities.length > 0) {
+      const names = cities.slice(0, 24).map((city) => {
+        const type = MAP_CITY_TYPES[city.type] || MAP_CITY_TYPES.city;
+        return `${city.name}（${type.label}）`;
+      });
+      if (cities.length > 24) names.push(`等 ${cities.length} 座`);
+      parts.push(`城市：${names.join('、')}`);
+    }
+    const features = [];
+    for (const key of Object.values(map.features || {})) {
+      const label = MAP_FEATURES[key] && MAP_FEATURES[key].label;
+      if (label && !features.includes(label)) features.push(label);
+    }
+    if (features.length > 0) parts.push(`地标：${features.join('、')}`);
+    const resources = [];
+    for (const key of Object.values(map.resources || {})) {
+      const label = MAP_RESOURCES[key] && MAP_RESOURCES[key].label;
+      if (label && !resources.includes(label)) resources.push(label);
+    }
+    if (resources.length > 0) parts.push(`物产：${resources.join('、')}`);
+    const paths = Array.isArray(map.paths) ? map.paths : [];
+    if (paths.length > 0) {
+      const names = paths.slice(0, 16).map((path) => {
+        const kind = MAP_PATH_KINDS[path.kind] || MAP_PATH_KINDS.river;
+        return `${path.name || '未命名'}（${kind.label}）`;
+      });
+      if (paths.length > 16) names.push(`等 ${paths.length} 条`);
+      parts.push(`路径：${names.join('、')}`);
+    }
+    return parts.join('；');
+  }
+
+  function buildAiPackText(novel, options) {
+    const preset = AI_PACK_PRESETS[options.presetKey] || AI_PACK_PRESETS.discuss;
+    const selected = new Set(options.sections);
+    const focus = String(options.focus || '').trim();
+    const status = NOVEL_STATUS[novel.status] || NOVEL_STATUS.planning;
+    const includedEntries = SECTION_KEYS.reduce(
+      (sum, key) => sum + (selected.has(key) ? novel.entries[key].length : 0),
+      0
+    );
+    const includedWords = SECTION_KEYS.reduce(
+      (sum, key) => sum + (selected.has(key) ? countSectionWords(novel, key) : 0),
+      0
+    );
+    const lines = [];
+
+    lines.push(`# 《${novel.title}》 · 整书 AI 设定包`);
+    lines.push('');
+    lines.push(
+      `> 用途：${preset.label}｜生成于 ${formatSnapshotTime(
+        new Date().toISOString()
+      )}｜本次 ${includedEntries} 条词条 · ${formatWordCount(includedWords)}`
+    );
+
+    const omitted = SECTION_KEYS
+      .filter((key) => !selected.has(key) && novel.entries[key].length > 0)
+      .map((key) => SECTIONS[key].label);
+    if (novel.relations.length > 0 && !selected.has('relations')) {
+      omitted.push('人物关系');
+    }
+    if (omitted.length > 0) {
+      lines.push(`> 本次未包含：${omitted.join('、')}`);
+    }
+
+    lines.push('');
+    lines.push('## 你的任务');
+    lines.push('');
+    lines.push(preset.instruction(novel.title));
+    if (focus) {
+      lines.push('');
+      lines.push(`我额外希望你关注：${focus}`);
+    }
+
+    lines.push('');
+    lines.push('## 小说资料');
+    lines.push('');
+    lines.push(`- 书名：${novel.title}`);
+    lines.push(`- 类型：${novel.genre || '未标注'}`);
+    lines.push(`- 状态：${status.label}`);
+    if (novel.summary) lines.push(`- 一句话：${novel.summary}`);
+    if (novel.description) {
+      lines.push('');
+      lines.push('### 故事简介');
+      lines.push('');
+      lines.push(novel.description);
+    }
+    lines.push('');
+
+    for (const key of SECTION_KEYS) {
+      if (!selected.has(key)) continue;
+      const entries = sortEntries(novel.entries[key]);
+      if (entries.length === 0) continue;
+      lines.push(`## ${SECTIONS[key].label}（${entries.length} 条）`);
+      lines.push('');
+      for (const entry of entries) {
+        const meta = [];
+        if (entry.subtitle) meta.push(entry.subtitle);
+        if (entry.status && ENTRY_STATUS[entry.status]) {
+          meta.push(`状态：${ENTRY_STATUS[entry.status].label}`);
+        }
+        if (entry.aliases.length > 0) meta.push(`别名：${entry.aliases.join('、')}`);
+        if (entry.tags.length > 0) meta.push(`标签：${entry.tags.join('、')}`);
+        lines.push(`### ${entry.title}`);
+        if (meta.length > 0) lines.push(`- ${meta.join(' · ')}`);
+        if (entry.summary) lines.push(`- 一句话：${entry.summary}`);
+        if (entry.notes) {
+          lines.push('');
+          lines.push(clipAiPackText(entry.notes, AI_PACK_ENTRY_NOTES_LIMIT));
+        }
+        if (key === 'maps' && entry.map) {
+          lines.push('');
+          lines.push(`- 地图数据：${buildAiPackMapSummary(entry.map)}`);
+        }
+        lines.push('');
+      }
+    }
+
+    if (selected.has('relations') && novel.relations.length > 0) {
+      const charactersById = new Map(
+        novel.entries.characters.map((entry) => [entry.id, entry])
+      );
+      const graphs =
+        novel.relationGraphs.length > 0
+          ? novel.relationGraphs
+          : [{ id: novel.relations[0].graphId, title: '人物关系' }];
+      const relationLines = [];
+      for (const graph of graphs) {
+        const graphRelations = novel.relations.filter(
+          (relation) => relation.graphId === graph.id
+        );
+        if (graphRelations.length === 0) continue;
+        if (graphs.length > 1) {
+          relationLines.push(`### ${graph.title}`);
+          relationLines.push('');
+        }
+        for (const relation of graphRelations) {
+          const from = charactersById.get(relation.source);
+          const to = charactersById.get(relation.target);
+          if (!from || !to) continue;
+          const arrow = relation.directed ? '→' : '↔';
+          relationLines.push(
+            `- ${from.title} ${arrow} ${to.title}：${relation.label || '关联'}`
+          );
+        }
+        relationLines.push('');
+      }
+      if (relationLines.length > 0) {
+        lines.push('## 人物关系');
+        lines.push('');
+        lines.push(...relationLines);
+      }
+    }
+
+    lines.push('---');
+    lines.push('');
+    lines.push(
+      '以上是这本书目前已写下的正典资料。请以它为事实基础；如果资料之间存在空白或冲突，请直接指出，不要自行补全。'
+    );
+
+    let text = lines.join('\n');
+    let truncated = false;
+    if (text.length > AI_PACK_TOTAL_LIMIT) {
+      text = text
+        .slice(0, AI_PACK_TOTAL_LIMIT)
+        .replace(/\n[^\n]*$/, '')
+        .replace(/\s+$/, '');
+      text += `\n\n…（内容超过 ${formatWordCount(
+        AI_PACK_TOTAL_LIMIT
+      )} 上限，已截断；减少勾选分区可生成完整版本）`;
+      truncated = true;
+    }
+    return { text, truncated };
+  }
+
+  function renderAiPackSections(novel) {
+    if (!els.aiPackSections) return;
+    const defs = SECTION_KEYS.map((key) => ({
+      key,
+      label: SECTIONS[key].label,
+      count: novel.entries[key].length,
+    }));
+    if (novel.relations.length > 0) {
+      defs.push({ key: 'relations', label: '人物关系', count: novel.relations.length });
+    }
+
+    els.aiPackSections.replaceChildren();
+    for (const def of defs) {
+      const label = document.createElement('label');
+      label.className = `ai-pack-section${def.count === 0 ? ' is-empty' : ''}`;
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.dataset.sectionKey = def.key;
+      input.checked = def.count > 0;
+      input.disabled = def.count === 0;
+      const name = document.createElement('span');
+      name.textContent = def.label;
+      const count = document.createElement('span');
+      count.className = 'ai-pack-section-count';
+      count.textContent = String(def.count);
+      label.append(input, name, count);
+      els.aiPackSections.appendChild(label);
+    }
+  }
+
+  function getAiPackSelectedSections() {
+    if (!els.aiPackSections) return [];
+    return Array.from(
+      els.aiPackSections.querySelectorAll('input[type="checkbox"]')
+    )
+      .filter((input) => input.checked)
+      .map((input) => input.dataset.sectionKey);
+  }
+
+  function syncAiPackPreset() {
+    for (const button of els.aiPackPresetBtns) {
+      const active = button.dataset.aiPackPreset === aiPackState.preset;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+  }
+
+  function updateAiPackPreview() {
+    if (!els.aiPackPreview) return;
+    const novel = findNovel(aiPackState.novelId);
+    if (!novel) {
+      els.aiPackPreview.value = '';
+      els.aiPackCount.textContent = '0 字';
+      return;
+    }
+    const sections = getAiPackSelectedSections();
+    const result = buildAiPackText(novel, {
+      presetKey: aiPackState.preset,
+      sections,
+      focus: els.aiPackFocusInput ? els.aiPackFocusInput.value : '',
+    });
+    els.aiPackPreview.value = result.text;
+    els.aiPackCount.textContent = `${countTextWords(result.text)} 字`;
+    if (els.aiPackMeta) {
+      els.aiPackMeta.textContent = `已选 ${sections.length} 个分区`;
+    }
+    if (els.aiPackNotice) {
+      els.aiPackNotice.hidden = !result.truncated;
+      els.aiPackNotice.textContent = result.truncated
+        ? `内容超过 ${formatWordCount(
+            AI_PACK_TOTAL_LIMIT
+          )} 上限，已截断；减少勾选分区可生成完整版本。`
+        : '';
+    }
+    if (els.aiPackCopyBtn) els.aiPackCopyBtn.disabled = result.text.length === 0;
+    if (els.aiPackDownloadBtn) {
+      els.aiPackDownloadBtn.disabled = result.text.length === 0;
+    }
+  }
+
+  function openAiPackDialog(novelId) {
+    const novel = findNovel(novelId);
+    if (!novel || !els.aiPackDialog) return;
+    aiPackState.novelId = novel.id;
+    aiPackState.preset = 'discuss';
+    if (els.aiPackFocusInput) els.aiPackFocusInput.value = '';
+    syncAiPackPreset();
+    renderAiPackSections(novel);
+    updateAiPackPreview();
+    if (!els.aiPackDialog.open) els.aiPackDialog.showModal();
+    const activePreset = els.aiPackPresetBtns.find(
+      (button) => button.dataset.aiPackPreset === aiPackState.preset
+    );
+    if (activePreset) activePreset.focus();
+  }
+
+  async function copyAiPack() {
+    if (!els.aiPackPreview || !els.aiPackPreview.value) return;
+    const ok = await copyTextToClipboard(els.aiPackPreview.value);
+    showToast(
+      ok ? '已复制整书设定包，去粘贴给 AI 吧' : '复制失败，请在预览框手动全选复制',
+      ok ? 'default' : 'error'
+    );
+  }
+
+  function downloadAiPack() {
+    const novel = findNovel(aiPackState.novelId);
+    if (!novel || !els.aiPackPreview || !els.aiPackPreview.value) return;
+    const blob = new Blob([els.aiPackPreview.value], {
+      type: 'text/markdown;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `《${sanitizeFilename(novel.title)}》AI设定包.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`已下载《${novel.title}》的整书 AI 设定包`);
+  }
+
   function mergeDrills(incoming) {
     const map = new Map(state.drills.map((drill) => [drill.id, drill]));
     let added = 0;
@@ -13388,6 +15363,33 @@
       state.drills = [...map.values()]
         .sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt))
         .slice(0, DRILL_MAX_COUNT);
+    }
+
+    return { added, updated };
+  }
+
+  function mergeIdeas(incoming) {
+    const map = new Map(state.ideas.map((idea) => [idea.id, idea]));
+    let added = 0;
+    let updated = 0;
+
+    for (const idea of incoming) {
+      const current = map.get(idea.id);
+      if (!current) {
+        map.set(idea.id, idea);
+        added += 1;
+        continue;
+      }
+      if (timeValue(idea.updatedAt) > timeValue(current.updatedAt)) {
+        map.set(idea.id, idea);
+        updated += 1;
+      }
+    }
+
+    if (added > 0 || updated > 0) {
+      state.ideas = [...map.values()]
+        .sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt))
+        .slice(0, IDEA_MAX_COUNT);
     }
 
     return { added, updated };
@@ -13518,7 +15520,11 @@
     const el = els.backupReminder;
     if (!el) return;
     const hasContent =
-      state.novels.length > 0 || state.trash.length > 0 || state.comments.length > 0;
+      state.novels.length > 0 ||
+      state.trash.length > 0 ||
+      state.comments.length > 0 ||
+      state.drills.length > 0 ||
+      state.ideas.length > 0;
     if (!hasContent) {
       el.hidden = true;
       return;
@@ -13530,12 +15536,15 @@
     if (!Number.isFinite(anchorMs)) {
       // 从未导出过：以最早的内容更新时间起算
       let oldest = null;
-      for (const novel of state.novels) {
-        const stamp = Date.parse(novel.updatedAt);
+      const consider = (value) => {
+        const stamp = Date.parse(value);
         if (Number.isFinite(stamp) && (oldest === null || stamp < oldest)) {
           oldest = stamp;
         }
-      }
+      };
+      for (const novel of state.novels) consider(novel.updatedAt);
+      for (const drill of state.drills) consider(drill.updatedAt);
+      for (const idea of state.ideas) consider(idea.createdAt);
       if (oldest === null) {
         el.hidden = true;
         return;
@@ -13560,7 +15569,9 @@
     const empty =
       state.novels.length === 0 &&
       state.trash.length === 0 &&
-      state.comments.length === 0;
+      state.comments.length === 0 &&
+      state.drills.length === 0 &&
+      state.ideas.length === 0;
     if (empty) {
       el.hidden = true;
       return;
@@ -13599,9 +15610,11 @@
     if (
       state.novels.length === 0 &&
       state.trash.length === 0 &&
-      state.comments.length === 0
+      state.comments.length === 0 &&
+      state.drills.length === 0 &&
+      state.ideas.length === 0
     ) {
-      showToast('书架、回收站和评论都空着，先写下第一本小说吧');
+      showToast('书架、回收站、评论和构想都空着，先写下第一本小说吧');
       return;
     }
 
@@ -13614,6 +15627,7 @@
       trash: state.trash,
       comments: state.comments,
       drills: state.drills,
+      ideas: state.ideas,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json;charset=utf-8',
@@ -13634,8 +15648,10 @@
       state.comments.length > 0 ? `、${state.comments.length} 条评论` : '';
     const drillSuffix =
       state.drills.length > 0 ? `、${state.drills.length} 条练笔` : '';
+    const ideaSuffix =
+      state.ideas.length > 0 ? `、${state.ideas.length} 条构想` : '';
     showToast(
-      `已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}${commentSuffix}${drillSuffix}`
+      `已导出 ${state.novels.length} 本小说、${total} 条内容${trashSuffix}${commentSuffix}${drillSuffix}${ideaSuffix}`
     );
 
     writeBackupMeta(now);
@@ -14823,6 +16839,102 @@
       });
     }
 
+    if (els.ideaNewBtn) els.ideaNewBtn.addEventListener('click', () => openIdeaEditor());
+    if (els.ideasEmptyNewBtn) {
+      els.ideasEmptyNewBtn.addEventListener('click', () => openIdeaEditor());
+    }
+    if (els.ideaDrawBtn) els.ideaDrawBtn.addEventListener('click', drawIdea);
+    if (els.ideaForm) {
+      els.ideaForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveIdea();
+      });
+      els.ideaForm.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+          event.preventDefault();
+          saveIdea();
+        }
+      });
+      els.ideaForm.addEventListener('input', () => {
+        state.ideaDraft.dirty = true;
+        syncIdeaBodyCount();
+      });
+      els.ideaForm.addEventListener('change', () => {
+        state.ideaDraft.dirty = true;
+      });
+    }
+    if (els.ideaTitleInput) {
+      els.ideaTitleInput.addEventListener('input', () => {
+        els.ideaTitleError.hidden = true;
+      });
+    }
+    if (els.ideaExcitement) {
+      els.ideaExcitement.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-excitement]');
+        if (!button) return;
+        state.ideaDraft.excitement = normalizeIdeaExcitement(
+          button.dataset.excitement
+        );
+        state.ideaDraft.dirty = true;
+        syncIdeaExcitement();
+      });
+    }
+    if (els.ideaCancelBtn) {
+      els.ideaCancelBtn.addEventListener('click', attemptCloseIdeaDialog);
+    }
+    if (els.ideaDialogCloseBtn) {
+      els.ideaDialogCloseBtn.addEventListener('click', attemptCloseIdeaDialog);
+    }
+    if (els.ideaDialog) {
+      els.ideaDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        attemptCloseIdeaDialog();
+      });
+      els.ideaDialog.addEventListener('close', () => {
+        if (els.ideaDialog.open) return;
+        state.ideaDraft.dirty = false;
+        els.ideaForm.reset();
+        els.ideaTitleError.hidden = true;
+      });
+    }
+    if (els.ideasSearchInput) {
+      els.ideasSearchInput.addEventListener('input', () => {
+        state.ideaBoard.query = els.ideasSearchInput.value;
+        els.ideasSearchClearBtn.hidden = !els.ideasSearchInput.value;
+        renderIdeas();
+      });
+      els.ideasSearchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && els.ideasSearchInput.value) {
+          event.preventDefault();
+          state.ideaBoard.query = '';
+          els.ideasSearchInput.value = '';
+          renderIdeas();
+        }
+      });
+    }
+    if (els.ideasSearchClearBtn) {
+      els.ideasSearchClearBtn.addEventListener('click', () => {
+        state.ideaBoard.query = '';
+        els.ideasSearchInput.value = '';
+        renderIdeas();
+        els.ideasSearchInput.focus();
+      });
+    }
+    if (els.ideasSortSelect) {
+      els.ideasSortSelect.addEventListener('change', () => {
+        state.ideaBoard.sort = els.ideasSortSelect.value;
+        renderIdeas();
+      });
+    }
+    if (els.ideasClearFiltersBtn) {
+      els.ideasClearFiltersBtn.addEventListener('click', () => resetIdeaFilters());
+    }
+    if (els.ideasNoResultsClearBtn) {
+      els.ideasNoResultsClearBtn.addEventListener('click', () =>
+        resetIdeaFilters({ focusSearch: true })
+      );
+    }
+
     if (els.forgeTabSwitch) {
       els.forgeTabSwitch.addEventListener('click', (event) => {
         const btn = event.target.closest('button[data-forge-tab]');
@@ -14833,19 +16945,30 @@
         runForge();
       });
     }
+    if (els.forgeSeedInput) {
+      els.forgeSeedInput.addEventListener('change', () => {
+        setForgeSeed(els.forgeSeedInput.value);
+      });
+      els.forgeSeedInput.addEventListener('keydown', (event) => {
+        if (event.isComposing) return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          els.forgeSeedInput.blur();
+        }
+      });
+    }
     if (els.forgeRerollBtn) {
       els.forgeRerollBtn.addEventListener('click', () => {
+        let seed = randomForgeSeed();
+        while (seed === getForgeState().seed) seed = randomForgeSeed();
+        setForgeSeed(seed, '换了种子，命运待掷');
+      });
+    }
+    if (els.forgeClimateMap) {
+      els.forgeClimateMap.addEventListener('change', () => {
         const forge = getForgeState();
-        forge.seed = Math.floor(Math.random() * 90000) + 10000;
-        if (forge.tab === 'fate') {
-          // 换种子即换一套未掷的命运；已掷出的判定随旧种子存档，不作废
-          forge.fateSealed = undefined;
-          els.forgeOutput.value = '';
-          els.forgeSeedHint.textContent = '换了种子，命运待掷';
-          els.forgeFateUnsealBtn.hidden = true;
-          return;
-        }
-        runForge();
+        forge.climateMapId = els.forgeClimateMap.value || null;
+        if (forge.tab === 'climate') runForge();
       });
     }
     if (els.forgeFateRollBtn) {
@@ -14857,28 +16980,46 @@
     for (const id of ['forgeFateScene', 'forgeFateCruelty']) {
       const node = document.getElementById(id);
       if (node) {
-        node.addEventListener('change', () => {
-          const forge = getForgeState();
-          forge.fateSealed = undefined;
-          els.forgeOutput.value = '';
-          els.forgeSeedHint.textContent = '规则已变，命运待掷';
-          els.forgeFateUnsealBtn.hidden = true;
-        });
+        node.addEventListener('change', () => resetFateDraft('规则已变，命运待掷'));
       }
     }
     if (els.forgeFateSeal) {
       els.forgeFateSeal.addEventListener('change', () => {
-        const forge = getForgeState();
-        forge.fateSealed = undefined;
-        els.forgeOutput.value = '';
-        els.forgeSeedHint.textContent = '规则已变，命运待掷';
-        els.forgeFateUnsealBtn.hidden = true;
+        resetFateDraft('规则已变，命运待掷');
       });
     }
     if (els.forgeSaveBtn) els.forgeSaveBtn.addEventListener('click', saveForgeDraft);
     if (els.forgeAiBtn) els.forgeAiBtn.addEventListener('click', copyForgeForAi);
     if (els.forgeDialogCloseBtn) {
       els.forgeDialogCloseBtn.addEventListener('click', () => els.forgeDialog.close());
+    }
+    if (els.novelAiPackBtn) {
+      els.novelAiPackBtn.addEventListener('click', () => {
+        const novel = state.route && state.route.novel;
+        if (novel) openAiPackDialog(novel.id);
+      });
+    }
+    if (els.aiPackCloseBtn) {
+      els.aiPackCloseBtn.addEventListener('click', () => els.aiPackDialog.close());
+    }
+    for (const button of els.aiPackPresetBtns) {
+      button.addEventListener('click', () => {
+        aiPackState.preset = button.dataset.aiPackPreset || 'discuss';
+        syncAiPackPreset();
+        updateAiPackPreview();
+      });
+    }
+    if (els.aiPackSections) {
+      els.aiPackSections.addEventListener('change', updateAiPackPreview);
+    }
+    if (els.aiPackFocusInput) {
+      els.aiPackFocusInput.addEventListener('input', updateAiPackPreview);
+    }
+    if (els.aiPackCopyBtn) {
+      els.aiPackCopyBtn.addEventListener('click', copyAiPack);
+    }
+    if (els.aiPackDownloadBtn) {
+      els.aiPackDownloadBtn.addEventListener('click', downloadAiPack);
     }
     const forgeParamIds = [
       'forgeYearDays', 'forgeMonthCount', 'forgeWeekLen', 'forgeMoonCount',
@@ -15472,6 +17613,9 @@
     if (els.mapCiv6Btn) {
       els.mapCiv6Btn.addEventListener('click', openCiv6ExportDialog);
     }
+    if (els.mapTopCiv6Btn) {
+      els.mapTopCiv6Btn.addEventListener('click', openCiv6ExportDialog);
+    }
     if (els.civ6ExportCloseBtn) {
       els.civ6ExportCloseBtn.addEventListener('click', closeCiv6ExportDialog);
     }
@@ -15524,12 +17668,22 @@
           const bytes = new Uint8Array(await file.arrayBuffer());
           const parsed = parseCiv6MapBytes(SQL, bytes);
           setCiv6Status('');
+          const sizeText = parsed.summary.downsampled
+            ? `${parsed.summary.sourceCols}×${parsed.summary.sourceRows} 等比缩放为 ${parsed.cols}×${parsed.rows}`
+            : `${parsed.cols}×${parsed.rows}`;
           openConfirm({
             title: '导入文明6地图？',
-            message: `尺寸 ${parsed.cols}×${parsed.rows} · 河流 ${parsed.summary.rivers} 条 · 道路 ${parsed.summary.roads} 条 · 物产 ${parsed.summary.resources} 处 · 奇观 ${parsed.summary.wonders} 处。将覆盖当前地形、地貌、河流、道路、物产与大陆；城市和自选领地保留，可用撤销找回。`,
+            message: `尺寸 ${sizeText} · 河流 ${parsed.summary.rivers} 条 · 道路 ${parsed.summary.roads} 条 · 物产 ${parsed.summary.resources} 处 · 奇观 ${parsed.summary.wonders} 处。将覆盖当前地形、地貌、河流、道路、物产与大陆；城市和自选领地保留，可用撤销找回。${
+              parsed.summary.downsampled
+                ? '（原图超过工坊上限，已按比例缩放以保持编辑流畅。）'
+                : ''
+            }`,
             okLabel: '导入并覆盖',
             onConfirm: () => {
               applyCiv6Import(parsed);
+              if (els.civ6ImportSummary) {
+                els.civ6ImportSummary.textContent = `已导入 ${sizeText} · 陆地 ${parsed.summary.landTiles} 格 · 水域 ${parsed.summary.waterTiles} 格 · 河流 ${parsed.summary.rivers} 条 · 道路 ${parsed.summary.roads} 条 · 物产 ${parsed.summary.resources} 处 · 奇观 ${parsed.summary.wonders} 处。`;
+              }
               showToast('已导入文明6地图，可在工坊里继续调整');
             },
           });
@@ -15545,6 +17699,9 @@
     }
     if (els.mapExportBtn) {
       els.mapExportBtn.addEventListener('click', exportMapPng);
+    }
+    if (els.mapTopExportBtn) {
+      els.mapTopExportBtn.addEventListener('click', exportMapPng);
     }
 
     if (els.mapPathList) {
@@ -15569,6 +17726,12 @@
     els.mapMobileFitBtn.addEventListener('click', fitMapView);
     els.mapMobileUndoBtn.addEventListener('click', undoMapChange);
     els.mapMobileRedoBtn.addEventListener('click', redoMapChange);
+
+    els.mapInspectorToggle.addEventListener('click', () => {
+      const editor = state.mapEditor;
+      if (!editor) return;
+      setMapInspectorCollapsed(!editor.inspectorCollapsed);
+    });
 
     els.mapClearBtn.addEventListener('click', () => {
       openConfirm({
@@ -15798,6 +17961,7 @@
         els.sparkDialog.open ||
         els.civ6ExportDialog.open ||
         els.drillDialog.open ||
+        els.ideaDialog.open ||
         els.forgeDialog.open
       ) {
         return;
@@ -15818,6 +17982,7 @@
         els.sparkDialog.open ||
         els.civ6ExportDialog.open ||
         els.drillDialog.open ||
+        els.ideaDialog.open ||
         els.forgeDialog.open
       ) {
         return;
@@ -15831,7 +17996,10 @@
       if (isTyping) return;
 
       if (event.key === 'n' || event.key === 'N') {
-        if (state.route.view === 'shelf') {
+        if (state.route.view === 'ideas') {
+          event.preventDefault();
+          openIdeaEditor();
+        } else if (state.route.view === 'shelf') {
           event.preventDefault();
           openNovelEditor();
         } else if (state.route.sectionKey && state.route.view !== 'outline-editor') {
@@ -15851,6 +18019,22 @@
       } else if (event.key === '/' && state.route.view === 'comments') {
         event.preventDefault();
         els.commentsSearchInput.focus();
+      } else if (event.key === '/' && state.route.view === 'ideas') {
+        event.preventDefault();
+        els.ideasSearchInput.focus();
+      } else if (
+        (event.key === 'r' || event.key === 'R') &&
+        state.route.view === 'ideas'
+      ) {
+        event.preventDefault();
+        drawIdea();
+      } else if (
+        event.key === 'Escape' &&
+        state.route.view === 'ideas' &&
+        state.ideaBoard.pickedId
+      ) {
+        event.preventDefault();
+        closeIdeaDraw();
       } else if (
         (event.key === 'i' || event.key === 'I') &&
         state.route.view === 'shelf' &&
@@ -15938,6 +18122,8 @@
       state.novels = library.novels;
       state.trash = library.trash;
       state.comments = library.comments;
+      state.drills = library.drills;
+      state.ideas = library.ideas;
       renderRoute();
       showToast('已同步其他标签页中的改动');
     });
@@ -16051,6 +18237,35 @@
       case 'delete-drill':
         event.preventDefault();
         if (actionEl.dataset.drillId) deleteDrill(actionEl.dataset.drillId);
+        break;
+      case 'idea-status-filter':
+        event.preventDefault();
+        state.ideaBoard.status = actionEl.dataset.value || 'all';
+        state.ideaBoard.pickedId = null;
+        renderIdeas();
+        break;
+      case 'dismiss-idea-draw':
+        event.preventDefault();
+        closeIdeaDraw();
+        break;
+      case 'advance-idea':
+        event.preventDefault();
+        if (actionEl.dataset.ideaId) advanceIdea(actionEl.dataset.ideaId);
+        break;
+      case 'copy-idea-ai':
+        event.preventDefault();
+        if (actionEl.dataset.ideaId) copyIdeaForAi(actionEl.dataset.ideaId);
+        break;
+      case 'edit-idea':
+        event.preventDefault();
+        if (actionEl.dataset.ideaId) {
+          const idea = findIdea(actionEl.dataset.ideaId);
+          if (idea) openIdeaEditor(idea);
+        }
+        break;
+      case 'delete-idea':
+        event.preventDefault();
+        if (actionEl.dataset.ideaId) deleteIdea(actionEl.dataset.ideaId);
         break;
       case 'copy-entry-ai':
         event.preventDefault();

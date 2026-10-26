@@ -377,6 +377,12 @@
           <p class="map-subtitle" id="mapDialogSubtitle"></p>
         </div>
         <div class="map-topbar-actions">
+          <button type="button" class="icon-btn map-top-export" id="mapTopExportBtn" aria-label="导出 PNG 地图" title="导出 PNG">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+          </button>
+          <button type="button" class="icon-btn map-top-export" id="mapTopCiv6Btn" aria-label="导出 Civ6 地图" title="导出 Civ6 地图">
+            <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+          </button>
           <span class="map-save-state" id="mapSaveState">已与档案同步</span>
           <button type="button" class="btn ghost" id="mapCancelBtn">取消</button>
           <button type="button" class="btn primary" id="mapSaveBtn">
@@ -496,26 +502,28 @@
 
           <div class="map-tool-group">
             <p class="map-tool-label">灵感与整理</p>
-            <button type="button" class="map-action-btn" id="mapSuggestBtn" aria-pressed="false" title="按肥沃度推荐几处城址">
-              <svg class="icon" aria-hidden="true"><use href="#i-spark"></use></svg>
-              推荐城址
-            </button>
-            <button type="button" class="map-action-btn" id="mapGenerateBtn">
-              <svg class="icon" aria-hidden="true"><use href="#i-wand"></use></svg>
-              生成灵感大陆
-            </button>
-            <button type="button" class="map-action-btn" id="mapExportBtn">
-              <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
-              导出 PNG
-            </button>
-            <button type="button" class="map-action-btn" id="mapCiv6Btn">
-              <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
-              导出 Civ6 地图
-            </button>
-            <button type="button" class="map-clear-btn" id="mapClearBtn">
-              <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
-              清空地图
-            </button>
+            <div class="map-action-row">
+              <button type="button" class="map-action-btn" id="mapSuggestBtn" aria-pressed="false" title="按肥沃度推荐几处城址">
+                <svg class="icon" aria-hidden="true"><use href="#i-spark"></use></svg>
+                推荐城址
+              </button>
+              <button type="button" class="map-action-btn" id="mapGenerateBtn">
+                <svg class="icon" aria-hidden="true"><use href="#i-wand"></use></svg>
+                生成灵感大陆
+              </button>
+              <button type="button" class="map-action-btn" id="mapExportBtn">
+                <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+                导出 PNG
+              </button>
+              <button type="button" class="map-action-btn" id="mapCiv6Btn">
+                <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+                导出 Civ6 地图
+              </button>
+              <button type="button" class="map-clear-btn" id="mapClearBtn">
+                <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+                清空地图
+              </button>
+            </div>
           </div>
 
           <p class="map-hint">滚轮缩放 · Shift + 拖动随时平移 · 河流与道路点击同一点结束 · Ctrl + Z 撤销 · Esc 取消</p>
@@ -544,72 +552,79 @@
           </div>
         </section>
 
-        <aside class="map-inspector" aria-label="城市检查器">
+        <aside class="map-inspector" id="mapInspector" aria-label="城市检查器">
           <div class="map-inspector-head">
             <div>
               <p class="map-tool-label">CITY INSPECTOR</p>
               <h3>城市</h3>
             </div>
-            <span class="map-city-count" id="mapCityCount">0 座</span>
-          </div>
-
-          <div class="map-city-list" id="mapCityList"></div>
-
-          <div class="map-path-section">
-            <div class="map-inspector-head map-path-head">
-              <div>
-                <p class="map-tool-label">RIVERS &amp; ROADS</p>
-                <h3>河流与道路</h3>
-              </div>
-              <span class="map-city-count" id="mapPathCount">0 条</span>
-            </div>
-            <div class="map-path-list" id="mapPathList" hidden></div>
-
-            <div class="map-field map-river-name" id="mapRiverNameField" hidden>
-              <span>河流命名</span>
-              <input type="text" id="mapRiverNameInput" maxlength="20" autocomplete="off" spellcheck="false" placeholder="给选中的河流起个名字（导出到文明6生效）">
+            <div class="map-inspector-meta">
+              <span class="map-city-count" id="mapCityCount">0 座</span>
+              <button type="button" class="icon-btn map-inspector-toggle" id="mapInspectorToggle" aria-expanded="true" aria-controls="mapInspectorBody" aria-label="收起检查器" title="收起检查器">
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </button>
             </div>
           </div>
 
-          <div class="map-city-editor" id="mapCityEditor" hidden>
-            <label class="map-field" for="mapCityNameInput">
-              <span>城市名称</span>
-              <input type="text" id="mapCityNameInput" maxlength="40" autocomplete="off" spellcheck="false">
-            </label>
+          <div class="map-inspector-body" id="mapInspectorBody">
+            <div class="map-city-list" id="mapCityList"></div>
 
-            <div class="map-field">
-              <span>城市类型</span>
-              <div class="map-radius-row map-city-type-row" id="mapCityTypeRow" role="group" aria-label="城市类型">
-                <button type="button" data-city-type="city" aria-pressed="true">城市</button>
-                <button type="button" data-city-type="capital" aria-pressed="false">都城</button>
-                <button type="button" data-city-type="fort" aria-pressed="false">堡垒</button>
+            <div class="map-path-section">
+              <div class="map-inspector-head map-path-head">
+                <div>
+                  <p class="map-tool-label">RIVERS &amp; ROADS</p>
+                  <h3>河流与道路</h3>
+                </div>
+                <span class="map-city-count" id="mapPathCount">0 条</span>
+              </div>
+              <div class="map-path-list" id="mapPathList" hidden></div>
+
+              <div class="map-field map-river-name" id="mapRiverNameField" hidden>
+                <span>河流命名</span>
+                <input type="text" id="mapRiverNameInput" maxlength="20" autocomplete="off" spellcheck="false" placeholder="给选中的河流起个名字（导出到文明6生效）">
               </div>
             </div>
 
-            <div class="map-field">
-              <span>势力范围</span>
-              <div class="map-radius-row" id="mapRadiusRow" role="group" aria-label="城市势力范围">
-                <button type="button" data-radius="1" aria-pressed="false">1 格</button>
-                <button type="button" data-radius="2" aria-pressed="true">2 格</button>
-                <button type="button" data-radius="3" aria-pressed="false">3 格</button>
-                <button type="button" data-radius="custom" aria-pressed="false" title="在画布上自己框选范围">自选</button>
+            <div class="map-city-editor" id="mapCityEditor" hidden>
+              <label class="map-field" for="mapCityNameInput">
+                <span>城市名称</span>
+                <input type="text" id="mapCityNameInput" maxlength="40" autocomplete="off" spellcheck="false">
+              </label>
+
+              <div class="map-field">
+                <span>城市类型</span>
+                <div class="map-radius-row map-city-type-row" id="mapCityTypeRow" role="group" aria-label="城市类型">
+                  <button type="button" data-city-type="city" aria-pressed="true">城市</button>
+                  <button type="button" data-city-type="capital" aria-pressed="false">都城</button>
+                  <button type="button" data-city-type="fort" aria-pressed="false">堡垒</button>
+                </div>
               </div>
+
+              <div class="map-field">
+                <span>势力范围</span>
+                <div class="map-radius-row" id="mapRadiusRow" role="group" aria-label="城市势力范围">
+                  <button type="button" data-radius="1" aria-pressed="false">1 格</button>
+                  <button type="button" data-radius="2" aria-pressed="true">2 格</button>
+                  <button type="button" data-radius="3" aria-pressed="false">3 格</button>
+                  <button type="button" data-radius="custom" aria-pressed="false" title="在画布上自己框选范围">自选</button>
+                </div>
+              </div>
+
+              <div class="map-field">
+                <span>城市颜色</span>
+                <div class="map-color-row" id="mapColorRow" role="group" aria-label="城市颜色"></div>
+              </div>
+
+              <p class="map-coord" id="mapCityCoord"></p>
+              <button type="button" class="map-delete-city" id="mapDeleteCityBtn">
+                <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+                移除这座城市
+              </button>
             </div>
 
-            <div class="map-field">
-              <span>城市颜色</span>
-              <div class="map-color-row" id="mapColorRow" role="group" aria-label="城市颜色"></div>
+            <div class="map-inspector-empty" id="mapInspectorEmpty">
+              <p>在画布上放下城市，或从上方列表选中一座，就能调整它的名称、范围与颜色。</p>
             </div>
-
-            <p class="map-coord" id="mapCityCoord"></p>
-            <button type="button" class="map-delete-city" id="mapDeleteCityBtn">
-              <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
-              移除这座城市
-            </button>
-          </div>
-
-          <div class="map-inspector-empty" id="mapInspectorEmpty">
-            <p>在画布上放下城市，或从上方列表选中一座，就能调整它的名称、范围与颜色。</p>
           </div>
         </aside>
       </div>
@@ -724,6 +739,87 @@
     </form>
   </dialog>
 
+  <dialog id="ideaDialog" class="dialog idea-dialog" aria-labelledby="ideaDialogTitle">
+    <form id="ideaForm" novalidate>
+      <header class="dialog-head">
+        <div>
+          <p class="dialog-eyebrow" id="ideaDialogEyebrow">SITE IDEA · NEW</p>
+          <h2 id="ideaDialogTitle">记下新构想</h2>
+        </div>
+        <button type="button" class="icon-btn dialog-close" id="ideaDialogCloseBtn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="field">
+          <label for="ideaTitleInput">构想的名字 <span class="field-mark">必填</span></label>
+          <input type="text" id="ideaTitleInput" name="title" maxlength="120" autocomplete="off" placeholder="比如：给地图工坊加一场季节变换">
+          <p class="field-error" id="ideaTitleError" hidden>先给这个构想起个名字。</p>
+        </div>
+
+        <div class="form-split">
+          <div class="field">
+            <label for="ideaKindSelect">属于哪一块</label>
+            <select id="ideaKindSelect">
+              <option value="writing">写作</option>
+              <option value="reading">阅读</option>
+              <option value="map">地图</option>
+              <option value="ai">AI 协作</option>
+              <option value="visual">视觉</option>
+              <option value="engineering">工程</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ideaStatusSelect">现在到哪一步</label>
+            <select id="ideaStatusSelect">
+              <option value="spark">构想</option>
+              <option value="planned">计划做</option>
+              <option value="building">开发中</option>
+              <option value="shipped">已上线</option>
+              <option value="parked">搁置</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">心动值</span>
+          <div class="idea-excitement" id="ideaExcitement" role="group" aria-label="心动值">
+            <button type="button" class="idea-excitement-btn" data-excitement="1" aria-label="1 分" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg></button>
+            <button type="button" class="idea-excitement-btn" data-excitement="2" aria-label="2 分" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg></button>
+            <button type="button" class="idea-excitement-btn" data-excitement="3" aria-label="3 分" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg></button>
+            <button type="button" class="idea-excitement-btn" data-excitement="4" aria-label="4 分" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg></button>
+            <button type="button" class="idea-excitement-btn" data-excitement="5" aria-label="5 分" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg></button>
+            <span class="idea-excitement-hint" id="ideaExcitementHint">3 / 5</span>
+          </div>
+          <p class="field-hint">想做的程度；随机翻牌时会偏向心动值高的构想。</p>
+        </div>
+
+        <div class="field">
+          <label for="ideaBodyInput">构想说明 <span class="field-optional">选填</span></label>
+          <textarea id="ideaBodyInput" name="body" rows="6" maxlength="8000" placeholder="它解决什么问题？你希望它怎么工作？想到哪写到哪，不用写成需求文档。"></textarea>
+          <div class="field-foot">
+            <span class="field-hint">以后可以随时补充</span>
+            <span class="field-hint counter" id="ideaBodyCount">0 字</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="ideaNextInput">最小下一步 <span class="field-optional">选填</span></label>
+          <input type="text" id="ideaNextInput" name="nextStep" maxlength="200" autocomplete="off" placeholder="比如：先在隔离预览里做一个只读原型">
+          <p class="field-hint">一句能立刻动手的小事，比宏大计划更有用。</p>
+        </div>
+      </div>
+
+      <footer class="dialog-actions">
+        <span class="dialog-hint">Ctrl / ⌘ + Enter 保存</span>
+        <button type="button" class="btn ghost" id="ideaCancelBtn">取消</button>
+        <button type="submit" class="btn primary" id="ideaSaveBtn">收下构想</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="forgeDialog" class="dialog forge-dialog" aria-labelledby="forgeDialogTitle">
     <header class="dialog-head">
       <div>
@@ -741,6 +837,12 @@
         <button type="button" class="view-switch-btn" data-forge-tab="climate">气候</button>
         <button type="button" class="view-switch-btn" data-forge-tab="folk">民俗</button>
         <button type="button" class="view-switch-btn" data-forge-tab="fate">命运</button>
+      </div>
+
+      <div class="forge-seed-row">
+        <label for="forgeSeedInput">种子</label>
+        <input type="number" id="forgeSeedInput" min="1" max="999999" step="1" inputmode="numeric" autocomplete="off">
+        <span class="forge-seed-hint" id="forgeSeedHint" role="status">同参数同种子可复现</span>
       </div>
 
       <div class="forge-params" id="forgeCalendarParams">
@@ -807,6 +909,11 @@
               <option value="长冬诅咒">长冬诅咒</option>
             </select>
           </div>
+        </div>
+        <div class="field">
+          <label for="forgeClimateMap">读取地图地形 <span class="field-optional">选填</span></label>
+          <select id="forgeClimateMap"></select>
+          <p class="field-hint" id="forgeClimateMapHint">选一张本书地图，按山脉与盛行风推演迎风坡、雨影与干旱带。</p>
         </div>
       </div>
 
@@ -895,9 +1002,8 @@
     </div>
 
     <footer class="dialog-actions">
-      <span class="dialog-hint" id="forgeSeedHint">种子 —</span>
       <button type="button" class="btn ghost forge-ai-btn" id="forgeAiBtn" title="复制一段拓展请求，粘贴给任何 AI">复制给 AI 拓展</button>
-      <button type="button" class="btn ghost" id="forgeRerollBtn">换一套</button>
+      <button type="button" class="btn ghost" id="forgeRerollBtn" title="换一个种子，重新演算">换一套</button>
       <button type="button" class="btn primary" id="forgeSaveBtn">存为设定词条</button>
     </footer>
   </dialog>
@@ -985,6 +1091,52 @@
       <button type="button" class="btn" id="civ6ExportCancelBtn">取消</button>
       <button type="button" class="btn primary" id="civ6ExportConfirmBtn">生成并下载 .Civ6Map</button>
     </footer>
+  </dialog>
+
+  <dialog id="aiPackDialog" class="dialog ai-pack-dialog" aria-labelledby="aiPackTitle">
+    <header class="dialog-head">
+      <div>
+        <p class="dialog-eyebrow">AI CONTEXT</p>
+        <h2 id="aiPackTitle">整书 AI 设定包</h2>
+      </div>
+      <button type="button" class="icon-btn dialog-close" id="aiPackCloseBtn" aria-label="关闭">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+      </button>
+    </header>
+
+    <div class="dialog-body ai-pack-body">
+      <p class="ai-pack-intro">把这本书的正典整理成一段可粘贴给 AI 的上下文。只在本机生成，不会自动上传。</p>
+
+      <div class="view-switch ai-pack-presets" role="group" aria-label="选择用途">
+        <button type="button" class="view-switch-btn is-active" data-ai-pack-preset="discuss" aria-pressed="true">讨论剧情</button>
+        <button type="button" class="view-switch-btn" data-ai-pack-preset="continue" aria-pressed="false">续写上下文</button>
+        <button type="button" class="view-switch-btn" data-ai-pack-preset="audit" aria-pressed="false">自查矛盾</button>
+      </div>
+
+      <div class="ai-pack-section-head">
+        <span class="field-label">包含的分区</span>
+        <span class="ai-pack-section-hint">空分区会自动跳过</span>
+      </div>
+      <div class="ai-pack-sections" id="aiPackSections" role="group" aria-label="包含的分区"></div>
+
+      <div class="field ai-pack-focus">
+        <label for="aiPackFocusInput">额外关注 <span class="field-optional">选填</span></label>
+        <input type="text" id="aiPackFocusInput" maxlength="120" placeholder="比如：重点检查时间线；或只讨论第二卷的结局" autocomplete="off">
+      </div>
+
+      <div class="ai-pack-preview-head">
+        <span class="field-label">预览</span>
+        <span class="ai-pack-count" id="aiPackCount">0 字</span>
+      </div>
+      <textarea id="aiPackPreview" class="ai-pack-preview" readonly spellcheck="false" aria-label="整书 AI 设定包预览"></textarea>
+      <p class="field-hint ai-pack-notice" id="aiPackNotice" hidden></p>
+    </div>
+
+    <div class="dialog-actions">
+      <p class="dialog-hint" id="aiPackMeta"></p>
+      <button type="button" class="btn ghost" id="aiPackDownloadBtn">下载 .md</button>
+      <button type="button" class="btn primary" id="aiPackCopyBtn">复制请求</button>
+    </div>
   </dialog>
 
   <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>

@@ -16,11 +16,24 @@
 (() => {
   'use strict';
 
+  const root = document.documentElement;
+  const reducedTransparency = window.matchMedia?.(
+    '(prefers-reduced-transparency: reduce)',
+  ).matches;
   const brands = navigator.userAgentData?.brands ?? [];
   const isChromium = brands.some((b) => /Chromium/i.test(b.brand));
-  if (!isChromium || !CSS.supports('backdrop-filter', 'url(#lg-probe)')) return;
+  const canRefract =
+    isChromium && CSS.supports('backdrop-filter', 'url(#lg-probe)');
 
-  const MAP_LONG_SIDE = 144; // 位移图长边像素，低分辨率即可，feImage 会拉伸
+  root.classList.toggle('lg-reduced-transparency', !!reducedTransparency);
+  root.classList.toggle('has-liquid-glass', canRefract && !reducedTransparency);
+  // 降低透明度偏好下不做折射：既省 GPU，也避免玻璃叠得太透影响阅读
+  if (!canRefract || reducedTransparency) return;
+
+  // 位移图长边像素：大浮层用 224，保证折射带的圆弧足够细；
+  // 小控件保持 160，避免为几十像素的元件生成过大的三通道贴图
+  const MAP_LONG_SIDE = 224;
+  const MAP_LONG_SIDE_COMPACT = 160;
   // refractionHeight（Kyant0 术语）：约短边 12%，随元素尺寸在 12–44px 间伸缩
   const BAND_RATIO = 0.12;
   const BAND_MIN = 12;
@@ -167,7 +180,10 @@
       filter.setAttribute('width', String(w));
       filter.setAttribute('height', String(h));
 
-      const scale = MAP_LONG_SIDE / Math.max(w, h);
+      const longSide = Math.max(w, h) >= 480
+        ? MAP_LONG_SIDE
+        : MAP_LONG_SIDE_COMPACT;
+      const scale = longSide / Math.max(w, h);
       const mw = Math.max(8, Math.round(w * scale));
       const mh = Math.max(8, Math.round(h * scale));
 
@@ -343,6 +359,16 @@
       const now = performance.now();
       if (now - glowLast < 40) return;
 
+      // 0deg = 光源在正上方，顺时针为正（CSS 角度约定）；
+      // rim 位置 (-sinθ, cosθ) 使亮线始终朝向指针
+      const lightAngle = (rect) =>
+        (Math.atan2(
+          e.clientX - (rect.left + rect.width / 2),
+          rect.top + rect.height / 2 - e.clientY,
+        ) *
+          180) /
+        Math.PI;
+
       const pane = target.closest('.dialog[open], .appearance-panel');
       if (pane) {
         const rect = pane.getBoundingClientRect();
@@ -356,24 +382,23 @@
           '--my',
           (((e.clientY - rect.top) / rect.height) * 100).toFixed(1) + '%',
         );
-        return;
+        // 大浮层的方向性高光：CSS 用该角度决定玻璃受光面
+        pane.style.setProperty(
+          '--lg-light-base',
+          lightAngle(rect).toFixed(1) + 'deg',
+        );
       }
 
+      // 浮层里的按钮 / 卡片也要有自己的光角，不能因为父级是浮层就跳过
       const glass = target.closest(INTERACTIVE_GLASS);
       if (!glass) return;
-      const rect = glass.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) return;
-      glowLast = now;
-      // 0deg = 光源在正上方，顺时针为正（CSS 角度约定）；
-      // rim 位置 (-sinθ, cosθ) 使亮线始终朝向指针
-      const deg =
-        (Math.atan2(
-          e.clientX - (rect.left + rect.width / 2),
-          rect.top + rect.height / 2 - e.clientY,
-        ) *
-          180) /
-        Math.PI;
-      glass.style.setProperty('--lg-light-base', deg.toFixed(1) + 'deg');
+      const glassRect = glass.getBoundingClientRect();
+      if (glassRect.width < 2 || glassRect.height < 2) return;
+      if (!pane) glowLast = now;
+      glass.style.setProperty(
+        '--lg-light-base',
+        lightAngle(glassRect).toFixed(1) + 'deg',
+      );
     },
     { passive: true },
   );
