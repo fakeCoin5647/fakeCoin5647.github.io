@@ -345,6 +345,12 @@ html.cabin-glass-on .content .icon-btn:active:not(:disabled) {
     row-gap: 12px;
   }
 
+  /* 底部浮层压住整块内容，底色再实一点，防止背景大标题透上来 */
+  html.cabin-glass-on .appearance-panel {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.94));
+  }
+
   html.cabin-glass-on .sidebar,
   html.cabin-glass-on .content {
     border-radius: 16px;
