@@ -1,0 +1,364 @@
+/* WebGL 液态玻璃外壳 · 仅当引擎成功绘制后生效
+   未启用（无 WebGL2 / 降低透明度 / 引擎失败）时保持 theme.css 的磨砂外观。 */
+
+.cabin-glass-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+html.cabin-glass-on body {
+  background-attachment: fixed, fixed;
+}
+
+html.cabin-glass-on .page {
+  position: relative;
+  z-index: 1;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.cabin-glass-on .sidebar {
+  border-color: transparent !important;
+  border-radius: 16px;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.cabin-glass-on .content {
+  border-radius: 16px;
+}
+
+/* 两块玻璃各自成卡：页面留边、中间留缝，避免相邻边缘的折射与高光互相叠加 */
+@media (min-width: 881px) {
+  html.cabin-glass-on .page {
+    padding: 12px;
+    column-gap: 16px;
+  }
+}
+
+html.cabin-glass-on .side-action {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html.cabin-glass-on .side-action:hover {
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+html.cabin-glass-on .side-action:active {
+  transform: none;
+}
+
+html.cabin-glass-on .nav-item.is-active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html.cabin-glass-on .appearance-panel {
+  border-color: rgba(255, 255, 255, 0.82);
+  border-radius: 16px;
+  /* 浮在内容玻璃之上：底色更实一些，避免下层文字与卡片透成重影 */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 249, 255, 0.8));
+  box-shadow:
+    0 30px 64px -26px rgba(12, 22, 52, 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(30px) saturate(1.7);
+  -webkit-backdrop-filter: blur(30px) saturate(1.7);
+}
+
+html.cabin-glass-on .appearance-presets,
+html.cabin-glass-on .appearance-swatches {
+  position: relative;
+  isolation: isolate;
+}
+
+html.cabin-glass-on .appearance-preset {
+  position: relative;
+  z-index: 1;
+  border-color: transparent;
+  background: transparent;
+  transition:
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+html.cabin-glass-on .appearance-preset:not(.is-active):hover {
+  background: rgba(255, 255, 255, 0.36);
+}
+
+html.cabin-glass-on .appearance-preset.is-active {
+  color: var(--accent-deep);
+  background: transparent;
+  box-shadow: none;
+}
+
+html.cabin-glass-on .accent-swatch {
+  position: relative;
+  z-index: 1;
+  transition:
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.16s ease;
+}
+
+html.cabin-glass-on .accent-swatch.is-active {
+  box-shadow: 0 0 0 1px rgba(38, 42, 51, 0.14);
+}
+
+html.cabin-glass-on .preset-thumb,
+html.cabin-glass-on .accent-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+
+html.cabin-glass-on .preset-thumb {
+  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  border-radius: 9px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92),
+      rgba(var(--accent-rgb), 0.1)
+    );
+  box-shadow:
+    0 10px 22px -16px rgba(var(--accent-rgb), 0.55),
+    0 2px 6px -3px rgba(12, 22, 52, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+}
+
+html.cabin-glass-on .accent-thumb {
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.82),
+    0 4px 12px -5px rgba(var(--accent-rgb), 0.5);
+}
+
+html.cabin-glass-on .preset-thumb.is-visible,
+html.cabin-glass-on .accent-thumb.is-visible {
+  opacity: 1;
+}
+
+html.cabin-glass-on .preset-thumb.is-ready,
+html.cabin-glass-on .accent-thumb.is-ready,
+html.cabin-glass-on .content-thumb.is-ready {
+  transition:
+    transform 0.44s cubic-bezier(0.34, 1.4, 0.5, 1),
+    width 0.44s cubic-bezier(0.34, 1.4, 0.5, 1),
+    height 0.44s cubic-bezier(0.34, 1.4, 0.5, 1),
+    opacity 0.2s ease;
+}
+
+/* 内容区的同级选中：状态筛选与谱系标签共用白色浮起块 */
+html.cabin-glass-on .status-filters,
+html.cabin-glass-on .comments-status-filters,
+html.cabin-glass-on .ideas-status-filters,
+html.cabin-glass-on .outline-status-filters,
+html.cabin-glass-on .graph-tabs,
+html.cabin-glass-on .view-switch {
+  position: relative;
+  isolation: isolate;
+}
+
+html.cabin-glass-on .content-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.94),
+      rgba(var(--accent-rgb), 0.09)
+    );
+  box-shadow:
+    0 10px 20px -16px rgba(var(--accent-rgb), 0.55),
+    0 2px 6px -3px rgba(12, 22, 52, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, width, height;
+}
+
+html.cabin-glass-on .content-thumb.is-visible {
+  opacity: 1;
+}
+
+/* 分段控件用 6px 圆角，贴合自身的胶囊底座 */
+html.cabin-glass-on .view-switch > .content-thumb {
+  border-radius: 6px;
+}
+
+html.cabin-glass-on .view-switch .view-switch-btn.is-active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent-deep);
+}
+
+html.cabin-glass-on .view-switch .view-switch-btn.is-active:hover {
+  background: transparent;
+}
+
+html.cabin-glass-on .content .filter-pill,
+html.cabin-glass-on .graph-tab,
+html.cabin-glass-on .view-switch .view-switch-btn {
+  position: relative;
+  z-index: 1;
+}
+
+html.cabin-glass-on .content .filter-pill.is-active {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent-deep);
+  box-shadow: none;
+}
+
+html.cabin-glass-on .content .filter-pill.is-active .filter-count {
+  color: var(--accent-deep);
+  opacity: 0.62;
+}
+
+html.cabin-glass-on .graph-tab.is-active {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent-deep);
+}
+
+html.cabin-glass-on .graph-tab.is-active .graph-tab-count {
+  color: var(--accent-deep);
+}
+
+/* 按压回弹：同级按钮共用同一段果冻缓动 */
+html.cabin-glass-on .side-nav .nav-item:not(.is-active) {
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html.cabin-glass-on .content .btn {
+  transition:
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+html.cabin-glass-on .content .filter-pill {
+  transition:
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+html.cabin-glass-on .content .icon-btn {
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html.cabin-glass-on .graph-tab {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html.cabin-glass-on .view-switch .view-switch-btn {
+  transition:
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+html.cabin-glass-on .appearance-preset:active,
+html.cabin-glass-on .accent-swatch:active,
+html.cabin-glass-on .side-nav .nav-item:not(.is-active):active,
+html.cabin-glass-on .content .filter-pill:active,
+html.cabin-glass-on .graph-tab:active,
+html.cabin-glass-on .view-switch .view-switch-btn:active {
+  transform: scale(0.955);
+  transition-duration: 0.08s;
+}
+
+html.cabin-glass-on .content .btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.962);
+  transition-duration: 0.08s;
+}
+
+html.cabin-glass-on .content .icon-btn:active:not(:disabled) {
+  transform: scale(0.93);
+  transition-duration: 0.08s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.cabin-glass-on .preset-thumb,
+  html.cabin-glass-on .accent-thumb,
+  html.cabin-glass-on .content-thumb,
+  html.cabin-glass-on .appearance-preset,
+  html.cabin-glass-on .accent-swatch,
+  html.cabin-glass-on .side-nav .nav-item:not(.is-active),
+  html.cabin-glass-on .content .btn,
+  html.cabin-glass-on .content .filter-pill,
+  html.cabin-glass-on .graph-tab,
+  html.cabin-glass-on .view-switch .view-switch-btn,
+  html.cabin-glass-on .content .icon-btn {
+    transition: none;
+  }
+
+  html.cabin-glass-on .appearance-preset:active,
+  html.cabin-glass-on .accent-swatch:active,
+  html.cabin-glass-on .side-nav .nav-item:not(.is-active):active,
+  html.cabin-glass-on .content .btn:active:not(:disabled),
+  html.cabin-glass-on .content .filter-pill:active,
+  html.cabin-glass-on .graph-tab:active,
+  html.cabin-glass-on .view-switch .view-switch-btn:active,
+  html.cabin-glass-on .content .icon-btn:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 880px) {
+  html.cabin-glass-on .page {
+    padding: 10px;
+    row-gap: 12px;
+  }
+
+  html.cabin-glass-on .sidebar,
+  html.cabin-glass-on .content {
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 680px) {
+  html.cabin-glass-on .page {
+    padding: 8px;
+    row-gap: 10px;
+  }
+
+  html.cabin-glass-on .sidebar,
+  html.cabin-glass-on .content {
+    border-radius: 14px;
+  }
+}
