@@ -33,6 +33,7 @@
     readOnly: false,
     annotations: {},
     progress: {},
+    settings: { immersive: false },
     route: null,
   };
 
@@ -53,6 +54,8 @@
     colorId: 'red',
     widthId: 'mid',
     fingerEnabled: false,
+    immersive: false,
+    realFsActive: false,
     undoStack: [],
     redoStack: [],
     resizeObserver: null,
@@ -248,6 +251,9 @@
           }
         }
       }
+      if (parsed.settings && typeof parsed.settings === 'object') {
+        state.settings.immersive = Boolean(parsed.settings.immersive);
+      }
     } catch (error) {
       console.warn('课程批注数据读取失败：', error);
     }
@@ -263,7 +269,12 @@
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ version: DATA_VERSION, annotations: state.annotations, progress: state.progress })
+          JSON.stringify({
+            version: DATA_VERSION,
+            annotations: state.annotations,
+            progress: state.progress,
+            settings: state.settings,
+          })
         );
       } catch (error) {
         console.warn('课程批注保存失败：', error);
@@ -525,7 +536,67 @@
 
   /* ---------- 阅读器 ---------- */
 
+  /* ---------- 全屏 / 沉浸阅读 ---------- */
+
+  function setImmersive(on, opts = {}) {
+    viewer.immersive = on;
+    const reader = $('coursesReader');
+    if (reader) reader.classList.toggle('is-immersive', on);
+    if (!opts.keepPreference) {
+      state.settings.immersive = on;
+      persistStore();
+    }
+    const btn = $('readerFullscreenBtn');
+    if (btn) {
+      btn.setAttribute('aria-pressed', String(on));
+      btn.title = on ? '退出全屏' : '全屏阅读';
+    }
+    if (on) {
+      document.body.style.overflow = 'hidden';
+      if (!opts.keepPreference) enterRealFullscreen(reader);
+    } else {
+      document.body.style.overflow = '';
+      exitRealFullscreen();
+    }
+    refreshFitAndRender();
+  }
+
+  function enterRealFullscreen(el) {
+    if (!el) return;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (typeof fn !== 'function') return;
+    try {
+      const result = fn.call(el);
+      if (result && typeof result.then === 'function') {
+        result
+          .then(() => { viewer.realFsActive = true; })
+          .catch(() => { viewer.realFsActive = false; });
+      } else {
+        viewer.realFsActive = true;
+      }
+    } catch (error) {
+      viewer.realFsActive = false;
+    }
+  }
+
+  function exitRealFullscreen() {
+    const active = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!active) {
+      viewer.realFsActive = false;
+      return;
+    }
+    const fn = document.exitFullscreen || document.webkitExitFullscreen;
+    try {
+      const result = fn && fn.call(document);
+      if (result && typeof result.catch === 'function') result.catch(() => {});
+    } catch (error) {
+      /* ignore */
+    }
+    viewer.realFsActive = false;
+  }
+
   function teardownReader() {
+    if (viewer.immersive) setImmersive(false, { keepPreference: true });
     viewer.open = false;
     viewer.renderToken += 1;
     if (viewer.resizeObserver) {
@@ -622,6 +693,9 @@
               <button type="button" class="icon-btn" id="readerFitBtn" aria-label="适应宽度" title="适应宽度">
                 <svg class="icon" aria-hidden="true"><use href="#i-fit"></use></svg>
               </button>
+              <button type="button" class="icon-btn" id="readerFullscreenBtn" aria-label="全屏阅读" title="全屏阅读" aria-pressed="false">
+                <svg class="icon" aria-hidden="true"><use href="#i-fullscreen"></use></svg>
+              </button>
             </div>
             <div class="reader-modes" role="group" aria-label="模式">
               <button type="button" class="reader-mode-btn is-active" data-mode="read" aria-pressed="true">
@@ -706,6 +780,19 @@
       </div>`;
 
     bindReaderEvents(course, lecture);
+
+    const freshReader = $('coursesReader');
+    if (freshReader && state.settings.immersive) {
+      // 沉浸偏好开启：换讲/翻页重建外壳后保持全屏布局（不重复请求系统全屏）
+      viewer.immersive = true;
+      freshReader.classList.add('is-immersive');
+      document.body.style.overflow = 'hidden';
+      const btn = $('readerFullscreenBtn');
+      if (btn) {
+        btn.setAttribute('aria-pressed', 'true');
+        btn.title = '退出全屏';
+      }
+    }
   }
 
   function bindReaderEvents(course, lecture) {
@@ -726,6 +813,9 @@
     $('readerZoomInBtn')?.addEventListener('click', () => setZoom(viewer.zoom * 1.2));
     $('readerZoomOutBtn')?.addEventListener('click', () => setZoom(viewer.zoom / 1.2));
     $('readerFitBtn')?.addEventListener('click', () => setZoom(1));
+    $('readerFullscreenBtn')?.addEventListener('click', () => {
+      setImmersive(!viewer.immersive);
+    });
     document.querySelectorAll('#coursesReader .reader-mode-btn').forEach((btn) => {
       btn.addEventListener('click', () => setMode(btn.dataset.mode));
     });
@@ -898,10 +988,21 @@
     renderCurrentPage();
   }
 
-  async function renderCurrentPage() {
-    if (!viewer.open || !viewer.pdfDoc) return;
+  let renderChain = Promise.resolve();
+
+  function renderCurrentPage() {
+    if (!viewer.open || !viewer.pdfDoc) return Promise.resolve();
     const token = ++viewer.renderToken;
+    // pdf.js 不允许同一画布并发渲染：串行排队，过期的渲染直接跳过
+    renderChain = renderChain.then(() => doRenderPage(token)).catch(() => {});
+    return renderChain;
+  }
+
+  async function doRenderPage(token) {
+    if (!viewer.open || !viewer.pdfDoc) return;
+    if (token !== viewer.renderToken) return;
     const page = await viewer.pdfDoc.getPage(viewer.pageNum);
+    if (token !== viewer.renderToken) return;
     const vp1 = page.getViewport({ scale: 1 });
     const scale = viewer.fitScale * viewer.zoom;
     const viewport = page.getViewport({ scale });
@@ -933,6 +1034,7 @@
     } catch (error) {
       if (error && error.name === 'RenderingCancelledException') return;
       console.warn('页面渲染失败：', error);
+      return;
     }
     if (token !== viewer.renderToken) return;
 
@@ -1605,6 +1707,18 @@
     });
     // 离开课程页时清除侧栏「数理统计」的激活态
     window.addEventListener('hashchange', syncSidebarActive);
+    // 系统全屏被 Esc 退出时，连沉浸模式一起退
+    const onFsChange = () => {
+      const active = Boolean(
+        document.fullscreenElement || document.webkitFullscreenElement
+      );
+      viewer.realFsActive = active;
+      if (!active && viewer.immersive && viewer.open) {
+        setImmersive(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
   }
 
   function syncSidebarActive() {
