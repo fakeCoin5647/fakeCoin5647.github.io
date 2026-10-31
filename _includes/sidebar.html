@@ -1,5 +1,5 @@
     <aside class="sidebar" data-glass="rail">
-      <a class="brand" href="#/" aria-label="Coin's Creative Cabin 首页">
+      <a class="brand" href="#/home" aria-label="Coin's Creative Cabin 首页">
         <span class="avatar" aria-hidden="true">
           <svg viewBox="0 0 64 64">
             <path d="M32 10c1.7 11.3 4.7 15.2 16 17-11.3 1.8-14.3 5.7-16 17-1.7-11.3-4.7-15.2-16-17 11.3-1.8 14.3-5.7 16-17Z" fill="currentColor"/>
@@ -18,8 +18,15 @@
           <span class="nav-kbd" aria-hidden="true">Ctrl K</span>
         </button>
 
-        <a class="nav-item" href="#/" id="sidebarShelfLink" data-glass="nav">
+        <a class="nav-item" href="#/home" id="sidebarHomeLink" data-glass="nav">
           <svg class="icon nav-svg" aria-hidden="true"><use href="#i-home"></use></svg>
+          <span>个人主页</span>
+        </a>
+
+        <p class="nav-label"><svg class="icon nav-label-icon" aria-hidden="true"><use href="#i-books"></use></svg> 创作小屋</p>
+
+        <a class="nav-item" href="#/" id="sidebarShelfLink" data-glass="nav">
+          <svg class="icon nav-svg" aria-hidden="true"><use href="#i-book"></use></svg>
           <span>我的书架</span>
         </a>
 
@@ -47,6 +54,11 @@
           <span class="nav-count" id="sidebarIdeaCount" hidden>0</span>
         </a>
 
+        <a class="nav-item" href="#/luxun" id="sidebarLuxunLink" data-glass="nav">
+          <svg class="icon nav-svg" aria-hidden="true"><use href="#i-scroll"></use></svg>
+          <span>鲁迅文库</span>
+        </a>
+
         <a class="nav-item" href="#/trash" id="sidebarTrashLink" data-glass="nav">
           <svg class="icon nav-svg" aria-hidden="true"><use href="#i-trash"></use></svg>
           <span>回收站</span>
@@ -70,6 +82,14 @@
               <div class="subnav side-sections" id="workspaceNav" aria-label="小说内容导航"></div>
             </div>
           </div>
+        </div>
+
+        <div class="nav-group side-courses-group">
+          <p class="nav-label"><svg class="icon nav-label-icon" aria-hidden="true"><use href="#i-course"></use></svg> 课程笔记</p>
+          <a class="nav-item" href="#/courses" id="sidebarCoursesLink" data-glass="nav">
+            <svg class="icon nav-svg" aria-hidden="true"><use href="#i-book"></use></svg>
+            <span>数理统计</span>
+          </a>
         </div>
       </nav>
 
