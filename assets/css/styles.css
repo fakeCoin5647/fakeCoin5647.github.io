@@ -3968,3 +3968,789 @@ a.drill-card-link:hover {
 .fate-unseal-btn:hover {
   border-color: rgba(169, 117, 31, 0.45);
 }
+
+/* ---------- 鲁迅文库 ---------- */
+
+.luxun-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.luxun-loading,
+.luxun-error {
+  padding: 26px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.luxun-error {
+  border-color: rgba(142, 47, 34, 0.4);
+  color: #8e2f22;
+}
+
+.luxun-note {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.luxun-continue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.luxun-continue-text {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.luxun-dawn {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.luxun-dawn-eyebrow {
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.luxun-dawn-title {
+  margin-top: 6px;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.luxun-dawn-meta {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.luxun-dawn-text {
+  margin: 12px 0 0;
+  padding: 2px 0 2px 16px;
+  border-left: 3px solid var(--accent-soft);
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 2;
+}
+
+.luxun-dawn-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.luxun-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.luxun-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.luxun-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.luxun-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.luxun-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.luxun-search-input {
+  flex: 1 1 260px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13.5px;
+}
+
+.luxun-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.luxun-search-status {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.luxun-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.luxun-hit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.luxun-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 0.16s ease;
+}
+
+.luxun-hit:hover {
+  border-color: var(--accent);
+}
+
+.luxun-hit-head {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.luxun-hit-snippet {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+.luxun-hit-mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.luxun-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.luxun-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.luxun-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.luxun-card-kind {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.luxun-card-title {
+  color: var(--ink);
+  font-size: 16.5px;
+  font-weight: 600;
+}
+
+.luxun-card-meta {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.luxun-back-chip {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12.5px;
+  text-decoration: none;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.luxun-back-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.luxun-crumb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.luxun-collection-head,
+.luxun-style-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.luxun-collection-title,
+.luxun-style-title {
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.luxun-collection-meta,
+.luxun-style-desc {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.luxun-collection-progress {
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.luxun-filter-row {
+  display: flex;
+}
+
+.luxun-filter-input {
+  width: min(320px, 100%);
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.luxun-filter-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.luxun-toc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.luxun-toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.16s ease;
+}
+
+.luxun-toc-row:hover {
+  border-color: var(--accent);
+}
+
+.luxun-toc-row.is-read .luxun-toc-title {
+  color: var(--muted);
+}
+
+.luxun-toc-index {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.luxun-toc-titlewrap {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.luxun-toc-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.luxun-toc-date {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.luxun-toc-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.luxun-toc-flag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.luxun-reader {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.luxun-reader-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.luxun-reader-title {
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.luxun-reader-meta {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.luxun-hint {
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.luxun-bookmark-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.luxun-bookmark-label {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.luxun-bookmark-chip {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 12px;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.luxun-bookmark-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.luxun-article {
+  padding: 30px clamp(18px, 5vw, 48px) 36px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.luxun-article .luxun-block-h {
+  margin: 28px 0 12px;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.luxun-article .luxun-block-p {
+  max-width: 40em;
+  margin: 0 auto 14px;
+  color: var(--ink);
+  font-size: calc(15.5px * var(--reading-scale, 1));
+  line-height: 2.05;
+  letter-spacing: 0.02em;
+  text-indent: 2em;
+  cursor: text;
+  transition: background 0.2s ease;
+}
+
+.luxun-article .luxun-block-p.is-marked {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  text-indent: calc(2em - 13px);
+}
+
+.luxun-article .luxun-block-p.luxun-para-active {
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.luxun-reader-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.luxun-reader-nav .btn {
+  max-width: 100%;
+}
+
+.luxun-selbar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 640px);
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 18px 40px -18px rgba(20, 24, 40, 0.45);
+  transform: translateX(-50%);
+}
+
+.luxun-selbar-count {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.luxun-selbar .btn {
+  padding: 9px 14px;
+  font-size: 12.5px;
+}
+
+.luxun-zone-title {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.luxun-zone-desc {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.luxun-stages,
+.luxun-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.luxun-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.luxun-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.luxun-stage-title {
+  color: var(--accent);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.luxun-stage-goal {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.luxun-stage-links {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.luxun-stage-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.luxun-stage-link:hover {
+  text-decoration: underline;
+}
+
+.luxun-cards-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.luxun-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 12px;
+}
+
+.luxun-style-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.luxun-style-card-title {
+  color: var(--ink);
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.luxun-style-card-gist {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.luxun-style-card-points {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.luxun-style-card-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.luxun-style-quote {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent-soft);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.luxun-style-source {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11.5px;
+  transition: border-color 0.16s ease;
+}
+
+.luxun-style-source:hover {
+  border-color: var(--accent);
+}
+
+.luxun-style-source-name {
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.luxun-style-card-drill {
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.luxun-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.luxun-basket-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.luxun-basket-title {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.luxun-basket {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.luxun-basket-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.luxun-basket-text {
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.luxun-basket-remove {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.luxun-basket-remove:hover {
+  border-color: #8e2f22;
+  color: #8e2f22;
+}
+
+.luxun-intent-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.luxun-intent-label {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.luxun-intent-input {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.luxun-intent-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.luxun-ai-preview {
+  max-height: 300px;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.luxun-ai-actions {
+  display: flex;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .luxun-article {
+    padding: 22px 16px 26px;
+  }
+
+  .luxun-article .luxun-block-p {
+    font-size: calc(14.5px * var(--reading-scale, 1));
+    line-height: 2;
+  }
+
+  .luxun-selbar {
+    bottom: 12px;
+    gap: 6px;
+    padding: 9px 11px;
+  }
+
+  .luxun-continue {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
