@@ -1,7 +1,11 @@
 ---
 layout: default
 ---
-<section class="view" id="shelfView" aria-labelledby="shelfHeading">
+      <section class="view home-view" id="homeView" hidden>
+        <div class="home-root" id="homeRoot"></div>
+      </section>
+
+      <section class="view" id="shelfView" aria-labelledby="shelfHeading">
         <section class="shelf-section" id="shelf" aria-labelledby="shelfHeading">
           <h1 class="sr-only" id="shelfHeading">我的书架</h1>
 
@@ -116,7 +120,7 @@ layout: default
           <div class="page-head-copy">
             <p class="eyebrow">RECYCLE BIN</p>
             <h1>回收站</h1>
-            <p class="page-desc">删除的小说和词条会先放在这里。恢复后会回到原来的位置；彻底删除后无法找回。</p>
+            <p class="page-desc">删除的小说、词条、评论、构想、练笔、人物关系和谱系会先放在这里。恢复后会回到原来的位置；彻底删除后无法找回。</p>
           </div>
           <button type="button" class="btn ghost danger-hover" id="trashClearBtn" data-action="clear-trash" hidden>
             <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
@@ -144,7 +148,7 @@ layout: default
               <svg class="icon"><use href="#i-trash"></use></svg>
             </div>
             <h3>回收站是空的</h3>
-            <p>删除的小说和词条会暂时收在这里，确认不需要后再彻底删除。</p>
+            <p>删除的小说、词条、评论、构想、练笔、人物关系和谱系会暂时收在这里，确认不需要后再彻底删除。</p>
             <a class="btn ghost" href="#/">返回书架</a>
           </div>
         </section>
@@ -319,6 +323,35 @@ layout: default
         </section>
       </section>
 
+      <section class="view luxun-view" id="luxunView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            <span>返回书架</span>
+          </a>
+        </nav>
+
+        <section class="shelf-section luxun-section" aria-labelledby="luxunHeading">
+          <h2 class="sr-only" id="luxunHeading">鲁迅文库</h2>
+
+          <header class="content-head">
+            <div class="content-head-text">
+              <p class="eyebrow">LUXUN LIBRARY</p>
+              <h1 class="content-title">鲁迅文库</h1>
+              <p class="content-desc">鲁迅本人著作全文语料（公有领域）：每日晨读、全文搜索、文风研读，读到好段落一键设为仿写范文。语料是站点静态文件，不占本机存储。</p>
+            </div>
+            <div class="content-head-actions">
+              <button type="button" class="btn ghost" id="luxunStyleBtn" title="文风研读卡片与 AI 文风包">
+                <svg class="icon" aria-hidden="true"><use href="#i-scroll"></use></svg>
+                文风研读
+              </button>
+            </div>
+          </header>
+
+          <div class="luxun-body" id="luxunBody" aria-live="polite"></div>
+        </section>
+      </section>
+
       <section class="view ideas-view" id="ideasView" hidden>
         <nav class="workspace-breadcrumb" aria-label="面包屑">
           <a class="back-link" href="#/">
@@ -404,6 +437,34 @@ layout: default
             </div>
           </div>
         </section>
+      </section>
+
+      <section class="view courses-view" id="coursesView" hidden>
+        <nav class="workspace-breadcrumb" aria-label="面包屑">
+          <a class="back-link" href="#/">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+            <span>返回书架</span>
+          </a>
+          <span class="crumb-sep" aria-hidden="true">/</span>
+          <span class="crumb-current" id="coursesCrumb">课程笔记</span>
+        </nav>
+
+        <div id="coursesHomeRoot"></div>
+        <div id="coursesReaderRoot" hidden></div>
+
+        <dialog class="courses-dialog" id="coursesConfirmDialog">
+          <form method="dialog" class="courses-dialog-form">
+            <h3 id="coursesConfirmTitle">确认操作</h3>
+            <p id="coursesConfirmText"></p>
+            <div class="courses-dialog-actions">
+              <button type="submit" class="btn ghost" id="coursesConfirmCancel" value="cancel">取消</button>
+              <button type="submit" class="btn primary" id="coursesConfirmOk" value="ok">确认</button>
+            </div>
+          </form>
+        </dialog>
+
+        <input type="file" id="coursesImportFile" accept=".json,application/json" hidden>
+        <div class="courses-toast" id="coursesToast" hidden></div>
       </section>
 
       <section class="view publish-view" id="publishView" hidden>
