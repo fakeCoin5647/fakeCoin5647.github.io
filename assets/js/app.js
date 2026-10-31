@@ -515,11 +515,13 @@
     page: $('.page'),
     sidebar: $('.sidebar'),
     content: $('.content'),
+    homeView: $('#homeView'),
     shelfView: $('#shelfView'),
     trashView: $('#trashView'),
     novelView: $('#novelView'),
     commentsView: $('#commentsView'),
     publishView: $('#publishView'),
+    coursesView: $('#coursesView'),
     missingView: $('#missingView'),
 
     commentsToolbar: $('#commentsToolbar'),
@@ -682,6 +684,11 @@
     ideaSaveBtn: $('#ideaSaveBtn'),
     sidebarIdeaCount: $('#sidebarIdeaCount'),
     sidebarIdeasLink: $('#sidebarIdeasLink'),
+
+    luxunView: $('#luxunView'),
+    luxunBody: $('#luxunBody'),
+    luxunStyleBtn: $('#luxunStyleBtn'),
+    sidebarLuxunLink: $('#sidebarLuxunLink'),
     backupReminder: $('#backupReminder'),
     sideCapacity: $('#sideCapacity'),
     footerExportBtn: $('#footerExportBtn'),
@@ -733,6 +740,7 @@
     workspaceNav: $('#workspaceNav'),
     workspaceContent: $('#workspaceContent'),
 
+    sidebarHomeLink: $('#sidebarHomeLink'),
     sidebarShelfLink: $('#sidebarShelfLink'),
     sidebarCommentsLink: $('#sidebarCommentsLink'),
     sidebarCommentCount: $('#sidebarCommentCount'),
@@ -968,6 +976,29 @@
     ideaBoard: { status: 'all', query: '', sort: 'updated', pickedId: null },
     ideaDraft: { id: null, kind: 'other', status: 'spark', excitement: 3, dirty: false },
     forge: null,
+    luxun: {
+      index: null,
+      indexPromise: null,
+      loadError: '',
+      collections: new Map(),
+      collectionPromises: new Map(),
+      allLoaded: false,
+      reading: { lastRead: null, readMap: {}, bookmarks: [] },
+      excerpt: [],
+      currentRoute: null,
+      renderToken: 0,
+      pendingJump: null,
+      homeKind: 'all',
+      dawnOffset: 0,
+      aiPreset: 'continuation',
+      aiIntent: '',
+      aiChecks: null,
+      selBar: null,
+      selBarSync: null,
+      activeArticle: null,
+      activeWork: null,
+      activeCollection: null,
+    },
   };
 
   let isComposingTag = false;
@@ -984,6 +1015,8 @@
     state.ideas = library.ideas;
     state.appearance = loadAppearance();
     applyAppearance();
+    state.luxun.reading = loadLuxunReading();
+    fetchLuxunIndex();
     document.body.appendChild(els.appearancePanel);
     els.year.textContent = new Date().getFullYear();
     syncMoonPhase();
@@ -2149,7 +2182,10 @@
   /* ---------- Routing ---------- */
 
   function parseRoute() {
-    let raw = window.location.hash.replace(/^#\/?/, '').trim();
+    const hash = window.location.hash;
+    // 完全没有 hash 时进入个人主页；`#/` 仍然是书架
+    if (!hash || hash === '#') return { view: 'home' };
+    let raw = hash.replace(/^#\/?/, '').trim();
     if (!raw) return { view: 'shelf' };
 
     let parts;
@@ -2175,8 +2211,30 @@
       return parts.length === 1 ? { view: 'ideas' } : { view: 'missing' };
     }
 
+    if (parts[0] === 'luxun') {
+      if (parts.length === 1) return { view: 'luxun' };
+      if (parts.length === 2 && parts[1] === 'style') return { view: 'luxun-style' };
+      if (parts.length === 2) return { view: 'luxun-collection', collectionId: parts[1] };
+      if (parts.length === 3) {
+        return { view: 'luxun-work', collectionId: parts[1], workId: parts[2] };
+      }
+      return { view: 'missing' };
+    }
+
     if (parts[0] === 'publish') {
       return parts.length === 1 ? { view: 'publish' } : { view: 'missing' };
+    }
+
+    if (parts[0] === 'home') {
+      return parts.length === 1 ? { view: 'home' } : { view: 'missing' };
+    }
+
+    if (parts[0] === 'courses') {
+      const coursesRoute =
+        typeof window.CoursesAPI === 'object' && window.CoursesAPI
+          ? window.CoursesAPI.parseRoute(parts)
+          : null;
+      return coursesRoute || { view: 'missing' };
     }
 
     if (parts[0] !== 'novel' || !parts[1]) return { view: 'missing' };
@@ -2212,15 +2270,21 @@
   function listScrollKey(route) {
     if (!route) return null;
     if (
+      route.view === 'home' ||
       route.view === 'shelf' ||
       route.view === 'trash' ||
       route.view === 'comments' ||
       route.view === 'drills' ||
       route.view === 'ideas' ||
-      route.view === 'publish'
+      route.view === 'luxun' ||
+      route.view === 'luxun-style' ||
+      route.view === 'publish' ||
+      route.view === 'courses'
     ) {
       return route.view;
     }
+    if (route.view === 'luxun-collection') return `luxun:${route.collectionId}`;
+    if (route.view === 'luxun-work') return `luxun-work:${route.collectionId}/${route.workId}`;
     if (route.view === 'novel') return `novel:${route.novel.id}`;
     if (route.view === 'section') {
       return `section:${route.novel.id}:${route.sectionKey}`;
@@ -2370,7 +2434,10 @@
       }
     }
 
-    if (route.view === 'shelf') {
+    if (route.view === 'home') {
+      showView('home');
+      renderLanding();
+    } else if (route.view === 'shelf') {
       showView('shelf');
       renderShelf();
     } else if (route.view === 'trash') {
@@ -2385,9 +2452,24 @@
     } else if (route.view === 'ideas') {
       showView('ideas');
       renderIdeas();
+    } else if (route.view === 'luxun') {
+      showView('luxun');
+      renderLuxunHome();
+    } else if (route.view === 'luxun-style') {
+      showView('luxun');
+      renderLuxunStyle();
+    } else if (route.view === 'luxun-collection') {
+      showView('luxun');
+      renderLuxunCollection(route.collectionId);
+    } else if (route.view === 'luxun-work') {
+      showView('luxun');
+      renderLuxunWork(route.collectionId, route.workId);
     } else if (route.view === 'publish') {
       showView('publish');
       renderPublish();
+    } else if (route.view === 'courses') {
+      showView('courses');
+      if (window.CoursesAPI) window.CoursesAPI.render(route);
     } else if (route.view === 'missing') {
       showView('missing');
       renderSidebar(route);
@@ -2428,18 +2510,23 @@
   }
 
   function showView(name) {
+    if (els.homeView) els.homeView.hidden = name !== 'home';
     els.shelfView.hidden = name !== 'shelf';
     els.trashView.hidden = name !== 'trash';
     els.novelView.hidden = name !== 'novel';
     els.commentsView.hidden = name !== 'comments';
     els.drillsView.hidden = name !== 'drills';
     els.ideasView.hidden = name !== 'ideas';
+    els.luxunView.hidden = name !== 'luxun' && name !== 'luxun-style' && name !== 'luxun-collection' && name !== 'luxun-work';
     els.publishView.hidden = name !== 'publish';
+    if (els.coursesView) els.coursesView.hidden = name !== 'courses';
     els.missingView.hidden = name !== 'missing';
   }
 
   function updateDocumentTitle(route) {
-    if (route.view === 'shelf') {
+    if (route.view === 'home') {
+      document.title = `个人主页 · ${SITE_NAME}`;
+    } else if (route.view === 'shelf') {
       document.title = `${SITE_NAME} · 我的小说书架`;
     } else if (route.view === 'trash') {
       document.title = `回收站 · ${SITE_NAME}`;
@@ -2449,8 +2536,21 @@
       document.title = `练笔房 · ${SITE_NAME}`;
     } else if (route.view === 'ideas') {
       document.title = `网页构想 · ${SITE_NAME}`;
+    } else if (route.view === 'luxun') {
+      document.title = `鲁迅文库 · ${SITE_NAME}`;
+    } else if (route.view === 'luxun-style') {
+      document.title = `文风研读 · ${SITE_NAME}`;
+    } else if (route.view === 'luxun-collection') {
+      const meta = findLuxunCollectionMeta(route.collectionId);
+      document.title = `${meta ? meta.title : '作品集'} · 鲁迅文库 · ${SITE_NAME}`;
+    } else if (route.view === 'luxun-work') {
+      document.title = `鲁迅文库 · ${SITE_NAME}`;
     } else if (route.view === 'publish') {
       document.title = `公开作品 · ${SITE_NAME}`;
+    } else if (route.view === 'courses') {
+      document.title = window.CoursesAPI
+        ? window.CoursesAPI.docTitle(route)
+        : `课程笔记 · ${SITE_NAME}`;
     } else if (route.view === 'missing') {
       document.title = `这一页还没有写进故事里 · ${SITE_NAME}`;
     } else if (route.view === 'novel') {
@@ -2570,6 +2670,76 @@
     els.continueBannerTime.textContent = ` · ${relativeDate(new Date(target.at))}`;
     els.continueBannerBtn.dataset.continueHash = target.hash;
     banner.hidden = false;
+  }
+
+  /* ---------- 个人主页 ---------- */
+
+  function renderLanding() {
+    const root = els.homeView ? els.homeView.querySelector('#homeRoot') : null;
+    if (!root) return;
+    renderSidebar(state.route);
+
+    const novelCount = state.novels.length;
+    const entryCount = state.novels.reduce((sum, novel) => {
+      const entries = novel.entries || {};
+      return (
+        sum +
+        Object.values(entries).reduce(
+          (acc, list) => acc + (Array.isArray(list) ? list.length : 0),
+          0
+        )
+      );
+    }, 0);
+    const cabinStat = novelCount
+      ? `${novelCount} 本小说 · ${entryCount} 个词条`
+      : '书架还空着，第一本小说从这里开始';
+    const courseStats =
+      typeof window.CoursesAPI === 'object' &&
+      window.CoursesAPI &&
+      typeof window.CoursesAPI.homeStats === 'function'
+        ? window.CoursesAPI.homeStats()
+        : null;
+    const courseStat =
+      courseStats && courseStats.courses
+        ? `${courseStats.courses} 门课程 · ${courseStats.lectures} 讲${
+            courseStats.strokes ? ` · ${courseStats.strokes} 笔批注` : ''
+          }`
+        : '还没有收录课程';
+
+    root.innerHTML = `
+      <header class="content-head home-head">
+        <div class="content-head-text">
+          <p class="eyebrow">PERSONAL HOMEPAGE</p>
+          <h1 class="content-title">个人主页</h1>
+          <p class="content-desc">你的个人站点，从这里出发：一边是写故事的地方，一边是上课记笔记的地方。</p>
+        </div>
+      </header>
+      <div class="landing-grid">
+        <a class="landing-card" href="#/">
+          <span class="landing-card-icon" aria-hidden="true">
+            <svg class="icon"><use href="#i-home"></use></svg>
+          </span>
+          <span class="landing-card-body">
+            <span class="landing-card-eyebrow">CREATIVE CABIN</span>
+            <span class="landing-card-title">创作小屋</span>
+            <span class="landing-card-desc">书架、小说、角色、世界观、地图与关系谱——一个只属于你的故事工作室。</span>
+            <span class="landing-card-stat">${cabinStat}</span>
+          </span>
+          <svg class="icon landing-card-go" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+        </a>
+        <a class="landing-card" href="#/courses">
+          <span class="landing-card-icon landing-card-icon-course" aria-hidden="true">
+            <svg class="icon"><use href="#i-course"></use></svg>
+          </span>
+          <span class="landing-card-body">
+            <span class="landing-card-eyebrow">COURSE NOTES</span>
+            <span class="landing-card-title">课程笔记</span>
+            <span class="landing-card-desc">讲义阅读、平板手写批注与框选翻译，笔记只保存在这台设备上。</span>
+            <span class="landing-card-stat">${courseStat}</span>
+          </span>
+          <svg class="icon landing-card-go" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+        </a>
+      </div>`;
   }
 
   function renderShelf() {
@@ -3176,6 +3346,7 @@
   }
 
   function renderSidebar(route = state.route) {
+    const onHome = Boolean(route && route.view === 'home');
     const onShelf = Boolean(route && route.view === 'shelf');
     const onComments = Boolean(route && route.view === 'comments');
     const onTrash = Boolean(route && route.view === 'trash');
@@ -3185,6 +3356,15 @@
       route && ['novel', 'section', 'entry', 'outline-editor'].includes(route.view)
         ? route.novel
         : null;
+
+    if (els.sidebarHomeLink) {
+      els.sidebarHomeLink.classList.toggle('is-active', onHome);
+      if (onHome) {
+        els.sidebarHomeLink.setAttribute('aria-current', 'page');
+      } else {
+        els.sidebarHomeLink.removeAttribute('aria-current');
+      }
+    }
 
     els.sidebarShelfLink.classList.toggle('is-active', onShelf);
     if (onShelf) {
@@ -3220,6 +3400,17 @@
       els.sidebarIdeasLink.setAttribute('aria-current', 'page');
     } else {
       els.sidebarIdeasLink.removeAttribute('aria-current');
+    }
+
+    const onLuxun = Boolean(
+      route
+      && ['luxun', 'luxun-style', 'luxun-collection', 'luxun-work'].includes(route.view)
+    );
+    els.sidebarLuxunLink.classList.toggle('is-active', onLuxun);
+    if (onLuxun) {
+      els.sidebarLuxunLink.setAttribute('aria-current', 'page');
+    } else {
+      els.sidebarLuxunLink.removeAttribute('aria-current');
     }
 
     els.sidebarTrashLink.classList.toggle('is-active', onTrash);
@@ -12207,7 +12398,10 @@
   /* ---------- Comments ---------- */
 
   function canCommentOnRoute(route) {
-    return Boolean(route && !['comments', 'publish', 'missing'].includes(route.view));
+    return Boolean(
+      route
+      && !['comments', 'publish', 'missing', 'courses', 'home'].includes(route.view)
+    );
   }
 
   function commentTargetKey(target) {
@@ -15312,7 +15506,9 @@
       els.drillMineInput.value = drill.mine;
       els.drillReviewInput.value = drill.review;
     } else if (preset) {
-      els.drillTitleInput.value = preset.title;
+      els.drillTitleInput.value = preset.title || '';
+      if (typeof preset.source === 'string') els.drillSourceInput.value = preset.source;
+      if (typeof preset.sourceNote === 'string') els.drillSourceNoteInput.value = preset.sourceNote;
     }
     syncDrillKindSwitch();
     syncDrillNovelOptions(drill ? drill.novelId : '');
@@ -17392,6 +17588,1249 @@
     toast.addEventListener('click', remove);
   }
 
+  /* ---------- 鲁迅文库 ---------- */
+
+  const LUXUN_READING_KEY = 'gushibu.luxun.reading.v1';
+  const LUXUN_DATA_DIR = 'assets/data/luxun/';
+  const LUXUN_DATA_VERSION = '20261101a';
+  const LUXUN_EXCERPT_LIMIT = 30;
+  const LUXUN_BOOKMARK_LIMIT = 200;
+  const LUXUN_TEXT_LIMIT = 8000;
+  const LUXUN_SAVE_DELAY = 2000;
+
+  const LUXUN_AI_PRESETS = {
+    continuation: {
+      label: '续写',
+      task: '请用鲁迅的文风，接着我给出的片段或设定继续写下去。',
+    },
+    rewrite: {
+      label: '改写',
+      task: '请用鲁迅的文风改写我给出的这段文字，保留情节与人物，只换笔法。',
+    },
+    dialogue: {
+      label: '对话塑形',
+      task: '请用鲁迅的文风写一段人物对话与动作，让对话本身完成人物塑造。',
+    },
+    scene: {
+      label: '场景白描',
+      task: '请用鲁迅的文风写一个场景：只许白描，不许出现直接的情绪形容词。',
+    },
+  };
+
+  const LUXUN_STYLE_CHECKLIST = [
+    { id: 'plain', label: '冷峻白描，不作评价', hint: '只写看得见的东西，判断留给读者' },
+    { id: 'particle', label: '虚词的迟疑：大约、罢、然而、竟', hint: '不确定的语气里藏反讽' },
+    { id: 'repeat', label: '复沓与回环', hint: '同构句式重复出现，造出节奏' },
+    { id: 'irony', label: '正话反说', hint: '用「伟绩」「武功」一类的反语' },
+    { id: 'naming', label: '人物定名术', hint: '一个定语钉住一生，全篇围绕它展开' },
+    { id: 'scenery', label: '景物即心境', hint: '写天气与街道，其实是写人' },
+    { id: 'ending', label: '短句余震收尾', hint: '结尾一记短句，戛然而止' },
+    { id: 'object', label: '具体物件承载情绪', hint: '药引、长衫、圆规、枣树' },
+    { id: 'diction', label: '民国白话的节奏', hint: '短句为主，慎用欧化长句' },
+    { id: 'ban', label: '禁用网络流行语', hint: '保持语感的年代距离' },
+  ];
+
+  let luxunStyleCardsPromise = null;
+  let luxunSaveTimer = 0;
+
+  function luxunFileUrl(name) {
+    return `${LUXUN_DATA_DIR}${name}?v=${LUXUN_DATA_VERSION}`;
+  }
+
+  function luxunWorkHash(collectionId, workId) {
+    return `#/luxun/${encodeURIComponent(collectionId)}/${encodeURIComponent(workId)}`;
+  }
+
+  function luxunCollectionHash(collectionId) {
+    return `#/luxun/${encodeURIComponent(collectionId)}`;
+  }
+
+  function luxunFormatCount(count) {
+    if (count >= 10000) return `${(count / 10000).toFixed(1)} 万字`;
+    if (count >= 1000) return `${Math.round(count / 1000)} 千字`;
+    return `${count} 字`;
+  }
+
+  function findLuxunCollectionMeta(collectionId) {
+    const index = state.luxun.index;
+    if (!index || !Array.isArray(index.collections)) return null;
+    return index.collections.find((item) => item.id === collectionId) || null;
+  }
+
+  function fetchLuxunIndex() {
+    if (state.luxun.indexPromise) return state.luxun.indexPromise;
+    state.luxun.indexPromise = fetch(luxunFileUrl('index.json'))
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((index) => {
+        state.luxun.index = index;
+        renderLuxunIfCurrent();
+        return index;
+      })
+      .catch(() => {
+        state.luxun.indexPromise = null;
+        state.luxun.loadError = '语料加载失败：请确认本地预览在运行，或稍后刷新重试。';
+        renderLuxunIfCurrent();
+        return null;
+      });
+    return state.luxun.indexPromise;
+  }
+
+  function ensureLuxunIndex() {
+    if (state.luxun.index) return state.luxun.index;
+    fetchLuxunIndex();
+    return null;
+  }
+
+  function loadLuxunCollection(collectionId) {
+    const cached = state.luxun.collections.get(collectionId);
+    if (cached) return Promise.resolve(cached);
+    const pending = state.luxun.collectionPromises.get(collectionId);
+    if (pending) return pending;
+    const promise = fetch(luxunFileUrl(`${collectionId}.json`))
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        state.luxun.collections.set(collectionId, data);
+        state.luxun.collectionPromises.delete(collectionId);
+        return data;
+      })
+      .catch((error) => {
+        state.luxun.collectionPromises.delete(collectionId);
+        throw error;
+      });
+    state.luxun.collectionPromises.set(collectionId, promise);
+    return promise;
+  }
+
+  function ensureAllLuxunCollections(onProgress) {
+    const index = state.luxun.index;
+    if (!index) return Promise.resolve(false);
+    if (state.luxun.allLoaded) return Promise.resolve(true);
+    const list = index.collections.filter((item) => !state.luxun.collections.has(item.id));
+    let done = 0;
+    let failed = 0;
+    const total = list.length;
+    const report = () => {
+      done += 1;
+      if (typeof onProgress === 'function') onProgress(done, total);
+    };
+    return Promise.all(
+      list.map((item) =>
+        loadLuxunCollection(item.id)
+          .then(() => { report(); })
+          .catch(() => { failed += 1; report(); })
+      )
+    ).then(() => {
+      if (failed === 0) state.luxun.allLoaded = true;
+      return failed === 0;
+    });
+  }
+
+  function loadLuxunReading() {
+    const fallback = { lastRead: null, readMap: {}, bookmarks: [] };
+    try {
+      const raw = localStorage.getItem(LUXUN_READING_KEY);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return fallback;
+      const readMap = {};
+      if (parsed.readMap && typeof parsed.readMap === 'object') {
+        for (const [key, value] of Object.entries(parsed.readMap)) {
+          const num = Number(value);
+          if (key && Number.isFinite(num) && num >= 0) readMap[String(key).slice(0, 120)] = Math.floor(num);
+        }
+      }
+      const bookmarks = Array.isArray(parsed.bookmarks)
+        ? parsed.bookmarks
+          .slice(0, LUXUN_BOOKMARK_LIMIT)
+          .map((item) => ({
+            id: typeof item?.id === 'string' ? item.id.slice(0, 80) : '',
+            collectionId: typeof item?.collectionId === 'string' ? item.collectionId.slice(0, 60) : '',
+            collectionTitle: typeof item?.collectionTitle === 'string' ? item.collectionTitle.slice(0, 60) : '',
+            workId: typeof item?.workId === 'string' ? item.workId.slice(0, 120) : '',
+            workTitle: typeof item?.workTitle === 'string' ? item.workTitle.slice(0, 160) : '',
+            paraIndex: Number.isFinite(Number(item?.paraIndex)) ? Math.max(0, Math.floor(Number(item.paraIndex))) : 0,
+            text: typeof item?.text === 'string' ? item.text.slice(0, 200) : '',
+            createdAt: typeof item?.createdAt === 'string' ? item.createdAt : '',
+          }))
+          .filter((item) => item.workId)
+        : [];
+      const lastRead = parsed.lastRead && typeof parsed.lastRead === 'object'
+        ? {
+          collectionId: typeof parsed.lastRead.collectionId === 'string' ? parsed.lastRead.collectionId.slice(0, 60) : '',
+          collectionTitle: typeof parsed.lastRead.collectionTitle === 'string' ? parsed.lastRead.collectionTitle.slice(0, 60) : '',
+          workId: typeof parsed.lastRead.workId === 'string' ? parsed.lastRead.workId.slice(0, 120) : '',
+          workTitle: typeof parsed.lastRead.workTitle === 'string' ? parsed.lastRead.workTitle.slice(0, 160) : '',
+        }
+        : null;
+      return { lastRead, readMap, bookmarks };
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function saveLuxunReading(force) {
+    if (!force) {
+      if (luxunSaveTimer) return;
+      luxunSaveTimer = setTimeout(() => {
+        luxunSaveTimer = 0;
+        saveLuxunReading(true);
+      }, LUXUN_SAVE_DELAY);
+      return;
+    }
+    if (luxunSaveTimer) { clearTimeout(luxunSaveTimer); luxunSaveTimer = 0; }
+    try {
+      localStorage.setItem(LUXUN_READING_KEY, JSON.stringify(state.luxun.reading));
+    } catch (error) { /* 阅读进度不阻塞主流程 */ }
+  }
+
+  function luxunBeginRender() {
+    state.luxun.renderToken += 1;
+    state.luxun.selBar = null;
+    state.luxun.activeArticle = null;
+    state.luxun.activeWork = null;
+    state.luxun.activeCollection = null;
+    if (state.luxun.selBarSync) {
+      document.removeEventListener('selectionchange', state.luxun.selBarSync);
+      state.luxun.selBarSync = null;
+    }
+    if (els.luxunView) {
+      els.luxunView.querySelectorAll('.luxun-selbar').forEach((node) => node.remove());
+    }
+    return state.luxun.renderToken;
+  }
+
+  function luxunRenderAlive(token) {
+    return token === state.luxun.renderToken;
+  }
+
+  function renderLuxunIfCurrent() {
+    const current = state.luxun.currentRoute;
+    if (!current) return;
+    if (current === 'home') renderLuxunHome();
+    else if (current === 'style') renderLuxunStyle();
+    else if (current.view === 'collection') renderLuxunCollection(current.id);
+    else if (current.view === 'work') renderLuxunWork(current.collectionId, current.workId);
+  }
+
+  function createLuxunLoading(text) {
+    const box = el('div', 'luxun-loading');
+    box.appendChild(el('p', '', text || '语料装载中……'));
+    return box;
+  }
+
+  function createLuxunError(message) {
+    const box = el('div', 'luxun-error');
+    box.appendChild(el('p', '', message));
+    return box;
+  }
+
+  /* ----- 总览 ----- */
+
+  function renderLuxunHome() {
+    state.luxun.currentRoute = 'home';
+    const token = luxunBeginRender();
+    const body = els.luxunBody;
+    body.replaceChildren();
+    const index = ensureLuxunIndex();
+    if (!index) {
+      body.appendChild(
+        state.luxun.loadError ? createLuxunError(state.luxun.loadError) : createLuxunLoading()
+      );
+      return;
+    }
+
+    const wrap = el('div', 'luxun-home');
+
+    const last = createLuxunLastReadStrip();
+    if (last) wrap.appendChild(last);
+
+    const dawn = createLuxunDawnCard(index);
+    if (dawn) wrap.appendChild(dawn);
+
+    wrap.appendChild(createLuxunKindChips(index));
+    wrap.appendChild(createLuxunSearchPanel());
+    wrap.appendChild(createLuxunCollectionGrid(index));
+
+    const note = el('p', 'luxun-note');
+    note.textContent = `语料来源：${index.source}。${index.license}全文 ${luxunFormatCount(index.totalChars)}，加载自站点静态文件，不写入本机存储。`;
+    wrap.appendChild(note);
+
+    if (luxunRenderAlive(token)) body.replaceChildren(wrap);
+  }
+
+  function createLuxunLastReadStrip() {
+    const last = state.luxun.reading && state.luxun.reading.lastRead;
+    if (!last || !last.workId) return null;
+    const strip = el('div', 'luxun-continue');
+    const text = el('p', 'luxun-continue-text', `上次读到《${last.workTitle}》`);
+    const resume = el('button', 'btn primary', '继续读');
+    resume.type = 'button';
+    resume.addEventListener('click', () => {
+      window.location.hash = luxunWorkHash(last.collectionId, last.workId);
+    });
+    strip.append(text, resume);
+    return strip;
+  }
+
+  function createLuxunDawnCard(index) {
+    const pool = Array.isArray(index.dawnPool) ? index.dawnPool : [];
+    if (!pool.length) return null;
+    const now = new Date();
+    const seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+    const pick = pool[(seed * 7 + (state.luxun.dawnOffset || 0)) % pool.length];
+    const card = el('section', 'luxun-dawn');
+    const eyebrow = el('p', 'luxun-dawn-eyebrow');
+    eyebrow.textContent = `今日晨读 · ${now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}`;
+    const title = el('h2', 'luxun-dawn-title', `《${pick.workTitle}》`);
+    const meta = el('p', 'luxun-dawn-meta', `${pick.collectionTitle}${pick.date ? ` · ${pick.date}` : ''}`);
+    const quote = el('blockquote', 'luxun-dawn-text', pick.text);
+    const actions = el('div', 'luxun-dawn-actions');
+    const readBtn = el('button', 'btn primary', '读全文');
+    readBtn.type = 'button';
+    readBtn.addEventListener('click', () => {
+      window.location.hash = luxunWorkHash(pick.collectionId, pick.workId);
+    });
+    const nextBtn = el('button', 'btn ghost', '换一段');
+    nextBtn.type = 'button';
+    nextBtn.addEventListener('click', () => {
+      state.luxun.dawnOffset += 1;
+      renderLuxunIfCurrent();
+    });
+    actions.append(readBtn, nextBtn);
+    card.append(eyebrow, title, meta, quote, actions);
+    return card;
+  }
+
+  function createLuxunKindChips(index) {
+    const kinds = [];
+    for (const item of index.collections) {
+      if (!kinds.some((k) => k.kind === item.kind)) {
+        kinds.push({ kind: item.kind, label: item.kindLabel });
+      }
+    }
+    const row = el('div', 'luxun-chip-row');
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', '按文体筛选');
+    const makeChip = (kind, label, count) => {
+      const chip = el('button', 'luxun-chip');
+      chip.type = 'button';
+      chip.textContent = count != null ? `${label} ${count}` : label;
+      const active = state.luxun.homeKind === kind;
+      chip.classList.toggle('is-active', active);
+      chip.setAttribute('aria-pressed', String(active));
+      chip.addEventListener('click', () => {
+        state.luxun.homeKind = kind;
+        renderLuxunIfCurrent();
+      });
+      return chip;
+    };
+    row.appendChild(makeChip('all', '全部'));
+    for (const kind of kinds) {
+      const count = index.collections.filter((item) => item.kind === kind.kind)
+        .reduce((n, item) => n + item.workCount, 0);
+      row.appendChild(makeChip(kind.kind, kind.label, count));
+    }
+    return row;
+  }
+
+  function createLuxunSearchPanel() {
+    const panel = el('div', 'luxun-search');
+    const input = el('input', 'luxun-search-input');
+    input.type = 'search';
+    input.placeholder = '搜篇名或正文，如：圆规、枣树、大约的确…';
+    input.setAttribute('aria-label', '搜索鲁迅语料');
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    const deepBtn = el('button', 'btn ghost', '搜索全部语料');
+    deepBtn.type = 'button';
+    const status = el('p', 'luxun-search-status');
+    const results = el('div', 'luxun-search-results');
+
+    let searchTimer = 0;
+    const runLive = () => {
+      const query = input.value.trim();
+      if (!query) { results.replaceChildren(); status.textContent = ''; return; }
+      if (!state.luxun.allLoaded) {
+        status.textContent = '输入回车或点「搜索全部语料」以载入全部文本后搜索。';
+        return;
+      }
+      status.textContent = '';
+      renderLuxunSearchResults(results, query);
+    };
+    input.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runLive, 250);
+    });
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      clearTimeout(searchTimer);
+      const query = input.value.trim();
+      if (!query) return;
+      if (state.luxun.allLoaded) { renderLuxunSearchResults(results, query); return; }
+      status.textContent = '正在载入全部语料……';
+      deepBtn.disabled = true;
+      ensureAllLuxunCollections((done, total) => {
+        if (luxunRenderAlive(state.luxun.renderToken)) {
+          status.textContent = `正在载入全部语料…… ${done}/${total}`;
+        }
+      }).then((ok) => {
+        deepBtn.disabled = false;
+        if (!ok) { status.textContent = '部分语料载入失败，已搜索载入成功的部分。'; }
+        else { status.textContent = ''; }
+        renderLuxunSearchResults(results, input.value.trim());
+      });
+    });
+    deepBtn.addEventListener('click', () => {
+      const query = input.value.trim();
+      if (!query) { input.focus(); return; }
+      if (state.luxun.allLoaded) { renderLuxunSearchResults(results, query); return; }
+      status.textContent = '正在载入全部语料……';
+      deepBtn.disabled = true;
+      ensureAllLuxunCollections((done, total) => {
+        if (luxunRenderAlive(state.luxun.renderToken)) {
+          status.textContent = `正在载入全部语料…… ${done}/${total}`;
+        }
+      }).then((ok) => {
+        deepBtn.disabled = false;
+        status.textContent = ok ? '' : '部分语料载入失败，已搜索载入成功的部分。';
+        renderLuxunSearchResults(results, input.value.trim());
+      });
+    });
+
+    panel.append(input, deepBtn, status, results);
+    return panel;
+  }
+
+  function luxunHighlightInto(node, text, query) {
+    const lower = text.toLowerCase();
+    const needle = query.toLowerCase();
+    let cursor = 0;
+    for (;;) {
+      const at = lower.indexOf(needle, cursor);
+      if (at < 0) break;
+      if (at > cursor) node.appendChild(document.createTextNode(text.slice(cursor, at)));
+      node.appendChild(el('mark', 'luxun-hit-mark', text.slice(at, at + needle.length)));
+      cursor = at + needle.length;
+      if (node.childNodes.length > 24) break;
+    }
+    if (cursor < text.length) node.appendChild(document.createTextNode(text.slice(cursor)));
+  }
+
+  function renderLuxunSearchResults(container, query) {
+    container.replaceChildren();
+    if (!query || !state.luxun.index) return;
+    const hits = [];
+    for (const item of state.luxun.index.collections) {
+      const data = state.luxun.collections.get(item.id);
+      if (!data) continue;
+      for (const work of data.works) {
+        const titleHit = work.title.includes(query);
+        const paraHits = [];
+        work.blocks.forEach((block, blockIndex) => {
+          if (block.t !== 'p') return;
+          if (block.x.includes(query) && paraHits.length < 2) {
+            paraHits.push({ paraIndex: blockIndex, text: block.x });
+          }
+        });
+        if (titleHit || paraHits.length) {
+          hits.push({ collection: item, work, titleHit, paraHits });
+          if (hits.length >= 120) break;
+        }
+      }
+      if (hits.length >= 120) break;
+    }
+
+    const count = el('p', 'luxun-search-status');
+    count.textContent = hits.length ? `命中 ${hits.length} 处（篇名或正文）` : '没有找到相关段落。';
+    container.appendChild(count);
+    if (!hits.length) return;
+
+    const list = el('div', 'luxun-hit-list');
+    for (const hit of hits) {
+      const row = el('button', 'luxun-hit');
+      row.type = 'button';
+      const head = el('span', 'luxun-hit-head', `${hit.work.title} · ${hit.collection.title}`);
+      row.appendChild(head);
+      const target = hit.paraHits[0];
+      if (target) {
+        const snippet = el('span', 'luxun-hit-snippet');
+        const text = target.text;
+        const at = Math.max(0, text.indexOf(query) - 24);
+        const start = at > 0 ? `…${text.slice(at)}` : text;
+        luxunHighlightInto(snippet, start.slice(0, 160), query);
+        row.appendChild(snippet);
+        row.addEventListener('click', () => {
+          state.luxun.pendingJump = {
+            collectionId: hit.collection.id,
+            workId: hit.work.id,
+            paraIndex: target.paraIndex,
+          };
+          window.location.hash = luxunWorkHash(hit.collection.id, hit.work.id);
+        });
+      } else {
+        row.appendChild(el('span', 'luxun-hit-snippet', '篇名匹配'));
+        row.addEventListener('click', () => {
+          state.luxun.pendingJump = null;
+          window.location.hash = luxunWorkHash(hit.collection.id, hit.work.id);
+        });
+      }
+      list.appendChild(row);
+    }
+    container.appendChild(list);
+  }
+
+  function createLuxunCollectionGrid(index) {
+    const kind = state.luxun.homeKind;
+    const items = index.collections.filter((item) => kind === 'all' || item.kind === kind);
+    const grid = el('div', 'luxun-card-grid');
+    for (const item of items) {
+      const card = el('a', 'luxun-card');
+      card.href = luxunCollectionHash(item.id);
+      const kindChip = el('span', 'luxun-card-kind', item.kindLabel);
+      const title = el('h3', 'luxun-card-title', item.title);
+      const meta = el('p', 'luxun-card-meta', `${item.year} · ${item.workCount} 篇 · ${luxunFormatCount(item.charCount)}`);
+      card.append(kindChip, title, meta);
+      grid.appendChild(card);
+    }
+    if (!items.length) {
+      grid.appendChild(el('p', 'luxun-note', '这个文体下暂时没有作品集。'));
+    }
+    return grid;
+  }
+
+  /* ----- 集目录 ----- */
+
+  function renderLuxunCollection(collectionId) {
+    state.luxun.currentRoute = { view: 'collection', id: collectionId };
+    const token = luxunBeginRender();
+    const body = els.luxunBody;
+    body.replaceChildren();
+    const index = ensureLuxunIndex();
+    const meta = index ? findLuxunCollectionMeta(collectionId) : null;
+    if (!index) {
+      body.appendChild(state.luxun.loadError ? createLuxunError(state.luxun.loadError) : createLuxunLoading());
+      return;
+    }
+    if (!meta) {
+      body.appendChild(createLuxunError('没有找到这本作品集，可能语料尚未收录。'));
+      return;
+    }
+
+    const wrap = el('div', 'luxun-collection');
+    const crumb = el('a', 'luxun-back-chip', '← 文库总览');
+    crumb.href = '#/luxun';
+    wrap.appendChild(crumb);
+
+    const head = el('header', 'luxun-collection-head');
+    head.appendChild(el('span', 'luxun-card-kind', meta.kindLabel));
+    head.appendChild(el('h2', 'luxun-collection-title', meta.title));
+    head.appendChild(
+      el('p', 'luxun-collection-meta', `${meta.year} · ${meta.workCount} 篇 · ${luxunFormatCount(meta.charCount)}`)
+    );
+    wrap.appendChild(head);
+
+    const loading = createLuxunLoading();
+    wrap.appendChild(loading);
+    if (luxunRenderAlive(token)) body.replaceChildren(wrap);
+
+    loadLuxunCollection(collectionId)
+      .then((data) => {
+        if (!luxunRenderAlive(token)) return;
+        loading.remove();
+
+        const readCount = data.works.filter(
+          (work) => state.luxun.reading.readMap[work.id] != null
+            && state.luxun.reading.readMap[work.id] >= work.blocks.length - 1
+        ).length;
+        head.appendChild(
+          el('p', 'luxun-collection-progress', readCount ? `已读完 ${readCount}/${data.works.length} 篇` : '还没有读完的篇目')
+        );
+
+        const filterRow = el('div', 'luxun-filter-row');
+        const filter = el('input', 'luxun-filter-input');
+        filter.type = 'search';
+        filter.placeholder = '过滤篇名…';
+        filter.setAttribute('aria-label', `过滤《${meta.title}》篇目`);
+        filter.autocomplete = 'off';
+        filterRow.appendChild(filter);
+        wrap.appendChild(filterRow);
+
+        const list = el('div', 'luxun-toc-list');
+        const buildList = (needle) => {
+          list.replaceChildren();
+          const query = (needle || '').trim();
+          data.works.forEach((work, workIndex) => {
+            if (query && !work.title.includes(query)) return;
+            list.appendChild(createLuxunTocRow(data, work, workIndex));
+          });
+          if (!list.childNodes.length) {
+            list.appendChild(el('p', 'luxun-note', '没有匹配的篇目。'));
+          }
+        };
+        filter.addEventListener('input', () => buildList(filter.value));
+        buildList('');
+        wrap.appendChild(list);
+      })
+      .catch(() => {
+        if (!luxunRenderAlive(token)) return;
+        loading.replaceWith(createLuxunError('这本作品集的语料加载失败，请刷新重试。'));
+      });
+  }
+
+  function createLuxunTocRow(data, work, workIndex) {
+    const read = state.luxun.reading.readMap[work.id];
+    const finished = read != null && read >= work.blocks.length - 1;
+    const started = read != null && !finished;
+    const row = el('a', 'luxun-toc-row');
+    row.href = luxunWorkHash(data.id, work.id);
+    if (finished) row.classList.add('is-read');
+    if (started) row.classList.add('is-started');
+
+    const index = el('span', 'luxun-toc-index', String(workIndex + 1).padStart(2, '0'));
+    const titleWrap = el('span', 'luxun-toc-titlewrap');
+    titleWrap.appendChild(el('span', 'luxun-toc-title', work.title));
+    if (work.date) titleWrap.appendChild(el('span', 'luxun-toc-date', work.date));
+    const count = el('span', 'luxun-toc-count', luxunFormatCount(work.charCount));
+    row.append(index, titleWrap, count);
+    if (finished) row.appendChild(el('span', 'luxun-toc-flag', '已读'));
+    else if (started) row.appendChild(el('span', 'luxun-toc-flag', '读到一半'));
+    return row;
+  }
+
+  /* ----- 阅读页 ----- */
+
+  function renderLuxunWork(collectionId, workId) {
+    state.luxun.currentRoute = { view: 'work', collectionId, workId };
+    const token = luxunBeginRender();
+    const body = els.luxunBody;
+    body.replaceChildren();
+
+    const meta = findLuxunCollectionMeta(collectionId);
+    if (!meta) {
+      if (state.luxun.index) {
+        body.appendChild(createLuxunError('没有找到这本作品集，可能语料尚未收录。'));
+      } else {
+        body.appendChild(createLuxunLoading());
+        fetchLuxunIndex();
+      }
+      return;
+    }
+
+    const wrap = el('div', 'luxun-work');
+    const crumbRow = el('div', 'luxun-crumb-row');
+    const crumbHome = el('a', 'luxun-back-chip', '文库总览');
+    crumbHome.href = '#/luxun';
+    const crumbCollection = el('a', 'luxun-back-chip', `《${meta.title}》`);
+    crumbCollection.href = luxunCollectionHash(collectionId);
+    crumbRow.append(crumbHome, crumbCollection);
+    wrap.appendChild(crumbRow);
+
+    const loading = createLuxunLoading();
+    wrap.appendChild(loading);
+    if (luxunRenderAlive(token)) body.replaceChildren(wrap);
+
+    loadLuxunCollection(collectionId)
+      .then((data) => {
+        if (!luxunRenderAlive(token)) return;
+        const workIndex = data.works.findIndex((item) => item.id === workId);
+        if (workIndex < 0) {
+          loading.replaceWith(createLuxunError('没有找到这一篇，可能篇目编号有变。'));
+          return;
+        }
+        const work = data.works[workIndex];
+        const prev = data.works[workIndex - 1] || null;
+        const next = data.works[workIndex + 1] || null;
+        loading.remove();
+        wrap.appendChild(
+          createLuxunReader(data, work, prev, next, meta)
+        );
+        document.title = `${work.title} · ${meta.title} · ${SITE_NAME}`;
+        luxunAfterWorkRender(data, work);
+      })
+      .catch(() => {
+        if (!luxunRenderAlive(token)) return;
+        loading.replaceWith(createLuxunError('语料加载失败，请刷新重试。'));
+      });
+  }
+
+  function createLuxunReader(data, work, prev, next, meta) {
+    const reader = el('article', 'luxun-reader');
+    const head = el('header', 'luxun-reader-head');
+    head.appendChild(el('h2', 'luxun-reader-title', work.title));
+    const read = state.luxun.reading.readMap[work.id];
+    head.appendChild(el('p', 'luxun-reader-meta', [
+      meta.title,
+      work.date || null,
+      `${luxunFormatCount(work.charCount)}`,
+      read != null ? `上次读到第 ${read + 1} 段` : null,
+    ].filter(Boolean).join(' · ')));
+    reader.appendChild(head);
+
+    const bookmarks = state.luxun.reading.bookmarks.filter((item) => item.workId === work.id);
+    if (bookmarks.length) {
+      const strip = el('div', 'luxun-bookmark-strip');
+      strip.appendChild(el('span', 'luxun-bookmark-label', '收藏的段落：'));
+      for (const mark of bookmarks) {
+        const chip = el('button', 'luxun-bookmark-chip', `第 ${mark.paraIndex + 1} 段 · ${mark.text.slice(0, 10)}…`);
+        chip.type = 'button';
+        chip.title = mark.text;
+        chip.addEventListener('click', () => {
+          luxunJumpToPara(mark.paraIndex);
+        });
+        strip.appendChild(chip);
+      }
+      reader.appendChild(strip);
+    }
+
+    const hint = el('p', 'luxun-hint', '点击段落可整段选中；也可以用鼠标划选任意文字，然后设为仿写范文、加入摘录篮或收藏。');
+    reader.appendChild(hint);
+
+    const article = el('div', 'luxun-article');
+    work.blocks.forEach((block, blockIndex) => {
+      if (block.t === 'h') {
+        article.appendChild(el('h3', 'luxun-block-h', block.x));
+        return;
+      }
+      const p = el('p', 'luxun-block-p', block.x);
+      p.dataset.para = String(blockIndex);
+      p.addEventListener('click', () => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount && !selection.isCollapsed) {
+          const startNode = selection.getRangeAt(0).startContainer;
+          const startEl = startNode.nodeType === 1 ? startNode : startNode.parentElement;
+          if (startEl && startEl.closest && startEl.closest('.luxun-article') === article) return;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(p);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+      const mark = state.luxun.reading.bookmarks.find(
+        (item) => item.workId === work.id && item.paraIndex === blockIndex
+      );
+      if (mark) p.classList.add('is-marked');
+      article.appendChild(p);
+    });
+    reader.appendChild(article);
+    state.luxun.activeArticle = article;
+    state.luxun.activeWork = work;
+    state.luxun.activeCollection = data;
+
+    const nav = el('div', 'luxun-reader-nav');
+    const prevBtn = el('button', 'btn ghost', prev ? `← ${prev.title}` : '← 已是第一篇');
+    prevBtn.type = 'button';
+    prevBtn.disabled = !prev;
+    if (prev) prevBtn.addEventListener('click', () => {
+      window.location.hash = luxunWorkHash(data.id, prev.id);
+    });
+    const tocBtn = el('button', 'btn ghost', '目录');
+    tocBtn.type = 'button';
+    tocBtn.addEventListener('click', () => {
+      window.location.hash = luxunCollectionHash(data.id);
+    });
+    const nextBtn = el('button', 'btn ghost', next ? `${next.title} →` : '已是最后一篇 →');
+    nextBtn.type = 'button';
+    nextBtn.disabled = !next;
+    if (next) nextBtn.addEventListener('click', () => {
+      window.location.hash = luxunWorkHash(data.id, next.id);
+    });
+    nav.append(prevBtn, tocBtn, nextBtn);
+    reader.appendChild(nav);
+    return reader;
+  }
+
+  function luxunAfterWorkRender(data, work) {
+    const article = state.luxun.activeArticle;
+    if (!article) return;
+
+    state.luxun.reading.lastRead = {
+      collectionId: data.id,
+      collectionTitle: data.title,
+      workId: work.id,
+      workTitle: work.title,
+    };
+    saveLuxunReading();
+
+    const bar = el('div', 'luxun-selbar');
+    bar.setAttribute('role', 'toolbar');
+    bar.setAttribute('aria-label', '选中文字操作');
+    const count = el('span', 'luxun-selbar-count', '');
+    const sourceBtn = el('button', 'btn primary', '设为仿写范文');
+    sourceBtn.type = 'button';
+    const excerptBtn = el('button', 'btn ghost', '加入摘录篮');
+    excerptBtn.type = 'button';
+    const markBtn = el('button', 'btn ghost', '收藏本段');
+    markBtn.type = 'button';
+    const closeBtn = el('button', 'btn ghost luxun-selbar-close', '收起');
+    closeBtn.type = 'button';
+    bar.append(count, sourceBtn, excerptBtn, markBtn, closeBtn);
+    bar.hidden = true;
+    state.luxun.selBar = bar;
+    els.luxunView.appendChild(bar);
+
+    const syncBar = () => {
+      const text = luxunSelectionText();
+      if (!text || !bar.isConnected) { bar.hidden = true; return; }
+      count.textContent = `已选 ${text.length} 字`;
+      bar.hidden = false;
+    };
+
+    sourceBtn.addEventListener('click', () => {
+      const text = luxunSelectionText();
+      if (!text) return;
+      openDrillEditor(null, {
+        kind: 'imitation',
+        title: `仿写《${work.title}》`,
+        source: text,
+        sourceNote: `鲁迅《${work.title}》`,
+      });
+      showToast('范文已带入练笔房，写完你的仿写再保存', 'info');
+      bar.hidden = true;
+    });
+    excerptBtn.addEventListener('click', () => {
+      const text = luxunSelectionText();
+      if (!text) return;
+      if (state.luxun.excerpt.some((item) => item.text === text)) {
+        showToast('这段已在摘录篮里了', 'info');
+        return;
+      }
+      if (state.luxun.excerpt.length >= LUXUN_EXCERPT_LIMIT) {
+        showToast(`摘录篮最多放 ${LUXUN_EXCERPT_LIMIT} 段，先去文风研读里用掉一些吧`, 'error');
+        return;
+      }
+      state.luxun.excerpt.push({
+        collectionId: data.id,
+        collectionTitle: data.title,
+        workId: work.id,
+        workTitle: work.title,
+        date: work.date || '',
+        text,
+      });
+      showToast(`已加入摘录篮（${state.luxun.excerpt.length}/${LUXUN_EXCERPT_LIMIT}）`, 'success');
+      bar.hidden = true;
+    });
+    markBtn.addEventListener('click', () => {
+      const selection = window.getSelection();
+      let paraIndex = 0;
+      let text = '';
+      if (selection && selection.rangeCount) {
+        const node = selection.getRangeAt(0).startContainer;
+        const paraNode = node && node.nodeType === 1
+          ? node.closest('.luxun-block-p')
+          : node.parentElement && node.parentElement.closest('.luxun-block-p');
+        if (paraNode) paraIndex = Number(paraNode.dataset.para || 0);
+      }
+      const paraEl = article.querySelector(`.luxun-block-p[data-para="${paraIndex}"]`);
+      text = paraEl ? paraEl.textContent : luxunSelectionText();
+      const exists = state.luxun.reading.bookmarks.some(
+        (item) => item.workId === work.id && item.paraIndex === paraIndex
+      );
+      if (exists) {
+        showToast('这一段已经收藏过了', 'info');
+        return;
+      }
+      if (state.luxun.reading.bookmarks.length >= LUXUN_BOOKMARK_LIMIT) {
+        showToast(`收藏最多 ${LUXUN_BOOKMARK_LIMIT} 条`, 'error');
+        return;
+      }
+      state.luxun.reading.bookmarks.push({
+        id: makeId(),
+        collectionId: data.id,
+        collectionTitle: data.title,
+        workId: work.id,
+        workTitle: work.title,
+        paraIndex,
+        text: (text || '').slice(0, 200),
+        createdAt: new Date().toISOString(),
+      });
+      if (paraEl) paraEl.classList.add('is-marked');
+      saveLuxunReading(true);
+      showToast('已收藏本段', 'success');
+      bar.hidden = true;
+    });
+    closeBtn.addEventListener('click', () => {
+      bar.hidden = true;
+    });
+
+    document.addEventListener('selectionchange', syncBar);
+    state.luxun.selBarSync = syncBar;
+
+    const jump = state.luxun.pendingJump;
+    state.luxun.pendingJump = null;
+    if (jump && jump.collectionId === data.id && jump.workId === work.id) {
+      luxunJumpToPara(jump.paraIndex, true);
+      return;
+    }
+    const read = state.luxun.reading.readMap[work.id];
+    if (read != null && read > 0) {
+      window.requestAnimationFrame(() => {
+        luxunJumpToPara(Math.min(read, work.blocks.length - 1));
+      });
+    }
+  }
+
+  function luxunSelectionText() {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return '';
+    const node = selection.getRangeAt(0).commonAncestorContainer;
+    const element = node.nodeType === 1 ? node : node.parentElement;
+    if (!element || !element.closest || !element.closest('.luxun-article')) return '';
+    const text = String(selection).replace(/\s+/g, ' ').trim();
+    if (text.length < 2) return '';
+    return text;
+  }
+
+  function luxunJumpToPara(paraIndex, highlight) {
+    const article = state.luxun.activeArticle;
+    if (!article) return;
+    const para = article.querySelector(`.luxun-block-p[data-para="${paraIndex}"]`)
+      || article.querySelector('.luxun-block-h');
+    if (!para) return;
+    article.querySelectorAll('.luxun-para-active').forEach((node) => node.classList.remove('luxun-para-active'));
+    if (highlight) para.classList.add('luxun-para-active');
+    para.scrollIntoView({ block: 'center', behavior: 'auto' });
+  }
+
+  function luxunUpdateProgress() {
+    const article = state.luxun.activeArticle;
+    const work = state.luxun.activeWork;
+    const data = state.luxun.activeCollection;
+    if (!article || !work || !data || state.luxun.currentRoute?.view !== 'work') return;
+    const paras = article.querySelectorAll('.luxun-block-p');
+    const line = window.innerHeight * 0.6;
+    let deepest = -1;
+    paras.forEach((node) => {
+      const rect = node.getBoundingClientRect();
+      if (rect.top < line) {
+        const index = Number(node.dataset.para || 0);
+        if (index > deepest) deepest = index;
+      }
+    });
+    if (deepest < 0) return;
+    const readMap = state.luxun.reading.readMap;
+    readMap[work.id] = Math.max(readMap[work.id] ?? 0, deepest);
+    state.luxun.reading.lastRead = {
+      collectionId: data.id,
+      collectionTitle: data.title,
+      workId: work.id,
+      workTitle: work.title,
+    };
+    saveLuxunReading();
+  }
+
+  /* ----- 文风研读 ----- */
+
+  function fetchLuxunStyleCards() {
+    if (luxunStyleCardsPromise) return luxunStyleCardsPromise;
+    luxunStyleCardsPromise = fetch(luxunFileUrl('style-cards.json'))
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .catch(() => {
+        luxunStyleCardsPromise = null;
+        return null;
+      });
+    return luxunStyleCardsPromise;
+  }
+
+  function renderLuxunStyle() {
+    state.luxun.currentRoute = 'style';
+    const token = luxunBeginRender();
+    const body = els.luxunBody;
+    body.replaceChildren();
+
+    const wrap = el('div', 'luxun-style');
+    const crumb = el('a', 'luxun-back-chip', '← 文库总览');
+    crumb.href = '#/luxun';
+    wrap.appendChild(crumb);
+
+    const head = el('header', 'luxun-style-head');
+    head.appendChild(el('h2', 'luxun-style-title', '文风研读'));
+    head.appendChild(el('p', 'luxun-style-desc', '把鲁迅的笔法拆成看得见的特征：每张卡片配原文例句，可跳回原文对照；下方是四阶段训练路径和 AI 文风包。'));
+    wrap.appendChild(head);
+
+    wrap.appendChild(createLuxunTrainingPath());
+    wrap.appendChild(createLuxunAiPanel());
+
+    const cardsWrap = el('div', 'luxun-cards-zone');
+    const cardsLoading = createLuxunLoading('研读卡片装载中……');
+    cardsWrap.appendChild(cardsLoading);
+    wrap.appendChild(cardsWrap);
+
+    if (luxunRenderAlive(token)) body.replaceChildren(wrap);
+
+    fetchLuxunStyleCards().then((cardsData) => {
+      if (!luxunRenderAlive(token)) return;
+      cardsLoading.remove();
+      const cards = cardsData && Array.isArray(cardsData.cards) ? cardsData.cards : [];
+      if (!cards.length) {
+        cardsWrap.appendChild(createLuxunError('研读卡片尚未生成（语料定稿后自动补上）。'));
+        return;
+      }
+      const grid = el('div', 'luxun-style-grid');
+      for (const card of cards) grid.appendChild(createLuxunStyleCard(card));
+      cardsWrap.appendChild(grid);
+    });
+  }
+
+  function createLuxunStyleCard(card) {
+    const node = el('article', 'luxun-style-card');
+    node.appendChild(el('h3', 'luxun-style-card-title', card.title));
+    if (card.gist) node.appendChild(el('p', 'luxun-style-card-gist', card.gist));
+    if (Array.isArray(card.points) && card.points.length) {
+      const list = el('ul', 'luxun-style-card-points');
+      for (const point of card.points) list.appendChild(el('li', '', point));
+      node.appendChild(list);
+    }
+    if (Array.isArray(card.examples) && card.examples.length) {
+      const examples = el('div', 'luxun-style-card-examples');
+      for (const example of card.examples) {
+        const quote = el('blockquote', 'luxun-style-quote', example.text);
+        examples.appendChild(quote);
+        if (example.workId) {
+          const link = el('button', 'luxun-style-source', `读原文 ·《${example.workTitle || ''}》`);
+          link.type = 'button';
+          link.addEventListener('click', () => {
+            state.luxun.pendingJump = {
+              collectionId: example.collectionId,
+              workId: example.workId,
+              paraIndex: example.paraIndex || 0,
+            };
+            window.location.hash = luxunWorkHash(example.collectionId, example.workId);
+          });
+          examples.appendChild(link);
+        } else if (example.workTitle) {
+          examples.appendChild(el('p', 'luxun-style-source-name', `——《${example.workTitle}》`));
+        }
+      }
+      node.appendChild(examples);
+    }
+    if (card.drill) node.appendChild(el('p', 'luxun-style-card-drill', `练一练：${card.drill}`));
+    return node;
+  }
+
+  function createLuxunTrainingPath() {
+    const stages = [
+      {
+        title: '第一阶段 · 白描起步',
+        goal: '只写看得见的东西。写一个你熟悉的摊位、厨房或院角，全文不许出现情绪形容词。',
+        links: [{ id: 'chaohua-xishi', label: '《朝花夕拾》' }, { id: 'nahan', label: '《呐喊·社戏》' }],
+      },
+      {
+        title: '第二阶段 · 人物定名',
+        goal: '给人物一个定语（「站著喝酒而穿長衫的唯一的人」式），全篇所有细节都围绕这个定语展开。',
+        links: [{ id: 'nahan', label: '《呐喊》' }, { id: 'panghuang', label: '《彷徨》' }],
+      },
+      {
+        title: '第三阶段 · 曲笔论战',
+        goal: '从今天的一件小事写起，引申开去，收束成一记反戈；练「正话反说」。',
+        links: [{ id: 'refeng', label: '《热风》' }, { id: 'huagaiji', label: '《华盖集》' }, { id: 'fen', label: '《坟》' }],
+      },
+      {
+        title: '第四阶段 · 梦境诗性',
+        goal: '用悖论与复沓写一段两百字以内的散文诗；写完隔三天再读，删掉一半形容词。',
+        links: [{ id: 'yecao', label: '《野草》' }],
+      },
+    ];
+    const zone = el('section', 'luxun-stages');
+    zone.appendChild(el('h3', 'luxun-zone-title', '训练路径'));
+    const grid = el('div', 'luxun-stage-grid');
+    for (const stage of stages) {
+      const node = el('article', 'luxun-stage');
+      node.appendChild(el('h4', 'luxun-stage-title', stage.title));
+      node.appendChild(el('p', 'luxun-stage-goal', stage.goal));
+      const links = el('p', 'luxun-stage-links');
+      links.appendChild(document.createTextNode('对应读物：'));
+      stage.links.forEach((link, index) => {
+        if (index) links.appendChild(document.createTextNode('、'));
+        const anchor = el('a', 'luxun-stage-link', link.label);
+        anchor.href = luxunCollectionHash(link.id);
+        links.appendChild(anchor);
+      });
+      node.appendChild(links);
+      grid.appendChild(node);
+    }
+    zone.appendChild(grid);
+    return zone;
+  }
+
+  function createLuxunAiPanel() {
+    const panel = el('section', 'luxun-ai');
+    panel.appendChild(el('h3', 'luxun-zone-title', 'AI 文风包'));
+    panel.appendChild(el('p', 'luxun-zone-desc', '把任务、文风要点和你在原文里摘录的段落拼成一条提示词，复制给任何 AI，让它按鲁迅的笔法辅助你写作。全程只在本机拼装，不经服务器。'));
+
+    const presetRow = el('div', 'luxun-chip-row');
+    presetRow.setAttribute('role', 'group');
+    presetRow.setAttribute('aria-label', '选择任务预设');
+    for (const [key, preset] of Object.entries(LUXUN_AI_PRESETS)) {
+      const chip = el('button', 'luxun-chip', preset.label);
+      chip.type = 'button';
+      chip.dataset.preset = key;
+      chip.setAttribute('aria-pressed', String(state.luxun.aiPreset === key));
+      chip.classList.toggle('is-active', state.luxun.aiPreset === key);
+      chip.addEventListener('click', () => {
+        state.luxun.aiPreset = key;
+        presetRow.querySelectorAll('.luxun-chip').forEach((node) => {
+          const active = node.dataset.preset === key;
+          node.classList.toggle('is-active', active);
+          node.setAttribute('aria-pressed', String(active));
+        });
+        updatePreview();
+      });
+      presetRow.appendChild(chip);
+    }
+    panel.appendChild(presetRow);
+
+    const checkRow = el('div', 'luxun-check-row');
+    checkRow.setAttribute('role', 'group');
+    checkRow.setAttribute('aria-label', '选择文风要点');
+    if (!state.luxun.aiChecks) state.luxun.aiChecks = new Set(LUXUN_STYLE_CHECKLIST.slice(0, 6).map((item) => item.id));
+    for (const item of LUXUN_STYLE_CHECKLIST) {
+      const chip = el('button', 'luxun-chip luxun-chip-check', item.label);
+      chip.type = 'button';
+      chip.title = item.hint;
+      chip.dataset.check = item.id;
+      chip.classList.toggle('is-active', state.luxun.aiChecks.has(item.id));
+      chip.setAttribute('aria-pressed', String(state.luxun.aiChecks.has(item.id)));
+      chip.addEventListener('click', () => {
+        if (state.luxun.aiChecks.has(item.id)) state.luxun.aiChecks.delete(item.id);
+        else state.luxun.aiChecks.add(item.id);
+        chip.classList.toggle('is-active', state.luxun.aiChecks.has(item.id));
+        chip.setAttribute('aria-pressed', String(state.luxun.aiChecks.has(item.id)));
+        updatePreview();
+      });
+      checkRow.appendChild(chip);
+    }
+    panel.appendChild(checkRow);
+
+    const basketHead = el('div', 'luxun-basket-head');
+    basketHead.appendChild(el('h4', 'luxun-basket-title', `摘录篮（${state.luxun.excerpt.length}/${LUXUN_EXCERPT_LIMIT}）`));
+    panel.appendChild(basketHead);
+    const basket = el('div', 'luxun-basket');
+    if (!state.luxun.excerpt.length) {
+      basket.appendChild(el('p', 'luxun-note', '还没有摘录：去文库总览打开任意一篇，选中一段文字点「加入摘录篮」，就会出现在这里。'));
+    } else {
+      state.luxun.excerpt.forEach((item, index) => {
+        const chip = el('div', 'luxun-basket-item');
+        chip.appendChild(el('span', 'luxun-basket-text', `《${item.workTitle}》：${item.text.slice(0, 60)}…`));
+        const removeBtn = el('button', 'luxun-basket-remove', '×');
+        removeBtn.type = 'button';
+        removeBtn.setAttribute('aria-label', '移除这段摘录');
+        removeBtn.addEventListener('click', () => {
+          state.luxun.excerpt.splice(index, 1);
+          renderLuxunIfCurrent();
+        });
+        chip.appendChild(removeBtn);
+        basket.appendChild(chip);
+      });
+    }
+    panel.appendChild(basket);
+
+    const intentLabel = el('label', 'luxun-intent-field');
+    intentLabel.appendChild(el('span', 'luxun-intent-label', '我的创作意图（想写什么、给谁看、多少字）'));
+    const intent = el('textarea', 'luxun-intent-input');
+    intent.rows = 3;
+    intent.maxLength = 600;
+    intent.placeholder = '比如：用这段笔法写我小说里主角第一次进城的一段，500 字左右';
+    intent.value = state.luxun.aiIntent || '';
+    intent.addEventListener('input', () => {
+      state.luxun.aiIntent = intent.value;
+      updatePreview();
+    });
+    intentLabel.appendChild(intent);
+    panel.appendChild(intentLabel);
+
+    const preview = el('pre', 'luxun-ai-preview');
+    preview.setAttribute('aria-label', '提示词预览');
+    panel.appendChild(preview);
+
+    const actions = el('div', 'luxun-ai-actions');
+    const copyBtn = el('button', 'btn primary', '复制提示词');
+    copyBtn.type = 'button';
+    copyBtn.addEventListener('click', async () => {
+      const ok = await copyTextToClipboard(preview.textContent || '');
+      showToast(ok ? '提示词已复制' : '复制失败，请手动全选复制', ok ? 'success' : 'error');
+    });
+    const downloadBtn = el('button', 'btn ghost', '下载 .md');
+    downloadBtn.type = 'button';
+    downloadBtn.addEventListener('click', () => {
+      luxunDownloadText('鲁迅文风包.md', preview.textContent || '');
+    });
+    actions.append(copyBtn, downloadBtn);
+    panel.appendChild(actions);
+
+    const updatePreview = () => {
+      preview.textContent = buildLuxunAiPrompt();
+    };
+    updatePreview();
+    return panel;
+  }
+
+  function buildLuxunAiPrompt() {
+    const preset = LUXUN_AI_PRESETS[state.luxun.aiPreset] || LUXUN_AI_PRESETS.continuation;
+    const lines = [];
+    lines.push('【任务】');
+    lines.push(preset.task);
+    lines.push('');
+    const checks = LUXUN_STYLE_CHECKLIST.filter((item) => state.luxun.aiChecks && state.luxun.aiChecks.has(item.id));
+    lines.push('【文风要点】');
+    if (checks.length) {
+      for (const item of checks) lines.push(`- ${item.label}（${item.hint}）`);
+    } else {
+      lines.push('- （未勾选；将从摘录中自行归纳）');
+    }
+    lines.push('');
+    lines.push('【鲁迅原文摘录（模仿对象）】');
+    if (state.luxun.excerpt.length) {
+      for (const item of state.luxun.excerpt) {
+        lines.push(`◆《${item.workTitle}》${item.date ? `（${item.date}）` : ''}：${item.text}`);
+      }
+    } else {
+      lines.push('（暂无摘录——请自行体会下列要点）');
+    }
+    lines.push('');
+    lines.push('【我的创作意图】');
+    lines.push((state.luxun.aiIntent || '').trim() || '（补充你想写的内容）');
+    lines.push('');
+    lines.push('【输出要求】');
+    lines.push('1. 先用不超过 5 条列出你从摘录与要点中抓住的文风特征；');
+    lines.push('2. 再给出正文，篇幅 500–800 字；');
+    lines.push('3. 用现代白话，但保留民国白话的短句节奏；禁用网络流行语与翻译腔长句。');
+    return lines.join('\n');
+  }
+
+  function luxunDownloadText(filename, text) {
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function bindLuxunEvents() {
+    window.addEventListener('scroll', () => {
+      luxunUpdateProgress();
+    }, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') saveLuxunReading(true);
+    });
+    window.addEventListener('beforeunload', () => {
+      saveLuxunReading(true);
+    });
+  }
+
   /* ---------- Utilities ---------- */
 
   function el(tag, className = '', text) {
@@ -17485,6 +18924,13 @@
     els.exportBtn.addEventListener('click', exportLibrary);
     els.footerExportBtn.addEventListener('click', exportLibrary);
     els.importFile.addEventListener('change', handleImportFile);
+
+    if (els.luxunStyleBtn) {
+      els.luxunStyleBtn.addEventListener('click', () => {
+        window.location.hash = '#/luxun/style';
+      });
+    }
+    bindLuxunEvents();
 
     if (els.sparkBtn) els.sparkBtn.addEventListener('click', openSparkDialog);
 
