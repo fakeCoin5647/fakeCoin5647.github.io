@@ -458,6 +458,42 @@
   font-size: 14px;
 }
 
+/* ---------- 全屏 / 沉浸阅读 ---------- */
+
+.reader.is-immersive {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  border-radius: 0;
+  background: var(--paper-deep);
+  padding: 12px 14px 14px;
+}
+
+.reader.is-immersive .reader-toolbar {
+  width: fit-content;
+  max-width: calc(100% - 4px);
+  margin-inline: auto;
+  box-shadow: var(--shadow-md);
+}
+
+.reader.is-immersive .reader-stage {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.reader:fullscreen {
+  border-radius: 0;
+  background: var(--paper-deep);
+  padding: 12px 14px 14px;
+}
+
+.reader:-webkit-full-screen {
+  border-radius: 0;
+  background: var(--paper-deep);
+  padding: 12px 14px 14px;
+}
+
 /* ---------- 翻译面板 ---------- */
 
 .translate-panel {
