@@ -4,3 +4,4 @@ lang: zh-CN
 exclude:
   - README.md
   - github-pages-upload
+  - tools
