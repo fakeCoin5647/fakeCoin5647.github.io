@@ -368,3 +368,20 @@ html.cabin-glass-on .content .icon-btn:active:not(:disabled) {
     border-radius: 14px;
   }
 }
+
+/* Keep navigation and actions in reach while leaving room for the page below. */
+@media (min-width: 320px) and (max-width: 680px) {
+  .sidebar .side-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px 6px;
+  }
+  .side-nav > .nav-label,
+  .side-nav > .nav-group {
+    grid-column: 1 / -1;
+  }
+  .sidebar .nav-item,
+  .sidebar .side-action {
+    min-height: 44px;
+  }
+}

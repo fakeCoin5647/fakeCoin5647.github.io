@@ -214,7 +214,9 @@ vec2 sdfNormal(vec2 p, vec2 halfSize, vec4 radii) {
   float cr = cornerRadius(p, radii);
   vec2 inner = halfSize - vec2(cr);
   vec2 q = abs(p) - inner;
-  return normalize(sign(p) * max(q, vec2(0.0)) + vec2(1e-6));
+  vec2 outside = max(q, vec2(0.0));
+  if (dot(outside, outside) > 1e-8) return normalize(sign(p) * outside);
+  return q.x > q.y ? vec2(sign(p.x), 0.0) : vec2(0.0, sign(p.y));
 }`;
 
   const FS_SHADOW = `#version 300 es
@@ -238,7 +240,7 @@ void main() {
   float d = max(sd, 0.0);
   float g = exp(-(d * d) / (2.0 * uSigma * uSigma));
   float a = mix(g, 1.0, step(sd, 0.0));
-  float fade = 1.0 - smoothstep(uFadeStart, uFadeEnd, vScreen.y);
+  float fade = uFadeEnd > uFadeStart ? 1.0 - smoothstep(uFadeStart, uFadeEnd, vScreen.y) : 1.0;
   fragColor = vec4(uShadowColor.rgb, uShadowColor.a * a * uAlpha * fade);
 }`;
 
@@ -273,6 +275,8 @@ uniform vec3 uTint;
 uniform float uTintAmount;
 uniform int uRimMode;
 uniform float uRimAlpha;
+uniform float uRimWidth;
+uniform float uRegular;
 uniform float uGlow;
 uniform vec2 uGlowCenter;
 uniform float uGlowRadius;
@@ -375,17 +379,10 @@ void main() {
     if (uChroma > 0.001 && band > 0.001) {
       float f = uChroma * (p.x * p.y / max(0.0001, halfSize.x * halfSize.y)) * band;
       vec2 d = dir * (-uLensAmount * band * f);
-      vec3 c0 = sampleBlurred(sp, uBlur);
-      vec3 c1 = sampleBlurred(sp + d, uBlur);
-      vec3 c2 = sampleBlurred(sp + d * 0.667, uBlur);
-      vec3 c3 = sampleBlurred(sp + d * 0.333, uBlur);
-      vec3 c4 = sampleBlurred(sp - d * 0.333, uBlur);
-      vec3 c5 = sampleBlurred(sp - d * 0.667, uBlur);
-      vec3 c6 = sampleBlurred(sp - d, uBlur);
-      float r = c1.r / 3.5 + c2.r / 3.5 + c3.r / 3.5 + c6.r / 7.0;
-      float g = c2.g / 7.0 + c3.g / 3.5 + c0.g / 3.5 + c4.g / 3.5;
-      float b = c4.b / 3.0 + c5.b / 3.0 + c6.b / 3.0;
-      rgb = vec3(r, g, b);
+      vec2 fringe = 0.55 * d;
+      rgb = vec3(sampleBlurred(sp + fringe, uBlur).r,
+                 sampleBlurred(sp, uBlur).g,
+                 sampleBlurred(sp - fringe, uBlur).b);
     } else {
       rgb = sampleBlurred(sp, uBlur);
     }
@@ -405,9 +402,12 @@ void main() {
     rgb = mix(hueBlend, uTint, 0.75 * clamp(uTintAmount, 0.0, 1.0));
   }
 
-  rgb = mix(rgb, uSurface.rgb, clamp(uSurface.a, 0.0, 1.0));
+  // Lift the regular reading material over dark wallpaper without bleaching bright areas.
+  float backdropLuma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+  float fill = uSurface.a + uRegular * 0.15 * (1.0 - smoothstep(0.12, 0.62, backdropLuma));
+  rgb = mix(rgb, uSurface.rgb, clamp(fill, 0.0, 1.0));
 
-  float rimBand = 1.0 - smoothstep(0.0, 1.1, -sd);
+  float rimBand = 1.0 - smoothstep(0.0, max(uRimWidth, aa), -sd);
   if (rimBand > 0.001) {
     float rim = 1.0;
     if (uRimMode == 1) {
@@ -415,15 +415,18 @@ void main() {
     } else if (uRimMode == 2) {
       rim = clamp(-grad.y, 0.0, 1.0);
     } else if (uRimMode == 3) {
-      rim = 0.3 + 0.7 * clamp(-grad.y, 0.0, 1.0);
+      vec2 light = normalize(vec2(-0.55, -0.83));
+      float facing = dot(grad, light);
+      rim = 0.12 + 0.88 * pow(max(facing, 0.0), 2.0)
+                 + 0.32 * pow(max(-facing, 0.0), 4.0);
     }
-    rgb += vec3(uRimAlpha * rimBand * rim);
+    rgb = mix(rgb, vec3(1.0), clamp(uRimAlpha * rimBand * rim, 0.0, 1.0));
   }
 
   if (uGlow > 0.001) {
     float dist = length(vLocal - uGlowCenter);
     float radial = 1.0 - smoothstep(uGlowRadius * 0.12, uGlowRadius, dist);
-    rgb += vec3(uGlow * (0.08 + 0.15 * radial));
+    rgb = mix(rgb, vec3(1.0), uGlow * radial * (0.45 + 0.55 * rimBand));
   }
 
   if (uInner > 0.001) {
@@ -432,7 +435,7 @@ void main() {
     rgb *= 1.0 - 0.42 * bandIn * top * uInner;
   }
 
-  float fade = 1.0 - smoothstep(uFadeStart, uFadeEnd, vScreen.y);
+  float fade = uFadeEnd > uFadeStart ? 1.0 - smoothstep(uFadeStart, uFadeEnd, vScreen.y) : 1.0;
   fragColor = vec4(clamp(rgb, 0.0, 1.0), mask * uAlpha * fade);
 }`;
 
@@ -559,7 +562,7 @@ void main() {
       hoverTarget: 0,
       glowX: 0,
       glowY: 0,
-      pointerInside: false,
+      pressPointer: null,
       extraScale: 1,
     };
     el._cabinGlass = st;
@@ -582,29 +585,33 @@ void main() {
     el.addEventListener('pointerenter', (event) => {
       if (event.pointerType !== 'mouse') return;
       st.hoverTarget = 1;
-      st.pointerInside = true;
       localPoint(event);
       invalidate();
     });
     el.addEventListener('pointermove', (event) => {
-      if (event.pointerType !== 'mouse') return;
-      st.pointerInside = true;
+      if (event.pointerType !== 'mouse' && event.pointerId !== st.pressPointer) return;
       localPoint(event);
-      if (isPill || isRail) invalidate();
+      if (isPill || isRail || isNav) invalidate();
     });
-    el.addEventListener('pointerleave', () => {
+    el.addEventListener('pointerleave', (event) => {
       st.hoverTarget = 0;
-      st.pointerInside = false;
+      if (event.pointerId === st.pressPointer) {
+        st.pressPointer = null;
+        st.pressTarget = 0;
+      }
       invalidate();
     });
     if (isPill || isNav) {
       el.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0) return;
+        if (event.button !== 0 || !event.isPrimary) return;
+        st.pressPointer = event.pointerId;
         st.pressTarget = 1;
         localPoint(event);
         invalidate();
       });
-      const release = () => {
+      const release = (event) => {
+        if ('pointerId' in event && event.pointerId !== st.pressPointer) return;
+        st.pressPointer = null;
         st.pressTarget = 0;
         invalidate();
       };
@@ -695,9 +702,9 @@ void main() {
       if (!isVisible(el)) continue;
       const type = el.dataset.glass;
       if (!PRESETS[type]) continue;
-      if (type === 'nav' && !el.classList.contains('is-active')) continue;
       const st = makeState(el);
       wire(el, st);
+      if (type === 'nav' && !el.classList.contains('is-active')) continue;
       const r = el.getBoundingClientRect();
       let geo;
       if (type === 'nav') {
@@ -787,9 +794,9 @@ void main() {
       innerRadius: base.innerRadius,
       exposure: 1,
       glow: 0,
-      glowX: d.w / 2,
-      glowY: d.h / 2,
-      glowRadius: Math.max(d.w, d.h) * 0.6,
+      glowX: clamp(st.glowX, 0, d.w),
+      glowY: clamp(st.glowY, 0, d.h),
+      glowRadius: clamp(Math.min(d.w, d.h) * 1.4, 24, 96),
     };
 
     if (d.type === 'shell') {
@@ -802,12 +809,12 @@ void main() {
     } else if (d.type === 'rail') {
       out.surface = clamp(0.52 + (env.cardAlpha - 0.34) * 0.2, 0.5, 0.6);
       out.blur = env.blur * 0.5;
-      out.exposure = 1.5;
+      out.exposure = 1.14;
       out.vibrancy = 1.38;
     } else if (d.type === 'panel') {
       out.surface = clamp(0.42 + (env.cardAlpha - 0.34) * 0.22, 0.38, 0.5);
       out.blur = env.blur * 0.36;
-      out.exposure = 1.45;
+      out.exposure = 1.10;
       out.vibrancy = 1.32;
     } else if (d.type === 'pill') {
       out.surface = clamp(0.52 + (env.cardAlpha - 0.34) * 0.18, 0.48, 0.58);
@@ -815,14 +822,14 @@ void main() {
       out.exposure = 1.15;
       out.vibrancy = 1.1;
     } else if (d.type === 'nav') {
-      out.surface = 0.88;
+      out.surface = 0.94;
       out.surfaceColor = env.accent;
       out.blur = 0;
       out.exposure = 1;
       out.vibrancy = 1;
       out.lensA += st.press * 9;
-      out.surface = clamp(out.surface - st.press * 0.05, 0.78, 0.9);
-      out.glow = st.pointerInside ? 0.04 + st.hover * 0.03 + st.press * 0.06 : 0;
+      out.surface = clamp(out.surface - st.press * 0.03, 0.88, 0.94);
+      out.glow = 0.06 * st.hover + 0.23 * st.press;
     }
 
     out.rimAlpha *= env.rim;
@@ -837,16 +844,16 @@ void main() {
       out.lensH += st.press * 4;
       out.lensA += st.press * 7;
       out.surface -= st.press * 0.06;
-      out.glow = st.pointerInside ? 0.05 + st.hover * 0.03 + st.press * 0.05 : 0;
+      out.glow = 0.08 * st.hover + 0.30 * st.press;
     } else if (d.type === 'rail') {
-      out.glow = st.pointerInside ? 0.025 + st.hover * 0.015 : 0;
+      out.glow = 0.04 * st.hover;
     } else if (d.type === 'shell') {
       out.glow = 0;
     }
 
     const shortSide = Math.min(d.w, d.h);
     out.lensH = Math.min(out.lensH, shortSide * 0.18);
-    out.rim = Math.min(out.rim, shortSide * 0.045);
+    out.rimWidth = clamp(shortSide * 0.023, 0.8, 1.4);
     out.chroma *= clamp(shortSide / 72, 0.45, 1);
     return out;
   }
@@ -1262,6 +1269,8 @@ void main() {
 
     gl.uniform1i(glassProg.u.uRimMode, params.rim);
     gl.uniform1f(glassProg.u.uRimAlpha, params.rimAlpha);
+    gl.uniform1f(glassProg.u.uRimWidth, params.rimWidth);
+    gl.uniform1f(glassProg.u.uRegular, d.type === 'rail' || d.type === 'panel' ? 1 : 0);
 
     gl.uniform1f(glassProg.u.uGlow, params.glow);
     gl.uniform2f(glassProg.u.uGlowCenter, params.glowX, params.glowY);
