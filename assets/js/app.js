@@ -2510,6 +2510,7 @@
   }
 
   function showView(name) {
+    if (name === 'luxun') renderSidebar(state.route);
     if (els.homeView) els.homeView.hidden = name !== 'home';
     els.shelfView.hidden = name !== 'shelf';
     els.trashView.hidden = name !== 'trash';
