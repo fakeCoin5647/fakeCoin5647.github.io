@@ -527,7 +527,7 @@ void main() {
       blur: num('--glass-blur', 20),
       rim: clamp(num('--rim-strength', 1), 0, 1),
       dim: clamp(num('--wallpaper-dim', 0.5), 0, 1),
-      accent: cs.getPropertyValue('--accent').trim() || '#4f6df5',
+      navColor: cs.getPropertyValue('--accent-deep').trim() || '#3b55d4',
     };
   }
 
@@ -580,6 +580,7 @@ void main() {
       const r = el.getBoundingClientRect();
       st.glowX = event.clientX - r.left;
       st.glowY = event.clientY - r.top;
+      return st.glowX >= 0 && st.glowX < r.width && st.glowY >= 0 && st.glowY < r.height;
     };
 
     el.addEventListener('pointerenter', (event) => {
@@ -590,7 +591,11 @@ void main() {
     });
     el.addEventListener('pointermove', (event) => {
       if (event.pointerType !== 'mouse' && event.pointerId !== st.pressPointer) return;
-      localPoint(event);
+      // Touch capture can keep delivering moves after the finger leaves the button.
+      if (!localPoint(event) && event.pointerId === st.pressPointer) {
+        st.pressPointer = null;
+        st.pressTarget = 0;
+      }
       if (isPill || isRail || isNav) invalidate();
     });
     el.addEventListener('pointerleave', (event) => {
@@ -617,6 +622,7 @@ void main() {
       };
       el.addEventListener('pointerup', release);
       el.addEventListener('pointercancel', release);
+      el.addEventListener('lostpointercapture', release);
       el.addEventListener('blur', release);
     }
   }
@@ -822,14 +828,14 @@ void main() {
       out.exposure = 1.15;
       out.vibrancy = 1.1;
     } else if (d.type === 'nav') {
-      out.surface = 0.94;
-      out.surfaceColor = env.accent;
+      // Keep a stable backing under white labels while light moves along the rim.
+      out.surface = 0.96 - 0.018 * st.press;
+      out.surfaceColor = env.navColor;
       out.blur = 0;
       out.exposure = 1;
       out.vibrancy = 1;
       out.lensA += st.press * 9;
-      out.surface = clamp(out.surface - st.press * 0.03, 0.88, 0.94);
-      out.glow = 0.06 * st.hover + 0.23 * st.press;
+      out.glow = 0.035 * st.hover + 0.10 * st.press;
     }
 
     out.rimAlpha *= env.rim;

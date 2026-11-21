@@ -61,6 +61,19 @@ html.cabin-glass-on .side-action:active {
   transform: none;
 }
 
+.side-nav .nav-item.is-active {
+  background-color: var(--accent-deep);
+}
+
+.side-nav .nav-item.is-active::after {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.side-nav .nav-item.is-active .nav-count {
+  background: rgba(0, 0, 0, 0.16);
+}
+
 html.cabin-glass-on .nav-item.is-active {
   background: transparent !important;
   box-shadow: none !important;
