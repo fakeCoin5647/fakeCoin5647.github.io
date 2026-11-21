@@ -844,6 +844,10 @@ void main() {
       out.glow = 0;
     }
 
+    const shortSide = Math.min(d.w, d.h);
+    out.lensH = Math.min(out.lensH, shortSide * 0.18);
+    out.rim = Math.min(out.rim, shortSide * 0.045);
+    out.chroma *= clamp(shortSide / 72, 0.45, 1);
     return out;
   }
 

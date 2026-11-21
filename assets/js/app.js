@@ -10537,7 +10537,7 @@
     const seenPlots = new Set();
     let validStarts = 0;
 
-    for (const city of map.cities) {
+    for (const city of includeStarts ? map.cities : []) {
       const terrain = terrainAt(city.col, city.row);
       if (terrain === 'water' || terrain === 'lake') {
         warnings.push(`城市「${city.name}」落在水域，出生点会跳过`);
@@ -10584,6 +10584,13 @@
       }
     }
 
+    for (const [key, resource] of Object.entries(map.resources || {})) {
+      if (resource !== 'fish' && resource !== 'pearls') continue;
+      const terrain = map.tiles[key] || 'grass';
+      if (terrain !== 'water' && terrain !== 'lake') {
+        warnings.push(`格 (${key}) 的${MAP_RESOURCES[resource].label}位于陆地，建议在导出前移到水域`);
+      }
+    }
     return warnings;
   }
 
@@ -11374,17 +11381,26 @@
       civReverse[config.civ] = key;
     }
     let resourceCount = 0;
+    let unknown = 0, merged = 0, stacked = 0;
     for (const plot of readAll(
-      'SELECT ID, ResourceType FROM PlotResources'
+      'SELECT * FROM PlotResources ORDER BY ID'
     )) {
       const id = Number(plot.ID);
       const rawCol = id % rawCols;
       const rawRow = Math.floor(id / rawCols);
       if (rawCol >= rawCols || rawRow >= rawRows) continue;
       const preset = civReverse[String(plot.ResourceType || '')];
-      if (!preset) continue;
+      if (!Number.isInteger(id) || id < 0) continue;
+      if (!preset) {
+        unknown++;
+        continue;
+      }
       const key = toDestKey(rawCol, rawRow);
-      if (resources[key]) continue;
+      if (resources[key]) {
+        merged++;
+        continue;
+      }
+      if (Number(plot.ResourceCount) > 1) stacked++;
       resources[key] = preset;
       resourceCount += 1;
     }
@@ -11429,6 +11445,11 @@
         rivers: paths.filter((path) => path.kind === 'river').length,
         roads: paths.filter((path) => path.kind === 'road').length,
         resources: resourceCount,
+        resourceNotes: [
+          unknown && `未收录物产跳过 ${unknown} 处。`,
+          merged && `缩图重合跳过 ${merged} 处，同格保留原图编号最小的已识别物产。`,
+          stacked && `多单位物产 ${stacked} 处仅保留类型，再导出时数量为 1。`,
+        ].filter(Boolean).join(''),
         wonders,
         sourceCols: rawCols,
         sourceRows: rawRows,
@@ -19822,7 +19843,7 @@
             : `${parsed.cols}×${parsed.rows}`;
           openConfirm({
             title: '导入文明6地图？',
-            message: `尺寸 ${sizeText} · 河流 ${parsed.summary.rivers} 条 · 道路 ${parsed.summary.roads} 条 · 物产 ${parsed.summary.resources} 处 · 奇观 ${parsed.summary.wonders} 处。将覆盖当前地形、地貌、河流、道路、物产与大陆；城市和自选领地保留，可用撤销找回。${
+            message: `尺寸 ${sizeText} · 河流 ${parsed.summary.rivers} 条 · 道路 ${parsed.summary.roads} 条 · 物产 ${parsed.summary.resources} 处 · 奇观 ${parsed.summary.wonders} 处。${parsed.summary.resourceNotes}将覆盖当前地形、地貌、河流、道路、物产与大陆；城市和自选领地保留，可用撤销找回。${
               parsed.summary.downsampled
                 ? '（原图超过工坊上限，已按比例缩放以保持编辑流畅。）'
                 : ''
