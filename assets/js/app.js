@@ -2551,7 +2551,7 @@
     } else if (route.view === 'courses') {
       document.title = window.CoursesAPI
         ? window.CoursesAPI.docTitle(route)
-        : `课程笔记 · ${SITE_NAME}`;
+        : `论文精读 · ${SITE_NAME}`;
     } else if (route.view === 'missing') {
       document.title = `这一页还没有写进故事里 · ${SITE_NAME}`;
     } else if (route.view === 'novel') {
@@ -2702,7 +2702,7 @@
         : null;
     const courseStat =
       courseStats && courseStats.courses
-        ? `${courseStats.courses} 门课程 · ${courseStats.lectures} 讲${
+        ? `${courseStats.lectures} 篇论文${
             courseStats.strokes ? ` · ${courseStats.strokes} 笔批注` : ''
           }`
         : '还没有收录课程';
@@ -2734,8 +2734,8 @@
           </span>
           <span class="landing-card-body">
             <span class="landing-card-eyebrow">COURSE NOTES</span>
-            <span class="landing-card-title">课程笔记</span>
-            <span class="landing-card-desc">讲义阅读、平板手写批注与框选翻译，笔记只保存在这台设备上。</span>
+            <span class="landing-card-title">论文精读</span>
+            <span class="landing-card-desc">中文逐步讲解、原文手写批注和随步提问。</span>
             <span class="landing-card-stat">${courseStat}</span>
           </span>
           <svg class="icon landing-card-go" aria-hidden="true"><use href="#i-arrow-right"></use></svg>

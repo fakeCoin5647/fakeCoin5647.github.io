@@ -1,4 +1,4 @@
-/* 课程笔记模块：讲义阅读器（PDF.js）+ 手写批注 + 框选翻译。
+/* 论文精读模块：论文阅读器（PDF.js）+ 手写批注 + 框选翻译。
  * 路由由 app.js 委托（window.CoursesAPI），本模块自持 DOM 与事件。
  * 用户批注数据存 localStorage `gushibu.courses.v1`，绝不进入公开快照。 */
 (() => {
@@ -319,7 +319,7 @@
   }
 
   function docTitle(route) {
-    if (!route || !route.lecture) return `课程笔记 · ${SITE_NAME}`;
+    if (!route || !route.lecture) return `论文精读 · ${SITE_NAME}`;
     const course = findCourse(route.course);
     const lecture = course ? findLecture(course, route.lecture) : null;
     const lectureLabel = lecture ? `${route.lecture} ${lecture.title}` : route.lecture;
@@ -356,7 +356,7 @@
     teardownReader();
 
     const crumb = $('coursesCrumb');
-    if (crumb) crumb.textContent = '课程笔记';
+    if (crumb) crumb.textContent = '论文精读';
 
     const cards = manifest.courses
       .map((course) => {
@@ -373,7 +373,7 @@
               ? `批注 ${marks.total} 笔 · ${marks.pages} 页`
               : '暂无批注';
             return `
-              <a class="course-lecture" href="#/courses/${course.id}/${lecture.id}">
+              <a class="course-lecture" href="assets/papers/index.html#${lecture.id}">
                 <span class="course-lecture-id">${escapeHtml(lecture.id)}</span>
                 <span class="course-lecture-body">
                   <span class="course-lecture-title">${escapeHtml(lecture.title)}</span>
@@ -387,7 +387,7 @@
           <section class="shelf-section courses-section">
             <header class="content-head">
               <div class="content-head-text">
-                <p class="eyebrow">COURSE NOTES</p>
+                <p class="eyebrow">PAPER NOTES</p>
                 <h1 class="content-title">${escapeHtml(course.title)} <span class="course-subtitle">${escapeHtml(course.subtitle || '')}</span></h1>
                 <p class="content-desc">${escapeHtml(course.description || '')}</p>
               </div>
@@ -398,9 +398,9 @@
                         <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
                         继续阅读${progressLecture ? ` · ${progressLecture.id} p${progress.page || 1}` : ''}
                       </a>`
-                    : `<a class="btn primary" href="#/courses/${course.id}/${course.lectures[0].id}">
+                    : `<a class="btn primary" href="assets/papers/index.html#${course.lectures[0].id}">
                         <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
-                        从第 1 讲开始
+                        开始精读第一篇
                       </a>`
                 }
               </div>
@@ -455,7 +455,7 @@
     const kb = (bytes / 1024).toFixed(1);
     return pages
       ? `已批注 ${pages} 页、共 ${strokes} 笔，占用约 ${kb} KB 本机存储。`
-      : `还没有批注。阅读时切到「批注」模式就能在讲义上手写笔记，占用约 ${kb} KB。`;
+      : `还没有批注。阅读时切到「批注」模式就能在论文上手写笔记，占用约 ${kb} KB。`;
   }
 
   function exportAnnotations() {
@@ -744,17 +744,17 @@
           </div>
           <div class="reader-toolbar-row reader-translate-hint" id="readerTranslateHint" hidden>
             <svg class="icon" aria-hidden="true"><use href="#i-translate"></use></svg>
-            <span>在讲义上拖拽框选一段内容，松手后自动识别并翻译（英→中）。公式与手写体识别效果有限，可在结果里修正原文后重新翻译。</span>
+            <span>在论文上拖拽框选一段内容，松手后自动识别并翻译（英→中）。公式与手写体识别效果有限，可在结果里修正原文后重新翻译。</span>
             <span class="reader-ocr-status" id="readerOcrStatus"></span>
           </div>
         </div>
         <div class="reader-stage" id="readerStage">
           <div class="reader-page-wrap" id="readerPageWrap" hidden>
-            <canvas class="reader-pdf-canvas" id="readerPdfCanvas" aria-label="讲义页面"></canvas>
+            <canvas class="reader-pdf-canvas" id="readerPdfCanvas" aria-label="论文页面"></canvas>
             <canvas class="reader-anno-canvas" id="readerAnnoCanvas" aria-label="批注层"></canvas>
             <div class="reader-marquee" id="readerMarquee" hidden></div>
           </div>
-          <p class="reader-loading" id="readerLoading">正在加载讲义…</p>
+          <p class="reader-loading" id="readerLoading">正在加载论文…</p>
         </div>
 
         <aside class="translate-panel" id="translatePanel" hidden>
@@ -961,10 +961,10 @@
       await computeFitScale();
       await renderCurrentPage();
     } catch (error) {
-      console.warn('讲义加载失败：', error);
+      console.warn('论文加载失败：', error);
       if (token === viewer.loadingToken && loading) {
         loading.hidden = false;
-        loading.textContent = `讲义加载失败：${error && error.message ? error.message : error}（刷新页面可重试）`;
+        loading.textContent = `论文加载失败：${error && error.message ? error.message : error}（刷新页面可重试）`;
       }
     }
   }
